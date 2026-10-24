@@ -77,8 +77,8 @@ Label tokens become both HTML label text (when set) and quoted CSS variables for
 | `page_padding_right` | `--page-padding-right` | `48px` | no | Right inset |
 | `page_padding_bottom` | `--page-padding-bottom` | `48px` | no | Bottom inset |
 | `page_padding_left` | `--page-padding-left` | `48px` | no | Left inset |
-| `footer_inset_bottom` | `--footer-inset-bottom` | `0.6em` | no | Distance from the slide bottom to `.slide-footer` |
-| `footer_inset_right` | `--footer-inset-right` | `0px` | no | Extra inset added inside the right page padding for the footer |
+| `footer_inset_bottom` | `--footer-inset-bottom` | `0.6em` | no | Distance from the page bottom edge to `.slide-footer` (negative allowed) |
+| `footer_inset_right` | `--footer-inset-right` | `0px` | no | Added to `page_padding_right` for the footer’s right edge; use a negative value (for example `-20px`) to sit closer to the page edge than the content padding |
 | `gap` | `--gap` | `16px` | no | Flex gaps |
 | `card_radius` | `--card-radius` | `8px` | no | Column / flow corner radius (`0` / `none` ok) |
 | `card_padding` | `--card-padding` | `16px` | no | Inner padding for boxes |
@@ -87,6 +87,8 @@ Label tokens become both HTML label text (when set) and quoted CSS variables for
 | `border_width` | `--border-width` | `1px` | no | Default border width (`0` / `none` ok) |
 | `flow_node_min_width` | `--flow-node-min-width` | `120px` | no | Minimum flow node width |
 | `flow_node_padding` | `--flow-node-padding` | `12px` | no | Flow node padding |
+| `flow_callout_gap` | `--flow-callout-gap` | `12px` | no | Gap between a callout box and its anchor node |
+| `flow_port_gap` | `--flow-port-gap` | `12px` | no | Spacing between fan-in / fan-out edge ports on one node side |
 | `label_question` | `--label-question` | from `lang` | no | Question label string |
 | `label_key_message` | `--label-key-message` | from `lang` | no | Key Message label string |
 | `question_label_placement` | `--question-label-placement` | `inline` | no | `inline` (label in first paragraph) or `block` |

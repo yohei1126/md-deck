@@ -6,6 +6,14 @@
   const LABEL_GAP = 10;
   const HIT_PAD = 4;
   const EPS = 0.75;
+  const DEFAULT_PORT_GAP = 12;
+  const DEFAULT_CALLOUT_GAP = 12;
+
+  function cssPxVar(el, name, fallback) {
+    const raw = getComputedStyle(el).getPropertyValue(name).trim();
+    const n = parseFloat(raw);
+    return Number.isFinite(n) ? n : fallback;
+  }
 
   function ensureMarkers(svg) {
     let defs = svg.querySelector("defs");
@@ -87,6 +95,16 @@
     return relBox(el, flowBox, scale);
   }
 
+  function stackMemberKeys(flow, key) {
+    const el = nodeByKey(flow, key);
+    if (!el) return key ? [key] : [];
+    const stack = el.closest(".flow-stack");
+    if (!stack) return [key];
+    return Array.from(stack.querySelectorAll(".flow-node"))
+      .map((n) => n.getAttribute("data-node"))
+      .filter(Boolean);
+  }
+
   function collectObstacles(flow, flowBox, scale, skipKeys) {
     const skip = new Set(skipKeys || []);
     const out = [];
@@ -119,18 +137,53 @@
   }
 
   function sidePoint(box, side) {
+    return sidePointAt(box, side, 0);
+  }
+
+  function sidePointAt(box, side, offset) {
+    const off = offset || 0;
     switch (side) {
       case "top":
-        return { x: box.cx, y: box.top };
+        return { x: box.cx + off, y: box.top };
       case "bottom":
-        return { x: box.cx, y: box.bottom };
+        return { x: box.cx + off, y: box.bottom };
       case "left":
-        return { x: box.left, y: box.cy };
+        return { x: box.left, y: box.cy + off };
       case "right":
-        return { x: box.right, y: box.cy };
+        return { x: box.right, y: box.cy + off };
       default:
-        return { x: box.cx, y: box.cy };
+        return { x: box.cx + off, y: box.cy };
     }
+  }
+
+  function clampPortOffset(box, side, offset) {
+    const span =
+      side === "top" || side === "bottom" ? box.width : box.height;
+    const half = Math.max(0, span / 2 - 6);
+    return clamp(offset, -half, half);
+  }
+
+  function inferSide(box, point) {
+    const dist = {
+      top: Math.abs(point.y - box.top) + Math.abs(point.x - box.cx) * 0.15,
+      bottom: Math.abs(point.y - box.bottom) + Math.abs(point.x - box.cx) * 0.15,
+      left: Math.abs(point.x - box.left) + Math.abs(point.y - box.cy) * 0.15,
+      right: Math.abs(point.x - box.right) + Math.abs(point.y - box.cy) * 0.15,
+    };
+    let best = "bottom";
+    let bestV = dist.bottom;
+    Object.keys(dist).forEach((side) => {
+      if (dist[side] < bestV) {
+        best = side;
+        bestV = dist[side];
+      }
+    });
+    return best;
+  }
+
+  function portSlotOffset(index, count, gap) {
+    if (count <= 1) return 0;
+    return (index - (count - 1) / 2) * gap;
   }
 
   function segmentHitsBox(p, q, box, pad) {
@@ -213,6 +266,56 @@
       });
     }
     return count;
+  }
+
+  function segmentOverlapLen(a1, a2, b1, b2) {
+    // Collinear overlapping length for orthogonal segments (shared trunks).
+    const aVert = Math.abs(a1.x - a2.x) < EPS;
+    const bVert = Math.abs(b1.x - b2.x) < EPS;
+    if (aVert !== bVert) return 0;
+    if (aVert) {
+      if (Math.abs(a1.x - b1.x) > EPS) return 0;
+      const aLo = Math.min(a1.y, a2.y);
+      const aHi = Math.max(a1.y, a2.y);
+      const bLo = Math.min(b1.y, b2.y);
+      const bHi = Math.max(b1.y, b2.y);
+      return Math.max(0, Math.min(aHi, bHi) - Math.max(aLo, bLo));
+    }
+    if (Math.abs(a1.y - b1.y) > EPS) return 0;
+    const aLo = Math.min(a1.x, a2.x);
+    const aHi = Math.max(a1.x, a2.x);
+    const bLo = Math.min(b1.x, b2.x);
+    const bHi = Math.max(b1.x, b2.x);
+    return Math.max(0, Math.min(aHi, bHi) - Math.max(aLo, bLo));
+  }
+
+  function pathOverlaps(pts, drawn) {
+    const ends = [pts[0], pts[pts.length - 1]];
+    let total = 0;
+    for (let i = 1; i < pts.length; i += 1) {
+      drawn.forEach((other) => {
+        const otherEnds = [other[0], other[other.length - 1]];
+        for (let j = 1; j < other.length; j += 1) {
+          const overlap = segmentOverlapLen(
+            pts[i - 1],
+            pts[i],
+            other[j - 1],
+            other[j]
+          );
+          if (overlap <= 8) continue;
+          // Ignore stub overlap that meets at a shared port.
+          const mid = {
+            x: (pts[i - 1].x + pts[i].x) / 2,
+            y: (pts[i - 1].y + pts[i].y) / 2,
+          };
+          const nearShared = ends.some((e) =>
+            otherEnds.some((o) => nearPoint(e, o, 14) && nearPoint(mid, e, 40))
+          );
+          if (!nearShared) total += overlap;
+        }
+      });
+    }
+    return total;
   }
 
   function pathLength(pts) {
@@ -424,16 +527,19 @@
       sideHV();
     }
 
-    // Direct facing when nearly aligned.
-    if (Math.abs(a.cx - b.cx) < Math.max(a.width, b.width) * 0.55) {
-      const fromSide = a.cy <= b.cy ? "bottom" : "top";
-      const toSide = a.cy <= b.cy ? "top" : "bottom";
-      add("col", simplify([sidePoint(a, fromSide), sidePoint(b, toSide)]));
-    }
-    if (Math.abs(a.cy - b.cy) < Math.max(a.height, b.height) * 0.55) {
-      const fromSide = a.cx <= b.cx ? "right" : "left";
-      const toSide = a.cx <= b.cx ? "left" : "right";
-      add("row", simplify([sidePoint(a, fromSide), sidePoint(b, toSide)]));
+    // Direct facing only when truly aligned (keeps segments orthogonal).
+    // Skip for explicit between: that route must leave bottom / enter top via a U.
+    if (route !== "between") {
+      if (Math.abs(a.cx - b.cx) < EPS) {
+        const fromSide = a.cy <= b.cy ? "bottom" : "top";
+        const toSide = a.cy <= b.cy ? "top" : "bottom";
+        add("col", simplify([sidePoint(a, fromSide), sidePoint(b, toSide)]));
+      }
+      if (Math.abs(a.cy - b.cy) < EPS) {
+        const fromSide = a.cx <= b.cx ? "right" : "left";
+        const toSide = a.cx <= b.cx ? "left" : "right";
+        add("row", simplify([sidePoint(a, fromSide), sidePoint(b, toSide)]));
+      }
     }
 
     return out;
@@ -442,6 +548,7 @@
   function scorePath(pts, obstacles, drawn, flowBox, preferName) {
     const hits = pathHitsObstacles(pts, obstacles, HIT_PAD);
     const crosses = pathCrossings(pts, drawn);
+    const overlaps = pathOverlaps(pts, drawn);
     const len = pathLength(pts);
     let oob = 0;
     if (flowBox) {
@@ -460,15 +567,30 @@
     let prefer = 80;
     if (preferName === "between" || preferName === "between-up") prefer = 0;
     else if (preferName === "col" || preferName === "row") prefer = 10;
+    else if (preferName === "around-up" || preferName === "around-down") prefer = 40;
     else if (preferName === "hv" || preferName === "vh") prefer = 160;
     // Deterministic lexicographic score.
-    return hits * 1e6 + crosses * 1e4 + oob * 1e3 + prefer + len;
+    return (
+      hits * 1e6 + crosses * 1e4 + overlaps * 20 + oob * 1e3 + prefer + len
+    );
   }
 
   function pickPath(a, b, route, obstacles, drawn, flowBox) {
-    const candidates = candidatePaths(a, b, route || "auto", obstacles, flowBox);
+    const routeName = route || "auto";
+    let candidates = candidatePaths(a, b, routeName, obstacles, flowBox);
     if (!candidates.length) {
       return simplify([sidePoint(a, "bottom"), sidePoint(b, "top")]);
+    }
+    // Explicit between must keep the U through the lane gap when it is clear.
+    if (routeName === "between") {
+      const betweenOnly = candidates.filter(
+        (c) => c.name === "between" || c.name === "between-up"
+      );
+      const clear = betweenOnly.filter(
+        (c) => pathHitsObstacles(c.pts, obstacles, HIT_PAD) === 0
+      );
+      if (clear.length) candidates = clear;
+      else if (betweenOnly.length) candidates = betweenOnly;
     }
     let best = candidates[0];
     let bestScore = scorePath(best.pts, obstacles, drawn, flowBox, best.name);
@@ -490,6 +612,119 @@
 
   function orthogonalPoints(a, b, route, obstacles, drawn, flowBox) {
     return pickPath(a, b, route, obstacles, drawn || [], flowBox);
+  }
+
+  function preferredSides(a, b, route) {
+    const routeName = route || "auto";
+    if (routeName === "between") {
+      return b.cy >= a.cy ? ["bottom", "top"] : ["top", "bottom"];
+    }
+    if (routeName === "down") return ["bottom", "top"];
+    if (routeName === "up") return ["top", "bottom"];
+    if (routeName === "left") return ["left", "left"];
+    if (routeName === "right") return ["right", "right"];
+    const sameRow =
+      Math.abs(a.cy - b.cy) < Math.max(a.height, b.height) * 0.7;
+    const sameCol =
+      Math.abs(a.cx - b.cx) < Math.max(a.width, b.width) * 0.7;
+    if (sameRow) {
+      return a.cx <= b.cx ? ["right", "left"] : ["left", "right"];
+    }
+    if (sameCol) {
+      return a.cy <= b.cy ? ["bottom", "top"] : ["top", "bottom"];
+    }
+    // Prefer top/bottom anchors for lane-style fan-in.
+    return b.cy >= a.cy ? ["bottom", "top"] : ["top", "bottom"];
+  }
+
+  function candidatePathsForPorts(a, b, route, obstacles, flowBox, p1, p2, fromSide, toSide) {
+    // Same family of routes as candidatePaths, but pinned to allocated ports.
+    const bandY = {
+      kind: "y",
+      lo: Math.min(a.top, b.top),
+      hi: Math.max(a.bottom, b.bottom),
+    };
+    const bandX = {
+      kind: "x",
+      lo: Math.min(a.left, b.left),
+      hi: Math.max(a.right, b.right),
+    };
+    const out = [];
+    function add(name, pts) {
+      if (pts && pts.length >= 2) out.push({ name, pts });
+    }
+    const gapY = gapCorridorY(a, b, obstacles, flowBox);
+    const downY = corridorY(obstacles, a, b, true, flowBox, bandY);
+    const upY = corridorY(obstacles, a, b, false, flowBox, bandY);
+    const rightX = corridorX(obstacles, a, b, true, flowBox, bandX);
+    const leftX = corridorX(obstacles, a, b, false, flowBox, bandX);
+
+    if (fromSide === "bottom" && toSide === "top") {
+      add("between", buildUPath(p1, p2, gapY));
+      add("around-down", buildUPath(p1, p2, downY));
+    } else if (fromSide === "top" && toSide === "bottom") {
+      add("between-up", buildUPath(p1, p2, gapY));
+      add("around-up", buildUPath(p1, p2, upY));
+    } else if (fromSide === "bottom" && toSide === "bottom") {
+      add("around-down", buildUPath(p1, p2, downY));
+    } else if (fromSide === "top" && toSide === "top") {
+      add("around-up", buildUPath(p1, p2, upY));
+    } else if (fromSide === "right" && toSide === "right") {
+      add("around-right", buildCPath(p1, p2, rightX));
+    } else if (fromSide === "left" && toSide === "left") {
+      add("around-left", buildCPath(p1, p2, leftX));
+    }
+
+    // Generic orthogonal connectors between the two ports.
+    if (Math.abs(p1.x - p2.x) < EPS || Math.abs(p1.y - p2.y) < EPS) {
+      add("direct", simplify([p1, p2]));
+    } else {
+      add("hv", simplify([p1, { x: p2.x, y: p1.y }, p2]));
+      add("vh", simplify([p1, { x: p1.x, y: p2.y }, p2]));
+      add("u-down", buildUPath(p1, p2, Math.max(p1.y, p2.y, downY)));
+      add("u-up", buildUPath(p1, p2, Math.min(p1.y, p2.y, upY)));
+    }
+
+    if (route === "between") {
+      const betweenOnly = out.filter(
+        (c) => c.name === "between" || c.name === "between-up"
+      );
+      if (betweenOnly.length) return betweenOnly;
+    }
+    return out;
+  }
+
+  function pickPathForPorts(a, b, route, obstacles, drawn, flowBox, p1, p2, fromSide, toSide) {
+    const candidates = candidatePathsForPorts(
+      a,
+      b,
+      route || "auto",
+      obstacles,
+      flowBox,
+      p1,
+      p2,
+      fromSide,
+      toSide
+    );
+    if (!candidates.length) {
+      return rebuildOrthogonalWithPorts(null, p1, p2, 0);
+    }
+    let best = candidates[0];
+    let bestScore = scorePath(best.pts, obstacles, drawn, flowBox, best.name);
+    for (let i = 1; i < candidates.length; i += 1) {
+      const score = scorePath(
+        candidates[i].pts,
+        obstacles,
+        drawn,
+        flowBox,
+        candidates[i].name
+      );
+      if (score < bestScore - 1e-6) {
+        best = candidates[i];
+        bestScore = score;
+      }
+    }
+    return best.pts;
   }
 
   function simplify(pts) {
@@ -560,6 +795,68 @@
     const ny = dx / len;
     const moved = pts.map((p) => ({ x: p.x + nx * shift, y: p.y + ny * shift }));
     return { pts: moved, labelNudge: shift };
+  }
+
+  function isOrthogonalPath(pts) {
+    for (let i = 1; i < pts.length; i += 1) {
+      const dx = Math.abs(pts[i].x - pts[i - 1].x);
+      const dy = Math.abs(pts[i].y - pts[i - 1].y);
+      if (dx >= EPS && dy >= EPS) return false;
+    }
+    return true;
+  }
+
+  function rebuildOrthogonalWithPorts(oldPts, p1, p2, corridorShift) {
+    const shift = corridorShift || 0;
+    if (!oldPts || oldPts.length < 2) {
+      return simplify([p1, p2]);
+    }
+    if (oldPts.length === 2) {
+      if (Math.abs(p1.x - p2.x) < EPS || Math.abs(p1.y - p2.y) < EPS) {
+        return simplify([p1, p2]);
+      }
+      // Keep orthogonal: prefer the bend of the original facing.
+      return simplify([p1, { x: p2.x, y: p1.y }, p2]);
+    }
+    if (oldPts.length >= 4) {
+      const mid1 = oldPts[1];
+      const mid2 = oldPts[oldPts.length - 2];
+      if (Math.abs(mid1.y - mid2.y) < EPS) {
+        const midY = mid1.y + shift;
+        return simplify([
+          p1,
+          { x: p1.x, y: midY },
+          { x: p2.x, y: midY },
+          p2,
+        ]);
+      }
+      if (Math.abs(mid1.x - mid2.x) < EPS) {
+        const midX = mid1.x + shift;
+        return simplify([
+          p1,
+          { x: midX, y: p1.y },
+          { x: midX, y: p2.y },
+          p2,
+        ]);
+      }
+    }
+    // Generic: replace ends and force orthogonality on adjacent segments.
+    const pts = oldPts.map((p) => ({ x: p.x, y: p.y }));
+    pts[0] = p1;
+    pts[pts.length - 1] = p2;
+    if (pts.length >= 3) {
+      if (Math.abs(pts[1].x - pts[0].x) >= EPS && Math.abs(pts[1].y - pts[0].y) >= EPS) {
+        pts[1] = { x: pts[0].x, y: pts[1].y };
+      }
+      const last = pts.length - 1;
+      if (
+        Math.abs(pts[last].x - pts[last - 1].x) >= EPS &&
+        Math.abs(pts[last].y - pts[last - 1].y) >= EPS
+      ) {
+        pts[last - 1] = { x: pts[last].x, y: pts[last - 1].y };
+      }
+    }
+    return simplify(pts);
   }
 
   function labelLines(label) {
@@ -758,7 +1055,7 @@
   function placeCallouts(flow, flowBox, scale) {
     const slide = flow.closest(".slide");
     const clampRoot = slide || flow;
-    const gap = 12;
+    const gap = cssPxVar(flow, "--flow-callout-gap", DEFAULT_CALLOUT_GAP);
 
     function positionOne(el, box) {
       const pos = el.getAttribute("data-pos") || "below";
@@ -841,47 +1138,59 @@
     });
   }
 
+  function calloutExitPoint(c, pos, side) {
+    if (side === "top") return { x: c.cx, y: c.top };
+    if (side === "bottom") return { x: c.cx, y: c.bottom };
+    if (side === "left") return { x: c.left, y: c.cy };
+    if (side === "right") return { x: c.right, y: c.cy };
+    if (pos === "below" || pos === "below-left" || pos === "below-right") {
+      return { x: c.cx, y: c.top };
+    }
+    if (pos === "above") return { x: c.cx, y: c.bottom };
+    if (pos === "left") return { x: c.right, y: c.cy };
+    return { x: c.left, y: c.cy };
+  }
+
   function drawCalloutConnectors(svg, flow, flowBox, scale) {
     Array.from(flow.querySelectorAll("div.flow-callout")).forEach((el) => {
       const anchorKey = el.getAttribute("data-anchor");
       const pos = el.getAttribute("data-pos") || "below";
+      const side = el.getAttribute("data-side");
       const node = nodeByKey(flow, anchorKey);
       if (!node) return;
       const n = relBox(node, flowBox, scale);
       const c = relBox(el, flowBox, scale);
-      let from;
-      let to;
       // Path ends at the anchor node so marker-end points at the node.
+      const from = calloutExitPoint(c, pos, side);
+      let to;
       if (pos === "below" || pos === "below-left" || pos === "below-right") {
-        from = { x: c.cx, y: c.top };
         to = { x: n.cx, y: n.bottom };
       } else if (pos === "above") {
-        from = { x: c.cx, y: c.bottom };
         to = { x: n.cx, y: n.top };
       } else if (pos === "left") {
-        from = { x: c.right, y: c.cy };
         to = { x: n.left, y: n.cy };
       } else {
-        from = { x: c.left, y: c.cy };
         to = { x: n.right, y: n.cy };
       }
-      const mid =
-        pos === "below" ||
-        pos === "below-left" ||
-        pos === "below-right" ||
-        pos === "above"
-          ? [
-              from,
-              { x: from.x, y: (from.y + to.y) / 2 },
-              { x: to.x, y: (from.y + to.y) / 2 },
-              to,
-            ]
-          : [
-              from,
-              { x: (from.x + to.x) / 2, y: from.y },
-              { x: (from.x + to.x) / 2, y: to.y },
-              to,
-            ];
+      const useVerticalMid =
+        (side === "top" || side === "bottom" || !side) &&
+        (pos === "below" ||
+          pos === "below-left" ||
+          pos === "below-right" ||
+          pos === "above");
+      const mid = useVerticalMid
+        ? [
+            from,
+            { x: from.x, y: (from.y + to.y) / 2 },
+            { x: to.x, y: (from.y + to.y) / 2 },
+            to,
+          ]
+        : [
+            from,
+            { x: (from.x + to.x) / 2, y: from.y },
+            { x: (from.x + to.x) / 2, y: to.y },
+            to,
+          ];
       const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
       path.setAttribute("d", pathD(simplify(mid)));
       path.setAttribute("stroke-dasharray", "5 4");
@@ -946,40 +1255,156 @@
 
     placeCallouts(flow, flowBox, scale);
 
+    const portGap = cssPxVar(flow, "--flow-port-gap", DEFAULT_PORT_GAP);
     const drawn = [];
     const labelObstacles = [];
+
+    // Pass 1: choose attach sides (before ports) and count fan-in / fan-out.
+    const plans = [];
     edges.forEach((edge) => {
       const a = attachBox(flow, edge.from, edge.fromAttach, flowBox, scale);
       const b = attachBox(flow, edge.to, edge.toAttach, flowBox, scale);
       if (!a || !b) return;
-      const obstacles = collectObstacles(flow, flowBox, scale, [edge.from, edge.to]).concat(
+      const skip = new Set([edge.from, edge.to]);
+      if (edge.fromAttach === "stack") {
+        stackMemberKeys(flow, edge.from).forEach((k) => skip.add(k));
+      }
+      if (edge.toAttach === "stack") {
+        stackMemberKeys(flow, edge.to).forEach((k) => skip.add(k));
+      }
+      const obstacles = collectObstacles(
+        flow,
+        flowBox,
+        scale,
+        Array.from(skip)
+      ).concat(labelObstacles);
+      let fromSide;
+      let toSide;
+      const route = edge.route || "auto";
+      if (edge.cross || edge.kind === "link") {
+        [fromSide, toSide] = preferredSides(a, b, route);
+      } else {
+        const sameRow =
+          Math.abs(a.cy - b.cy) < Math.max(a.height, b.height) * 0.7;
+        const sameCol =
+          Math.abs(a.cx - b.cx) < Math.max(a.width, b.width) * 0.7;
+        if (sameRow) {
+          fromSide = a.cx <= b.cx ? "right" : "left";
+          toSide = a.cx <= b.cx ? "left" : "right";
+          const direct = [sidePoint(a, fromSide), sidePoint(b, toSide)];
+          // Non-neighbouring same-row edges detour above/below intermediates.
+          if (pathHitsObstacles(direct, obstacles, HIT_PAD) > 0) {
+            fromSide = "bottom";
+            toSide = "bottom";
+            // Prefer the side with more clearance.
+            const upClear =
+              pathHitsObstacles(
+                buildUPath(
+                  sidePoint(a, "top"),
+                  sidePoint(b, "top"),
+                  corridorY(obstacles, a, b, false, layoutBox, {
+                    kind: "y",
+                    lo: Math.min(a.top, b.top),
+                    hi: Math.max(a.bottom, b.bottom),
+                  })
+                ),
+                obstacles,
+                HIT_PAD
+              ) === 0;
+            if (upClear) {
+              fromSide = "top";
+              toSide = "top";
+            }
+          }
+        } else if (sameCol) {
+          fromSide = a.cy <= b.cy ? "bottom" : "top";
+          toSide = a.cy <= b.cy ? "top" : "bottom";
+        } else {
+          [fromSide, toSide] = preferredSides(a, b, "auto");
+        }
+      }
+      plans.push({ edge, a, b, fromSide, toSide, obstacles, route });
+    });
+
+    const portCounts = new Map();
+    plans.forEach((plan) => {
+      const fk = `${plan.edge.from}:${plan.fromSide}`;
+      const tk = `${plan.edge.to}:${plan.toSide}`;
+      portCounts.set(fk, (portCounts.get(fk) || 0) + 1);
+      portCounts.set(tk, (portCounts.get(tk) || 0) + 1);
+    });
+    const portIndex = new Map();
+
+    function takePort(nodeKey, side, box) {
+      const key = `${nodeKey}:${side}`;
+      const count = portCounts.get(key) || 1;
+      const index = portIndex.get(key) || 0;
+      portIndex.set(key, index + 1);
+      const offset = clampPortOffset(
+        box,
+        side,
+        portSlotOffset(index, count, portGap)
+      );
+      return { point: sidePointAt(box, side, offset), index, count };
+    }
+
+    // Pass 2: route between allocated ports (orthogonal, obstacle-aware).
+    plans.forEach((plan) => {
+      const fromPort = takePort(plan.edge.from, plan.fromSide, plan.a);
+      const toPort = takePort(plan.edge.to, plan.toSide, plan.b);
+      const corridorShift = portSlotOffset(
+        toPort.index,
+        toPort.count,
+        portGap
+      );
+      let pts = pickPathForPorts(
+        plan.a,
+        plan.b,
+        plan.route,
+        plan.obstacles,
+        drawn,
+        layoutBox,
+        fromPort.point,
+        toPort.point,
+        plan.fromSide,
+        plan.toSide
+      );
+      // Nudge U/C trunks apart for fan-in on the same side.
+      if (
+        (plan.fromSide === "bottom" && plan.toSide === "top") ||
+        (plan.fromSide === "top" && plan.toSide === "bottom") ||
+        (plan.fromSide === "top" && plan.toSide === "top") ||
+        (plan.fromSide === "bottom" && plan.toSide === "bottom")
+      ) {
+        pts = rebuildOrthogonalWithPorts(
+          pts,
+          fromPort.point,
+          toPort.point,
+          corridorShift * 0.5
+        );
+      }
+      if (!isOrthogonalPath(pts)) {
+        pts = rebuildOrthogonalWithPorts(null, fromPort.point, toPort.point, 0);
+      }
+      const shifted = parallelOffset(
+        pts,
+        plan.edge.pairIndex,
+        plan.edge.pairCount
+      );
+      drawPolyline(
+        svg,
+        shifted.pts,
+        plan.edge,
+        shifted.labelNudge,
         labelObstacles
       );
-      let pts;
-      const sameRow = Math.abs(a.cy - b.cy) < Math.max(a.height, b.height) * 0.7;
-      const sameCol = Math.abs(a.cx - b.cx) < Math.max(a.width, b.width) * 0.7;
-      if (edge.cross || edge.kind === "link") {
-        pts = orthogonalPoints(a, b, edge.route || "auto", obstacles, drawn, layoutBox);
-      } else if (sameRow) {
-        const fromSide = a.cx <= b.cx ? "right" : "left";
-        const toSide = a.cx <= b.cx ? "left" : "right";
-        pts = [sidePoint(a, fromSide), sidePoint(b, toSide)];
-      } else if (sameCol) {
-        const fromSide = a.cy <= b.cy ? "bottom" : "top";
-        const toSide = a.cy <= b.cy ? "top" : "bottom";
-        pts = [sidePoint(a, fromSide), sidePoint(b, toSide)];
-      } else {
-        pts = orthogonalPoints(a, b, "auto", obstacles, drawn, layoutBox);
-      }
-      const shifted = parallelOffset(pts, edge.pairIndex, edge.pairCount);
-      drawPolyline(svg, shifted.pts, edge, shifted.labelNudge, labelObstacles);
       drawn.push(shifted.pts);
-      if (edge.bidirectional) {
+      if (plan.edge.bidirectional) {
         const back = [...shifted.pts].reverse();
         drawPolyline(
           svg,
           back,
-          { ...edge, label: null, bidirectional: false },
+          { ...plan.edge, label: null, bidirectional: false },
           0,
           null
         );

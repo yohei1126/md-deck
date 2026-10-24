@@ -88,3 +88,54 @@ Line eleven adds height.
 \
 Line twelve adds height.
 :::
+
+---
+
+# 7 Fan-in ports and between orthogonal
+
+::: flow wide
+lane: Top
+P {#p7}
+Q {#q7}
+R {#r7}
+lane: Bottom
+Wide target node with a long title so it spans the row {#t7}
+link: p7 => t7 [route=between]
+link: q7 => t7 [route=between]
+link: r7 => t7 [route=between]
+:::
+
+---
+
+# 8 Same-row edges skip intermediates
+
+::: flow
+P {#p8}
+Q {#q8}
+R {#r8}
+T {#t8}
+{#p8} -> {#t8}
+{#q8} -> {#t8}
+{#r8} -> {#t8}
+:::
+
+---
+
+# 9 Cross-lane id arrow
+
+::: flow
+lane: Top
+A {#a9}
+lane: Bottom
+B {#b9}
+{#a9} -> {#b9}
+:::
+
+---
+
+# 10 Callout side and gap
+
+::: flow wide
+[doc] Left {#l10} | a caption under the left node -> Right {#r10}
+callout: r10 : a fairly long callout note text [pos=below-left side=right]
+:::

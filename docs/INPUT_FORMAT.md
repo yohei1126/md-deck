@@ -135,25 +135,25 @@ callout: pdf : Ready to ship [pos=below]
 | Chips inside the node | `Name [[chip1, chip2]]` (split on `,` only; write `\,` for a literal comma; `/` stays inside the chip). A chips-only node `[[a, b]]` is allowed |
 | Line break in node / label / badge | `\n` or a trailing `\` |
 | Lane | `lane: Label` starts a lane |
-| Cross-lane link | `link: From => To : optional label [route=between]` (also `->` / `..>`; routes below) |
-| Callout | `callout: NodeId : text [pos=below]` (`above` / `below` / `below-left` / `below-right` / `left` / `right`) |
+| Cross-lane link | `link: From => To : optional label [route=between]` (also `->` / `..>`; routes below). A bare `{#id} -> {#other}` that names nodes already defined in other lanes resolves the same way |
+| Callout | `callout: NodeId : text [pos=below]` (`above` / `below` / `below-left` / `below-right` / `left` / `right`). Optional `side=top\|bottom\|left\|right` sets where the connector leaves the callout box |
 | Stacked column | `A -> { Upper / Lower } -> B` (edges attach to the stack mid-box; write a separate edge to each member to fan out) |
 | Parallel edges | Repeat the same pair on separate lines; strokes offset and labels separate |
 
-`A -> B -> C` on one line still chains. Nodes on separate lines stay unconnected until you write an arrow or a `link:` line.
+`A -> B -> C` on one line still chains. Nodes on separate lines stay unconnected until you write an arrow or a `link:` line. A bare `{#id}` in a chain refers to the existing node with that id (any lane); redefining `Name {#id}` when the id is already taken is still an error.
 
 ### Link routes and anchors
 
-Cross-lane links draw as orthogonal paths. Routing treats nodes, badges, callouts, and edge labels as obstacles, only in the rows or columns the path crosses. When several clear paths exist, the renderer picks a crossing-free one deterministically.
+Cross-lane links and same-row edges that would pass through other nodes draw as orthogonal paths. Routing treats nodes, badges, callouts, and edge labels as obstacles, only in the rows or columns the path crosses. When several clear paths exist, the renderer picks a crossing-free one deterministically. Several edges that leave or enter the same node side use distinct ports spaced by `flow_port_gap` (default 12px) so arrowheads do not stack and trunks stay separate.
 
 | `route=` | Leaves source | Enters target | Corridor |
 | --- | --- | --- | --- |
-| `between` | bottom | top | Gap between the two rows (preferred for lane-to-lane) |
+| `between` | bottom | top | Gap between the two rows (preferred for lane-to-lane); always orthogonal even when the source sits above the target’s width |
 | `down` | bottom | top (gap) or bottom (around) | Prefers the between-lane gap; may detour below if the gap is blocked |
 | `up` | top | bottom (gap) or top (around) | Prefers the between-lane gap above |
 | `left` | left | left | Left of both boxes |
 | `right` | right | right | Right of both boxes |
-| `auto` | chosen | chosen | Scores gap, side, and around candidates; avoids node hits and arrow crossings |
+| `auto` | chosen | chosen | Scores gap, side, and around candidates; avoids node hits, shared trunks, and arrow crossings |
 
 Multi-line edge labels sit entirely above or below their stroke (anchored by the label box) and widen the gap between same-row nodes when needed.
 

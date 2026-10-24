@@ -21,6 +21,7 @@ from md_deck.style import (
     PAGE_NUMBER_PLACEMENTS,
     PLACEMENT_TOKENS,
     QUESTION_LABEL_PLACEMENTS,
+    SIGNED_SIZE_TOKENS,
     TOKEN_SPEC,
     ZERO_OR_NONE_TOKENS,
 )
@@ -53,6 +54,7 @@ COLOR_RE = re.compile(
     r")$"
 )
 SIZE_STR_RE = re.compile(r"^[0-9]+(\.[0-9]+)?(px|rem|em|%)$")
+SIGNED_SIZE_STR_RE = re.compile(r"^-?[0-9]+(\.[0-9]+)?(px|rem|em|%)$")
 KEY_MESSAGE_LINE_RE = re.compile(
     r"^\s*\*\*Key Message:\*\*\s*(?P<body>.*)$",
     re.IGNORECASE,
@@ -256,10 +258,17 @@ def _is_valid_color(value: Any) -> bool:
     return bool(COLOR_RE.match(value.strip()))
 
 
-def _is_valid_size(value: Any, *, allow_zero_or_none: bool = False) -> bool:
+def _is_valid_size(
+    value: Any,
+    *,
+    allow_zero_or_none: bool = False,
+    allow_negative: bool = False,
+) -> bool:
     if isinstance(value, bool):
         return False
     if isinstance(value, (int, float)):
+        if allow_negative:
+            return True
         if allow_zero_or_none:
             return value >= 0
         return value > 0
@@ -269,6 +278,8 @@ def _is_valid_size(value: Any, *, allow_zero_or_none: bool = False) -> bool:
             return True
         if allow_zero_or_none and re.fullmatch(r"0+(\.0+)?(px|rem|em|%)?", text):
             return True
+        if allow_negative:
+            return bool(SIGNED_SIZE_STR_RE.match(text))
         return bool(SIZE_STR_RE.match(text))
     return False
 
@@ -378,19 +389,34 @@ def validate_style_tokens(tokens: Any, path: str, fm_line: int) -> list[CheckErr
             if key in TOKEN_SPEC and (
                 key.startswith("font_size_")
                 or key.startswith("page_")
+                or key.startswith("footer_")
                 or key.endswith("_padding")
                 or key.endswith("_width")
                 or key.endswith("_height")
                 or key.endswith("_radius")
-                or key in {"gap", "border_width", "flow_node_min_width", "flow_node_padding"}
+                or key
+                in {
+                    "gap",
+                    "border_width",
+                    "flow_node_min_width",
+                    "flow_node_padding",
+                    "flow_callout_gap",
+                    "flow_port_gap",
+                }
             ):
                 allow_zero = key in ZERO_OR_NONE_TOKENS
-                if not _is_valid_size(value, allow_zero_or_none=allow_zero):
-                    hint = (
-                        "non-negative number, none, or value with px/rem/em/%"
-                        if allow_zero
-                        else "positive number or value with px/rem/em/%"
-                    )
+                allow_negative = key in SIGNED_SIZE_TOKENS
+                if not _is_valid_size(
+                    value,
+                    allow_zero_or_none=allow_zero,
+                    allow_negative=allow_negative,
+                ):
+                    if allow_negative:
+                        hint = "number (negative allowed), none, or value with px/rem/em/%"
+                    elif allow_zero:
+                        hint = "non-negative number, none, or value with px/rem/em/%"
+                    else:
+                        hint = "positive number or value with px/rem/em/%"
                     errors.append(
                         CheckError(
                             path,

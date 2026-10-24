@@ -52,9 +52,11 @@
     "page_padding_right": { "$ref": "#/$defs/sizeOrNone" },
     "page_padding_bottom": { "$ref": "#/$defs/sizeOrNone" },
     "page_padding_left": { "$ref": "#/$defs/sizeOrNone" },
-    "footer_inset_bottom": { "$ref": "#/$defs/sizeOrNone" },
-    "footer_inset_right": { "$ref": "#/$defs/sizeOrNone" },
+    "footer_inset_bottom": { "$ref": "#/$defs/signedSizeOrNone" },
+    "footer_inset_right": { "$ref": "#/$defs/signedSizeOrNone" },
     "gap": { "$ref": "#/$defs/sizeOrNone" },
+    "flow_callout_gap": { "$ref": "#/$defs/sizeOrNone" },
+    "flow_port_gap": { "$ref": "#/$defs/sizeOrNone" },
     "card_radius": { "$ref": "#/$defs/sizeOrNone" },
     "card_padding": { "$ref": "#/$defs/sizeOrNone" },
     "key_message_radius": { "$ref": "#/$defs/sizeOrNone" },
@@ -97,6 +99,16 @@
         }
       ],
       "description": "Non-negative size, or the keyword none (useful for radius and border_width)."
+    },
+    "signedSizeOrNone": {
+      "oneOf": [
+        { "type": "number" },
+        {
+          "type": "string",
+          "pattern": "^(none|-?[0-9]+(\\.[0-9]+)?(px|rem|em|%))$"
+        }
+      ],
+      "description": "Signed size (negative allowed for footer insets), or the keyword none."
     },
     "fontWeight": {
       "oneOf": [

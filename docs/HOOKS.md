@@ -80,6 +80,7 @@ becomes `<section class="slide path-diagram" id="routing" data-index="…">`.
 | `.flow-chips` / `.flow-chip` | Chip tags | `Name [[chip1, chip2]]` or chips-only `[[a, b]]` |
 | `div.flow-callout` | Note box | `callout: NodeId : text [pos=below]` |
 | `div.flow-callout[data-anchor]` / `[data-pos]` | same | Anchor key and position (`below-left` / `below-right` included) |
+| `div.flow-callout[data-side]` | same | Optional connector exit side (`top` / `bottom` / `left` / `right`) |
 | `path.flow-callout` | Callout connector (SVG) | Same hook name on the dashed connector path |
 | `.flow-edge` | Edge descriptor | Hidden; read by `deck.js` |
 | `.flow-edge[data-from-attach]` / `[data-to-attach]` | same | `stack` when the chain endpoint was a `{ A / B }` column |
