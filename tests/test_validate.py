@@ -64,6 +64,10 @@ def format_errs(errors):
         ("unknown_node_kind", "unknown flow node kind"),
         ("unknown_column_option", "unknown option"),
         ("bad_negative_radius", "invalid size"),
+        ("bad_link_route", "unknown link route"),
+        ("bad_callout", "unknown callout pos"),
+        ("duplicate_node_id", "duplicate flow node id"),
+        ("bad_page_placement", "page_number_placement"),
     ],
 )
 def test_bad_fixtures_fail_with_needle(folder: str, needle: str):

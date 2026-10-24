@@ -14,8 +14,16 @@ from jsonschema import Draft202012Validator
 
 from md_deck.errors import CheckError, sort_errors
 from md_deck.flow import KNOWN_NODE_KINDS, collect_flow_nodes, parse_flow_body
-from md_deck.slides import BLOCK_OPTIONS
-from md_deck.style import FRONT_MATTER_RE, LABEL_TOKENS, TOKEN_SPEC, ZERO_OR_NONE_TOKENS
+from md_deck.slides import ALLOWED_NESTING, BLOCK_OPTIONS
+from md_deck.style import (
+    FRONT_MATTER_RE,
+    LABEL_TOKENS,
+    PAGE_NUMBER_PLACEMENTS,
+    PLACEMENT_TOKENS,
+    QUESTION_LABEL_PLACEMENTS,
+    TOKEN_SPEC,
+    ZERO_OR_NONE_TOKENS,
+)
 
 KNOWN_BLOCK_KINDS = frozenset(BLOCK_OPTIONS.keys())
 SLIDES_OPTIONAL_KEYS = frozenset({"subtitle", "author", "audience"})
@@ -350,6 +358,21 @@ def validate_style_tokens(tokens: Any, path: str, fm_line: int) -> list[CheckErr
                 errors.append(
                     CheckError(path, fm_line, f"token {key}: must be a non-empty string")
                 )
+        elif key in PLACEMENT_TOKENS:
+            text = str(value).strip().lower()
+            allowed = (
+                QUESTION_LABEL_PLACEMENTS
+                if key == "question_label_placement"
+                else PAGE_NUMBER_PLACEMENTS
+            )
+            if text not in allowed:
+                errors.append(
+                    CheckError(
+                        path,
+                        fm_line,
+                        f"token {key}: expected {', '.join(sorted(allowed))}, got {value!r}",
+                    )
+                )
         else:
             # sizes
             if key in TOKEN_SPEC and (
@@ -385,12 +408,17 @@ def _flow_nodes(body: str) -> tuple[list[str], list[str]]:
 
 def _unknown_node_kinds(body: str) -> list[str]:
     """Return error messages for unknown [kind] markers on flow nodes."""
-    from md_deck.flow import ARROW_RE, LANE_RE, LINK_RE
+    from md_deck.flow import ARROW_RE, CALLOUT_RE, LANE_RE, LINK_RE
 
     problems: list[str] = []
     for line in body.splitlines():
         raw = line.strip()
-        if not raw or LANE_RE.match(raw) or LINK_RE.match(raw):
+        if (
+            not raw
+            or LANE_RE.match(raw)
+            or LINK_RE.match(raw)
+            or CALLOUT_RE.match(raw)
+        ):
             continue
         segments: list[str] = []
         pos = 0
@@ -423,12 +451,10 @@ def validate_slide_body(
     lines = slide.text.splitlines()
     base = slide.start_line
 
-    # Track fenced code (``` / ~~~) and ::: blocks
+    # Track fenced code (``` / ~~~) and ::: blocks (stack for allowed nesting).
     code_fence: str | None = None
     code_fence_line = 0
-    block_kind: str | None = None
-    block_start_line = 0
-    block_lines: list[str] = []
+    block_stack: list[tuple[str, int, list[str]]] = []  # (kind, start_line, lines)
 
     h1_lines: list[int] = []
     key_message_lines: list[int] = []
@@ -436,6 +462,9 @@ def validate_slide_body(
 
     def abs_line(i: int) -> int:
         return base + i
+
+    def current_kind() -> str | None:
+        return block_stack[-1][0] if block_stack else None
 
     i = 0
     while i < len(lines):
@@ -445,19 +474,22 @@ def validate_slide_body(
         if code_fence:
             if line.startswith(code_fence):
                 code_fence = None
+            elif block_stack:
+                block_stack[-1][2].append(line)
             i += 1
             continue
 
         ticks = FENCE_TICKS_RE.match(line)
-        if ticks and block_kind is None:
+        if ticks and not block_stack:
             code_fence = ticks.group(1)[0] * len(ticks.group(1))
             code_fence_line = lineno
             i += 1
             continue
 
-        # +++ only valid inside columns
+        # +++ only valid inside columns (not inside a nested flow inside columns)
         if line.strip() == "+++":
-            if block_kind != "columns":
+            kind = current_kind()
+            if kind != "columns":
                 errors.append(
                     CheckError(
                         path,
@@ -465,8 +497,8 @@ def validate_slide_body(
                         "+++ column separator is only allowed inside a ::: columns block",
                     )
                 )
-            elif block_kind == "columns":
-                block_lines.append(line)
+            elif block_stack:
+                block_stack[-1][2].append(line)
             i += 1
             continue
 
@@ -487,21 +519,26 @@ def validate_slide_body(
 
             if rest == "":
                 # closer
-                if block_kind is None:
+                if not block_stack:
                     errors.append(
                         CheckError(path, lineno, "stray closing ::: without an open block")
                     )
                 else:
+                    kind, start_line, body_lines = block_stack.pop()
                     errors.extend(
                         _validate_block_content(
                             path,
-                            block_kind,
-                            block_start_line,
-                            "\n".join(block_lines),
+                            kind,
+                            start_line,
+                            "\n".join(body_lines),
                         )
                     )
-                    block_kind = None
-                    block_lines = []
+                    # Keep nested fence text inside the parent body so columns
+                    # still see the inner flow as non-empty content.
+                    if block_stack:
+                        opener = f"::: {kind}"
+                        nested = [opener, *body_lines, ":::"]
+                        block_stack[-1][2].extend(nested)
                 i += 1
                 continue
 
@@ -509,12 +546,13 @@ def validate_slide_body(
             tokens = rest.split()
             kind = tokens[0].lower() if tokens else ""
             option_tokens = tokens[1:] if tokens else []
-            if block_kind is not None:
+            parent = current_kind()
+            if parent is not None and (parent, kind) not in ALLOWED_NESTING:
                 errors.append(
                     CheckError(
                         path,
                         lineno,
-                        f"nested blocks are not allowed (already inside ::: {block_kind})",
+                        f"nested blocks are not allowed (already inside ::: {parent})",
                     )
                 )
                 i += 1
@@ -528,15 +566,11 @@ def validate_slide_body(
                         f"(expected {', '.join(sorted(KNOWN_BLOCK_KINDS))})",
                     )
                 )
-                # still enter a pseudo block so closer matches
-                block_kind = kind or "unknown"
-                block_start_line = lineno
-                block_lines = []
+                block_stack.append((kind or "unknown", lineno, []))
                 i += 1
                 continue
             allowed = BLOCK_OPTIONS.get(kind, frozenset())
             for opt in option_tokens:
-                # Allow comma-separated forms: plain,panel
                 for piece in re.split(r"[,|]+", opt):
                     piece = piece.strip().lower()
                     if not piece:
@@ -550,23 +584,22 @@ def validate_slide_body(
                                 f"(allowed: {', '.join(sorted(allowed)) or 'none'})",
                             )
                         )
-            block_kind = kind
-            block_start_line = lineno
-            block_lines = []
+            block_stack.append((kind, lineno, []))
             i += 1
             continue
 
-        if block_kind is not None:
+        if block_stack:
+            kind = current_kind() or "block"
             # No H1 inside blocks
             if H1_RE.match(line):
                 errors.append(
                     CheckError(
                         path,
                         lineno,
-                        f"H1 is not allowed inside ::: {block_kind} blocks",
+                        f"H1 is not allowed inside ::: {kind} blocks",
                     )
                 )
-            block_lines.append(line)
+            block_stack[-1][2].append(line)
             i += 1
             continue
 
@@ -633,12 +666,13 @@ def validate_slide_body(
                 "unclosed fenced code block",
             )
         )
-    if block_kind is not None:
+    while block_stack:
+        kind, start_line, _body = block_stack.pop()
         errors.append(
             CheckError(
                 path,
-                block_start_line,
-                f"unclosed ::: {block_kind} block",
+                start_line,
+                f"unclosed ::: {kind} block",
             )
         )
 
@@ -728,6 +762,8 @@ def _validate_block_content(
                 )
             )
     elif kind == "columns":
+        # Strip nested fences when counting emptiness so a column that only
+        # holds ::: flow … ::: still counts as content.
         cols = [c.strip() for c in re.split(r"\n\+\+\+\n", body.strip())]
         non_empty = [c for c in cols if c]
         if len(cols) < 2:

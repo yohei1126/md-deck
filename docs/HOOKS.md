@@ -30,6 +30,8 @@ becomes `<section class="slide path-diagram" id="routing" data-index="…">`.
 | `.key-message` | Key Message box | `**Key Message:** …` |
 | `.key-message .label` | Label span | Text from `label_key_message` or `lang` default |
 | `.question` | Discussion box | `::: question` |
+| `.question.question-label-inline` | same | Default: label sits in the first paragraph |
+| `.question.question-label-block` | same | When `question_label_placement: block` |
 | `.question .label` | Label span | Text from `label_question` or `lang` default |
 | `.columns` | Column row | `::: columns` |
 | `.columns.plain` / `.columns.panel` | same | Block options |
@@ -37,7 +39,23 @@ becomes `<section class="slide path-diagram" id="routing" data-index="…">`.
 | `.column-head` | First heading in a column | First `h2`–`h6` in that column |
 | `.source` | Footer source | `Source:` / `出典:` line or `::: source` |
 | `.page-number` | Footer page mark | Auto `n / total` |
-| `.slide-footer` | Footer wrapper | Layout only |
+| `.page-number[data-placement]` | same | `bottom-right` (default), `bottom-left`, or `bottom-center` from `page_number_placement` |
+| `.slide-footer` | Footer wrapper | Layout only; source stays left, page number placement is separate |
+| `.slide-footer[data-page-number-placement]` | same | Mirrors the page-number token |
+
+## Tables
+
+| Hook | Element | Source |
+| --- | --- | --- |
+| `table` | Table | Markdown table; font size from `--font-size-table` |
+| `th` | Header cell | Header row |
+| `th[scope=row]` | Row header | Empty first header cell promotes the first body column |
+
+```markdown
+|  | Plan A | Plan B |
+| --- | --- | --- |
+| Timing | before | after |
+```
 
 ## Flow diagrams
 
@@ -45,22 +63,39 @@ becomes `<section class="slide path-diagram" id="routing" data-index="…">`.
 | --- | --- | --- |
 | `.flow` | Flow root | `::: flow` |
 | `.flow.flow-wide` | same | `::: flow wide` |
-| `.flow-lanes` | Lane stack | Present when there is more than one lane or a `lane:` label |
+| `.flow-lanes` | Lane stack | Multi-lane, labelled lane, or stacked columns |
 | `.lane` | One lane | `lane: Label` (or the implicit single lane) |
 | `.lane[data-lane]` | same | 0-based lane index |
 | `.lane-label` | Lane title | Text after `lane:` |
-| `.flow-row` | Node row inside a lane | Multi-lane layouts |
+| `.flow-row` | Node row inside a lane | Multi-lane / stack layouts |
+| `.flow-stack` | Vertical stack | `{ A / B }` in a chain |
 | `.flow-node` | Node box | Each node |
-| `.flow-node[data-node]` | same | Node key (title text) for links |
+| `.flow-node[data-node]` | same | Node key (`{#id}` when set, else title) |
+| `.flow-node[data-id]` | same | Present when `Name {#id}` was set |
 | `.flow-node[data-kind]` | same | `actor`, `system`, `doc`, `muted`, or `highlight` |
 | `.flow-node-actor` (etc.) | same | Class mirror of `data-kind` |
 | `.flow-node-title` | Title span | Primary label |
 | `.flow-node-caption` | Caption span | `Name \| caption` |
 | `.flow-node-badge` | Badge span | `Name {badge}` |
-| `.flow-edge` | Edge descriptor | Hidden; `deck.js` reads `data-from` / `data-to` / `data-style` / `data-label` |
+| `.flow-chips` / `.flow-chip` | Chip tags | `Name [[chip1, chip2]]` |
+| `.flow-callout` | Note box | `callout: NodeId : text [pos=below]` |
+| `.flow-callout[data-anchor]` / `[data-pos]` | same | Anchor key and position |
+| `.flow-edge` | Edge descriptor | Hidden; read by `deck.js` |
 | `.flow-edge-cross` | Cross-lane edge | From `link: A => B : label` |
 | `.flow-svg` | SVG overlay | Drawn at render time |
-| `.flow-edge-label` | SVG `<text>` | Arrow label |
+
+### SVG arrow and label API (stable)
+
+Every drawn arrow path and label text carries these hooks. Style CSS may target them; they are part of the public API.
+
+| Hook | Element | Notes |
+| --- | --- | --- |
+| `.flow-arrow` | SVG `<path>` | Every arrow |
+| `.flow-arrow-dashed` | SVG `<path>` | Dashed stroke |
+| `.flow-link` | SVG `<path>` | Cross-lane `link:` (and callout connector) |
+| `.flow-label` | SVG `<text>` | Arrow label (`.flow-edge-label` kept as an alias) |
+| `[data-from]` / `[data-to]` | path and text | Endpoint node keys |
+| `[data-kind]` | path and text | `solid`, `dashed`, `bidirectional`, or `link` |
 
 Theme node kinds in the style file:
 
@@ -74,19 +109,27 @@ Theme node kinds in the style file:
   border-style: double;
 }
 
-.flow-node[data-kind="muted"] {
-  color: var(--color-muted);
+.flow-svg path.flow-link {
+  stroke-width: 2.5;
+}
+
+.flow-svg text.flow-label {
+  font-weight: 700;
+}
+
+.flow-chip {
+  border-color: var(--color-highlight);
 }
 ```
 
 ## Tokens as CSS variables
 
-Every style token is emitted on `:root` (see [STYLE_GUIDE.md](STYLE_GUIDE.md)). Prefer variables such as `var(--color-top-bar)` and `var(--label-question)` over hard-coded values when the token exists.
+Every style token is emitted on `:root` (see [STYLE_GUIDE.md](STYLE_GUIDE.md)). Prefer variables such as `var(--color-top-bar)`, `var(--font-size-table)`, and `var(--label-question)` over hard-coded values when the token exists.
 
 ## What not to rely on
 
 - `#slide-1 .flow-node:nth-of-type(3)` and similar positional selectors
 - Ordering of anonymous wrappers around flow lanes
-- Exact SVG path shape (geometry may change; classes and data attributes stay)
+- Exact SVG path geometry (orthogonal routes may gain clearance; classes and `data-*` hooks above stay)
 
 If a look needs a new landmark, open an issue or PR to add a named hook rather than encoding slide index into CSS.

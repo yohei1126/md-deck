@@ -26,6 +26,7 @@ def build_html(
     extra_css_files: list[Path],
     title: str,
     lang: str = "en",
+    page_number_placement: str = "bottom-right",
 ) -> str:
     base_css = _read_template("base.css")
     deck_js = _read_template("deck.js")
@@ -33,6 +34,10 @@ def build_html(
     for path in extra_css_files:
         extras.append(path.read_text(encoding="utf-8"))
     extra_block = "\n".join(extras)
+
+    placement = (page_number_placement or "bottom-right").strip().lower()
+    if placement not in {"bottom-right", "bottom-left", "bottom-center"}:
+        placement = "bottom-right"
 
     total = len(slides)
     slide_blocks = []
@@ -47,9 +52,10 @@ def build_html(
         if slide.source_html:
             source = f'<div class="source">{slide.source_html}</div>'
         footer = (
-            f'<footer class="slide-footer">'
+            f'<footer class="slide-footer" data-page-number-placement="{_escape(placement)}">'
             f"{source}"
-            f'<div class="page-number">{index} / {total}</div>'
+            f'<div class="page-number" data-placement="{_escape(placement)}">'
+            f"{index} / {total}</div>"
             f"</footer>"
         )
         slide_blocks.append(
@@ -211,7 +217,15 @@ def build_deck(
     meta, slides = parse_deck(text, style_tokens=tokens)
     title = str(meta.get("title") or source.stem)
     lang = str(meta.get("lang") or "en")
-    html = build_html(slides, theme_css, extra_css or [], title, lang=lang)
+    page_placement = str(tokens.get("page_number_placement") or "bottom-right")
+    html = build_html(
+        slides,
+        theme_css,
+        extra_css or [],
+        title,
+        lang=lang,
+        page_number_placement=page_placement,
+    )
     if keep_html is not None:
         keep_html.parent.mkdir(parents=True, exist_ok=True)
         keep_html.write_text(html, encoding="utf-8")

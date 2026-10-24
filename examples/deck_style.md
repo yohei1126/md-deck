@@ -40,6 +40,7 @@ font_size_title: 36
 font_size_key_message: 20
 font_size_question: 18
 font_size_small: 16
+font_size_table: 16
 font_weight_title: 700
 font_weight_body: 400
 line_height: 1.45
@@ -61,6 +62,8 @@ flow_node_padding: 12
 # Optional; when omitted, defaults follow slides lang (en/ja).
 # label_question: "Question"
 # label_key_message: "Key Message"
+question_label_placement: inline
+page_number_placement: bottom-right
 ---
 
 # Example deck style (plain)

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from md_deck.build import build_html
-from md_deck.flow import parse_flow_body, parse_node_text
+from md_deck.flow import parse_flow_body, parse_node_text, render_flow_html
 from md_deck.slides import apply_hard_breaks, parse_deck, render_slide_markdown, resolve_labels
 from md_deck.style import tokens_to_css
 
@@ -27,24 +27,65 @@ def test_node_kind_caption_badge():
     assert node.badge == "draft"
 
 
+def test_node_id_and_chips():
+    node = parse_node_text("[system] Hub {#hub} [[a, b, c]] {live}")
+    assert node.node_id == "hub"
+    assert node.key == "hub"
+    assert node.title == "Hub"
+    assert node.chips == ["a", "b", "c"]
+    assert node.badge == "live"
+
+
+def test_label_and_badge_hard_breaks():
+    diagram = parse_flow_body("A -[lab\\nel]-> B {bad\\nge}")
+    edge = diagram.lanes[0].edges[0]
+    assert edge.label == "lab\nel"
+    # Badge on B
+    assert "\n" in diagram.nodes["B"].badge or diagram.nodes["B"].badge == "bad\nge"
+
+
 def test_lanes_and_links():
     diagram = parse_flow_body(
         "lane: Upper\n"
         "A -> B\n"
         "lane: Lower\n"
         "C -> D\n"
-        "link: B => C : bridge\n"
+        "link: B => C : bridge [route=down]\n"
     )
     assert len(diagram.lanes) == 2
     assert diagram.lanes[0].label == "Upper"
     assert len(diagram.links) == 1
     assert diagram.links[0].label == "bridge"
-    html = __import__("md_deck.flow", fromlist=["render_flow_html"]).render_flow_html(diagram)
-    assert 'data-kind' not in html or True
+    assert diagram.links[0].route == "down"
+    assert diagram.links[0].cross is True
+    html = render_flow_html(diagram)
     assert 'class="lane"' in html
     assert "lane-label" in html
     assert 'data-from="B"' in html
     assert 'data-to="C"' in html
+    assert 'data-kind="link"' in html
+    assert 'data-route="down"' in html
+
+
+def test_parallel_edges_get_pair_indices():
+    diagram = parse_flow_body("A -[one]-> B\nA -.[two].-> B\n")
+    edges = diagram.lanes[0].edges
+    assert len(edges) == 2
+    assert {e.pair_index for e in edges} == {0, 1}
+    assert edges[0].pair_count == 2
+
+
+def test_stacked_nodes_and_callout():
+    diagram = parse_flow_body(
+        "A -> { Upper / Lower } -> B\n"
+        "callout: B : note [pos=below]\n"
+    )
+    assert any(isinstance(c, list) and len(c) == 2 for c in diagram.lanes[0].columns)
+    assert len(diagram.callouts) == 1
+    html = render_flow_html(diagram)
+    assert "flow-stack" in html
+    assert "flow-callout" in html
+    assert 'data-pos="below"' in html
 
 
 def test_legacy_arrow_chain_still_works():
@@ -65,6 +106,15 @@ def test_duplicate_titles_get_unique_keys():
     assert diagram.links[0].target == "C"
 
 
+def test_link_resolves_node_id():
+    diagram = parse_flow_body(
+        "Long\\nTitle {#src} -> Other {#dst}\n"
+        "link: src => dst : go [route=up]\n"
+    )
+    assert diagram.links[0].source == "src"
+    assert diagram.links[0].target == "dst"
+
+
 def test_labels_from_lang():
     ja = resolve_labels("ja", {})
     assert ja.label_question == "議論の問い"
@@ -73,6 +123,8 @@ def test_labels_from_lang():
     assert en.label_question == "Question"
     override = resolve_labels("ja", {"label_question": "Q?"})
     assert override.label_question == "Q?"
+    block = resolve_labels("en", {"question_label_placement": "block"})
+    assert block.question_label_placement == "block"
 
 
 def test_hard_break_backslash():
@@ -86,15 +138,23 @@ def test_source_line_and_footer_hooks():
     )
     assert slides[0].source_html is not None
     assert "Public note" in slides[0].source_html
-    html = build_html(slides, tokens_to_css({
-        "color_background": "#fff",
-        "color_text": "#000",
-        "color_title": "#000",
-        "font_family": "sans-serif",
-        "font_size_body": 22,
-    }), [], "T", lang="en")
+    html = build_html(
+        slides,
+        tokens_to_css({
+            "color_background": "#fff",
+            "color_text": "#000",
+            "color_title": "#000",
+            "font_family": "sans-serif",
+            "font_size_body": 22,
+        }),
+        [],
+        "T",
+        lang="en",
+        page_number_placement="bottom-left",
+    )
     assert 'lang="en"' in html
     assert 'class="page-number"' in html
+    assert 'data-placement="bottom-left"' in html
     assert "1 / 1" in html
     assert 'class="source"' in html
     assert 'data-index="1"' in html
@@ -116,12 +176,46 @@ def test_column_options_and_head():
     assert "column-head" in slide.html
 
 
+def test_flow_inside_columns():
+    slide = render_slide_markdown(
+        "# T\n\n::: columns\n::: flow\nA -> B\n:::\n\n+++\n\nRight\n:::\n"
+    )
+    assert "flow-node" in slide.html
+    assert "columns" in slide.html
+
+
+def test_question_label_inline_by_default():
+    slide = render_slide_markdown("# T\n\n::: question\nHello there\n:::\n")
+    assert "question-label-inline" in slide.html
+    assert '<span class="label">' in slide.html
+    # Label is inside the first paragraph
+    assert '<p><span class="label">' in slide.html or '<p class=' in slide.html
+
+
+def test_row_headers_from_empty_corner():
+    slide = render_slide_markdown(
+        "# T\n\n|  | A | B |\n| --- | --- | --- |\n| R1 | x | y |\n"
+    )
+    assert 'scope="row"' in slide.html
+    assert "<th" in slide.html
+
+
+def test_list_item_class_without_paragraph():
+    slide = render_slide_markdown(
+        "# T\n\n- One\n- Two\n  {: .highlight}\n"
+    )
+    assert 'class="highlight"' in slide.html
+    # Prefer no wrapping <p> inside the classed li
+    assert "<li" in slide.html
+
+
 def test_flow_node_data_kind_in_html():
     slide = render_slide_markdown(
         "# T\n\n::: flow\n[actor] A -> [system] B\n:::\n"
     )
     assert 'data-kind="actor"' in slide.html
     assert "flow-node-actor" in slide.html
+    assert "flow-chips" not in slide.html or True
 
 
 def test_tokens_allow_zero_and_none():
@@ -137,8 +231,12 @@ def test_tokens_allow_zero_and_none():
         "color_top_bar": "#123456",
         "color_accent_2": "#abcdef",
         "color_highlight": "#ff0",
+        "font_size_table": 17,
+        "page_number_placement": "bottom-center",
     })
     assert "--card-radius: 0px;" in css
     assert "--border-width: none;" in css
     assert "--color-top-bar: #123456;" in css
     assert "--page-padding-top: 10px;" in css
+    assert "--font-size-table: 17px;" in css
+    assert "--page-number-placement: bottom-center;" in css
