@@ -1,9 +1,7 @@
-"""CLI: Markdown slides + style Markdown -> deterministic 16:9 PDF."""
+"""Markdown slides + style Markdown -> deterministic 16:9 PDF."""
 
 from __future__ import annotations
 
-import argparse
-import hashlib
 import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
@@ -195,106 +193,4 @@ def build_deck(
     return render_pdf(html, output, png_dir)
 
 
-def _file_digest(path: Path) -> str:
-    return hashlib.sha256(path.read_bytes()).hexdigest()
-
-
-def build_arg_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(
-        prog="md_deck",
-        description=(
-            "Build a 16:9 PDF slide deck from Markdown. "
-            "Visual style comes from a style Markdown file in the deck repo; "
-            "md-deck ships layout mechanics only."
-        ),
-    )
-    parser.add_argument("source", type=Path, help="Slides Markdown file")
-    parser.add_argument(
-        "-o",
-        "--output",
-        type=Path,
-        required=True,
-        help="Output PDF path",
-    )
-    parser.add_argument(
-        "--style",
-        type=Path,
-        default=None,
-        help="Style Markdown (YAML tokens + optional css fence). "
-        "Required unless the slides front matter sets style:",
-    )
-    parser.add_argument(
-        "--css",
-        type=Path,
-        action="append",
-        default=[],
-        help="Optional extra CSS file (repeatable). Applied after the style file.",
-    )
-    parser.add_argument(
-        "--png",
-        type=Path,
-        default=None,
-        metavar="DIR",
-        help="Write one PNG per slide into DIR",
-    )
-    parser.add_argument(
-        "--html",
-        type=Path,
-        default=None,
-        help="Also write the intermediate HTML to this path",
-    )
-    parser.add_argument(
-        "--check-deterministic",
-        action="store_true",
-        help="Build twice and exit non-zero if PDF bytes differ",
-    )
-    return parser
-
-
-def main(argv: list[str] | None = None) -> int:
-    parser = build_arg_parser()
-    args = parser.parse_args(argv)
-
-    if not args.source.is_file():
-        parser.error(f"Source not found: {args.source}")
-
-    build_deck(
-        source=args.source,
-        output=args.output,
-        style=args.style,
-        extra_css=args.css,
-        png_dir=args.png,
-        keep_html=args.html,
-    )
-
-    if args.check_deterministic:
-        with tempfile.TemporaryDirectory(prefix="md-deck-check-") as tmp:
-            other = Path(tmp) / "second.pdf"
-            build_deck(
-                source=args.source,
-                output=other,
-                style=args.style,
-                extra_css=args.css,
-            )
-            a = _file_digest(args.output)
-            b = _file_digest(other)
-            if a != b:
-                raise SystemExit(
-                    "Non-deterministic PDF output: SHA-256 differs between builds.\n"
-                    f"  first:  {a}\n"
-                    f"  second: {b}"
-                )
-            print(f"Deterministic OK (sha256={a})")
-    else:
-        print(f"Wrote {args.output}")
-
-    return 0
-
-
-def cli() -> None:
-    """Console-script entry point for `md-deck`."""
-    raise SystemExit(main())
-
-
-if __name__ == "__main__":
-    cli()
+# Console entry point lives in md_deck.cli (keeps this module Chromium-focused).

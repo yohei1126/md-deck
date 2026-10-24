@@ -6,7 +6,7 @@ on:
   pull_request:
 
 jobs:
-  build-sample:
+  check-and-build:
     runs-on: ubuntu-latest
     steps:
       - name: Check out
@@ -22,17 +22,23 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends fonts-noto-cjk
 
-      - name: Sync project and install Chromium
-        run: |
-          uv sync --frozen
-          uv run playwright install --with-deps chromium
+      - name: Sync project
+        run: uv sync --frozen --group dev
+
+      - name: Unit tests
+        run: uv run pytest -q
+
+      - name: Check examples/sample.md
+        run: uv run md-deck check examples/sample.md
+
+      - name: Install Chromium
+        run: uv run playwright install --with-deps chromium
 
       - name: Build examples/sample.md
         run: |
           mkdir -p out
-          uv run md-deck examples/sample.md \
+          uv run md-deck build examples/sample.md \
             -o out/sample.pdf \
-            --style examples/deck_style.md \
             --check-deterministic
 
       - name: Upload sample PDF

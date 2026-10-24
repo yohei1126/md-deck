@@ -25,8 +25,10 @@ classifiers = [
   "Topic :: Text Processing :: Markup",
 ]
 dependencies = [
+  "jsonschema>=4.26.0",
   "markdown>=3.5",
   "playwright>=1.40",
+  "pymarkdownlnt>=0.9.41",
   "pypdf>=4.0",
   "pyyaml>=6.0",
 ]
@@ -37,17 +39,30 @@ Repository = "https://github.com/yohei1126/md-deck"
 Issues = "https://github.com/yohei1126/md-deck/issues"
 
 [project.scripts]
-md-deck = "md_deck.build:cli"
+md-deck = "md_deck.cli:cli"
 
 [tool.hatch.build.targets.wheel]
 packages = ["md_deck"]
 
+[tool.hatch.build.targets.wheel.force-include]
+"schemas" = "md_deck/schemas"
+
 [tool.hatch.build.targets.sdist]
 include = [
   "/md_deck",
+  "/schemas",
   "/examples",
   "/docs",
   "/LICENSE",
   "/README.md",
   "/action.yml",
 ]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]

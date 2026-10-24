@@ -1,6 +1,12 @@
 ---
 title: md-deck サンプル
+version: "0.1.0"
+date: "2026-10-24"
+lang: ja
 style: deck_style.md
+subtitle: 入力契約と記法の見本
+author: md-deck
+audience: ツール利用者
 ---
 
 # md-deck へようこそ

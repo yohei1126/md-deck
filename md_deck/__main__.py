@@ -1,5 +1,5 @@
 """Allow `python -m md_deck`."""
 
-from md_deck.build import main
+from md_deck.cli import cli
 
-raise SystemExit(main())
+cli()

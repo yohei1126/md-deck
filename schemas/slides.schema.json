@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/yohei1126/md-deck/schemas/slides.schema.json",
+  "title": "md-deck slides front matter",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["title", "version", "date", "lang", "style"],
+  "properties": {
+    "title": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Deck title (also used as PDF metadata title)."
+    },
+    "version": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Deck version string, e.g. 0.1.0 or 2026.10.24."
+    },
+    "date": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$",
+      "description": "ISO date yyyy-mm-dd."
+    },
+    "lang": {
+      "type": "string",
+      "minLength": 2,
+      "description": "Primary language tag, e.g. ja or en."
+    },
+    "style": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Relative path to the style Markdown file."
+    },
+    "subtitle": {
+      "type": "string",
+      "description": "Optional subtitle."
+    },
+    "author": {
+      "type": "string",
+      "description": "Optional author."
+    },
+    "audience": {
+      "type": "string",
+      "description": "Optional audience description."
+    }
+  }
+}

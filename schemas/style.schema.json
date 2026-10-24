@@ -1,0 +1,88 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/yohei1126/md-deck/schemas/style.schema.json",
+  "title": "md-deck style front matter tokens",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "color_background",
+    "color_text",
+    "color_title",
+    "font_family",
+    "font_size_body"
+  ],
+  "properties": {
+    "page_width": { "$ref": "#/$defs/size" },
+    "page_height": { "$ref": "#/$defs/size" },
+    "color_background": { "$ref": "#/$defs/color" },
+    "color_text": { "$ref": "#/$defs/color" },
+    "color_muted": { "$ref": "#/$defs/color" },
+    "color_border": { "$ref": "#/$defs/color" },
+    "color_title": { "$ref": "#/$defs/color" },
+    "color_key_message_bg": { "$ref": "#/$defs/color" },
+    "color_key_message_text": { "$ref": "#/$defs/color" },
+    "color_key_message_border": { "$ref": "#/$defs/color" },
+    "color_question_bg": { "$ref": "#/$defs/color" },
+    "color_question_text": { "$ref": "#/$defs/color" },
+    "color_question_border": { "$ref": "#/$defs/color" },
+    "color_card_bg": { "$ref": "#/$defs/color" },
+    "color_card_border": { "$ref": "#/$defs/color" },
+    "color_flow_node_bg": { "$ref": "#/$defs/color" },
+    "color_flow_node_border": { "$ref": "#/$defs/color" },
+    "color_flow_arrow": { "$ref": "#/$defs/color" },
+    "color_table_header_bg": { "$ref": "#/$defs/color" },
+    "color_table_border": { "$ref": "#/$defs/color" },
+    "font_family": { "type": "string", "minLength": 1 },
+    "font_size_body": { "$ref": "#/$defs/size" },
+    "font_size_title": { "$ref": "#/$defs/size" },
+    "font_size_key_message": { "$ref": "#/$defs/size" },
+    "font_size_question": { "$ref": "#/$defs/size" },
+    "font_size_small": { "$ref": "#/$defs/size" },
+    "font_weight_title": { "$ref": "#/$defs/fontWeight" },
+    "font_weight_body": { "$ref": "#/$defs/fontWeight" },
+    "line_height": { "$ref": "#/$defs/lineHeight" },
+    "page_padding": { "$ref": "#/$defs/size" },
+    "gap": { "$ref": "#/$defs/size" },
+    "card_radius": { "$ref": "#/$defs/size" },
+    "card_padding": { "$ref": "#/$defs/size" },
+    "key_message_radius": { "$ref": "#/$defs/size" },
+    "question_radius": { "$ref": "#/$defs/size" },
+    "border_width": { "$ref": "#/$defs/size" },
+    "flow_node_min_width": { "$ref": "#/$defs/size" },
+    "flow_node_padding": { "$ref": "#/$defs/size" }
+  },
+  "$defs": {
+    "color": {
+      "type": "string",
+      "minLength": 1,
+      "description": "CSS colour: #rgb, #rrggbb, #rrggbbaa, rgb(), rgba(), hsl(), hsla(), or a named colour."
+    },
+    "size": {
+      "oneOf": [
+        { "type": "number", "exclusiveMinimum": 0 },
+        {
+          "type": "string",
+          "pattern": "^[0-9]+(\\.[0-9]+)?(px|rem|em|%)$"
+        }
+      ]
+    },
+    "fontWeight": {
+      "oneOf": [
+        { "type": "integer", "minimum": 100, "maximum": 900 },
+        {
+          "type": "string",
+          "enum": ["normal", "bold", "bolder", "lighter"]
+        }
+      ]
+    },
+    "lineHeight": {
+      "oneOf": [
+        { "type": "number", "exclusiveMinimum": 0 },
+        {
+          "type": "string",
+          "pattern": "^[0-9]+(\\.[0-9]+)?(px|rem|em|%)?$"
+        }
+      ]
+    }
+  }
+}

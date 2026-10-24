@@ -22,43 +22,60 @@ Or run a pinned tag straight from GitHub without a local clone:
 
 ```bash
 uvx --from git+https://github.com/yohei1126/md-deck@v0.1.0 md-deck \
-  slides.md -o out.pdf --style deck_style.md
+  check slides.md
+uvx --from git+https://github.com/yohei1126/md-deck@v0.1.0 md-deck \
+  build slides.md -o out.pdf
 ```
 
 Japanese decks need a CJK font on the machine that renders PDF, for example `fonts-noto-cjk` on Debian/Ubuntu. md-deck is not published to PyPI yet; install from Git or use the Action.
 
 ## Usage
 
+Validate without Chromium (prints every problem as `file:line: message`):
+
 ```bash
-uv run md-deck examples/sample.md -o out/sample.pdf --style examples/deck_style.md
+uv run md-deck check examples/sample.md
 ```
 
-Or set `style: deck_style.md` in the slides front matter and omit `--style`.
+Build (runs the same validation first, then refuses to render on errors):
 
-Useful flags:
+```bash
+uv run md-deck build examples/sample.md -o out/sample.pdf
+```
+
+`--style path` overrides the slides front matter `style:` key. Front matter must name a style file when you omit the flag.
+
+Useful `build` flags:
 
 | Flag | Meaning |
 | --- | --- |
 | `-o PATH` | Output PDF (required) |
-| `--style PATH` | Style Markdown (required unless set in slides front matter) |
+| `--style PATH` | Style Markdown (overrides front matter) |
 | `--css PATH` | Extra CSS after the style file (repeatable) |
 | `--png DIR` | Write one PNG per slide |
 | `--html PATH` | Keep the intermediate HTML |
 | `--check-deterministic` | Build twice and fail if PDF bytes differ |
+| `--allow-html` | Allow raw HTML in slides (off by default) |
 
-Exit is non-zero if a slide still overflows after shrinking to 80% of its font/layout scale.
+Exit is non-zero if validation fails, or if a slide still overflows after shrinking to 80% of its layout scale.
+
+## Input contract and conventions
+
+Required slides front matter: `title`, `version`, `date` (yyyy-mm-dd), `lang`, `style`. Optional: `subtitle`, `author`, `audience`. Unknown keys fail the check.
+
+Required style tokens: `color_background`, `color_text`, `color_title`, `font_family`, `font_size_body`. Other tokens are optional with plain defaults. Schemas: [`schemas/slides.schema.json`](schemas/slides.schema.json), [`schemas/style.schema.json`](schemas/style.schema.json).
+
+Full contract, Markdown rules, and a minimal example: [docs/INPUT_FORMAT.md](docs/INPUT_FORMAT.md). Token tables: [docs/STYLE_GUIDE.md](docs/STYLE_GUIDE.md) / [docs/STYLE_GUIDE.ja.md](docs/STYLE_GUIDE.ja.md).
+
+Slide conventions in short: slides separated by `---`; exactly one `#` title per slide; at most one `**Key Message:**`; `::: question` / `::: flow` with `A -> B` / `::: columns` split by `+++`.
 
 ## Style and content split
 
 | Piece | Where it lives | Role |
 | --- | --- | --- |
-| Slides `.md` | Deck repo | Titles, Key Message, lists, tables, flow, columns, questions |
+| Slides `.md` | Deck repo | Front matter + titles, Key Message, lists, tables, flow, columns, questions |
 | Style `.md` | Deck repo | Tokens (colours, fonts, spacing) + prose style guide + optional `css` |
-| md-deck | This repo | Parse Markdown, apply style tokens, render with headless Chromium |
-
-Token schema, fences, and slide conventions: [docs/STYLE_GUIDE.md](docs/STYLE_GUIDE.md) (English) and [docs/STYLE_GUIDE.ja.md](docs/STYLE_GUIDE.ja.md) (Japanese).
-
-Slide conventions in short: slides separated by `---`; `#` title; `**Key Message:**`; `::: question`; `::: flow` with `A -> B`; `::: columns` split by `+++`.
+| md-deck | This repo | Check contract, parse Markdown, apply style tokens, render with headless Chromium |
 
 ## Determinism
 
@@ -66,7 +83,7 @@ The HTML→PDF step uses Chromium through Playwright. After writing the PDF, md-
 
 ## GitHub Action
 
-Composite action at the repo root (`action.yml`). Inputs: `source`, `output`, optional `style`, optional `css`. It installs uv, syncs this project from the Action checkout, installs Playwright Chromium, then runs `md-deck`.
+Composite action at the repo root (`action.yml`). Inputs: `source`, `output`, optional `style` / `css`, and `check-only` (validate without installing Chromium or writing a PDF). Builds always validate first.
 
 ```yaml
 - uses: yohei1126/md-deck@v0.1.0
@@ -74,6 +91,15 @@ Composite action at the repo root (`action.yml`). Inputs: `source`, `output`, op
     source: deck/slides.md
     style: deck/deck_style.md
     output: dist/deck.pdf
+```
+
+Check-only:
+
+```yaml
+- uses: yohei1126/md-deck@v0.1.0
+  with:
+    source: deck/slides.md
+    check-only: "true"
 ```
 
 Pin a release tag when you consume the action. This repository does not create tags or releases as part of normal development; cut them deliberately when you publish.
