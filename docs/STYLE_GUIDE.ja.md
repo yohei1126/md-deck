@@ -29,7 +29,7 @@ md-deck はレンダリングだけを担当し、見た目のテーマは同梱
 
 ## トークン一覧
 
-長さの数値は `px` になります。例外は単位なしの `line_height` / `font_weight_title` / `font_weight_body` です。色は CSS の色文字列である必要があります。
+長さの数値は `px` になります。例外は単位なしの `line_height` / `font_weight_title` / `font_weight_body` / `source_label_weight` です。色は CSS の色文字列である必要があります。
 
 詳細な表は英語版 [STYLE_GUIDE.md](STYLE_GUIDE.md) を正とします。主なグループ:
 
@@ -40,7 +40,7 @@ md-deck はレンダリングだけを担当し、見た目のテーマは同梱
 - タイポ: 各 `font_size_*`（表専用の `font_size_table` を含む）, `font_weight_*`, `line_height`
 - 形: `card_radius`, `key_message_radius`, `question_radius`, `border_width`, `card_padding`（`0` / `none` 可）
 - フロー: `flow_node_min_width`, `flow_node_padding`, `flow_callout_gap`, `flow_port_gap`, `flow_edge_shape`（`orthogonal` / `straight`）
-- ラベル: `label_question`, `label_key_message`, `label_source`（省略時は `lang` から既定。`ja` なら「議論の問い」「キーメッセージ」「出典：」。`label_source: ""` で接頭辞を隠す）
+- ラベル: `label_question`, `label_key_message`, `label_source`（省略時は `lang` から既定。`ja` なら「議論の問い」「キーメッセージ」「出典：」。`label_source: ""` で接頭辞を隠す）, `source_label_weight`（既定 `600`）, `source_label_gap`（既定 `0.15em`）
 - 配置: `question_label_placement`（`inline` / `block`）、`page_number_placement`（`bottom-right` / `bottom-left` / `bottom-center`。出典フッターとは別）
 
 ## 任意の CSS フェンス

@@ -65,6 +65,8 @@ flow_node_padding: 12
 # label_question: "Question"
 # label_key_message: "Key Message"
 # label_source: "Source:"   # empty string hides the footer prefix
+# source_label_weight: 600    # .source .label weight
+# source_label_gap: 0.15em    # gap after .source .label (0 removes it)
 # flow_edge_shape: orthogonal  # or straight
 # flow_callout_gap: 12
 # flow_port_gap: 12

@@ -344,7 +344,11 @@ def validate_style_tokens(tokens: Any, path: str, fm_line: int) -> list[CheckErr
                         f"token {key}: invalid CSS colour: {value!r}",
                     )
                 )
-        elif key in {"font_weight_title", "font_weight_body"}:
+        elif key in {
+            "font_weight_title",
+            "font_weight_body",
+            "source_label_weight",
+        }:
             if not _is_valid_font_weight(value):
                 errors.append(
                     CheckError(
@@ -419,6 +423,7 @@ def validate_style_tokens(tokens: Any, path: str, fm_line: int) -> list[CheckErr
                     "flow_node_padding",
                     "flow_callout_gap",
                     "flow_port_gap",
+                    "source_label_gap",
                 }
             ):
                 allow_zero = key in ZERO_OR_NONE_TOKENS

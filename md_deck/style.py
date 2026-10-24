@@ -46,6 +46,8 @@ TOKEN_SPEC: dict[str, tuple[str, Any]] = {
     "font_size_table": ("--font-size-table", "16px"),
     "font_weight_title": ("--font-weight-title", "700"),
     "font_weight_body": ("--font-weight-body", "400"),
+    "source_label_weight": ("--source-label-weight", "600"),
+    "source_label_gap": ("--source-label-gap", "0.15em"),
     "line_height": ("--line-height", "1.45"),
     "page_padding": ("--page-padding", "48px"),
     "page_padding_top": ("--page-padding-top", "48px"),
@@ -92,6 +94,7 @@ ZERO_OR_NONE_TOKENS = frozenset(
         "flow_port_gap",
         "flow_node_padding",
         "flow_node_min_width",
+        "source_label_gap",
     }
 )
 
@@ -128,7 +131,12 @@ def _format_css_value(token: str, value: Any) -> str:
         return "none"
     if isinstance(value, (int, float)) and not isinstance(value, bool):
         # Bare numbers for sizes become px, except unitless line-height / weights.
-        if token in {"line_height", "font_weight_title", "font_weight_body"}:
+        if token in {
+            "line_height",
+            "font_weight_title",
+            "font_weight_body",
+            "source_label_weight",
+        }:
             return str(value)
         return f"{value}px"
     text = str(value).strip()

@@ -191,6 +191,37 @@
     return (index - (count - 1) / 2) * gap;
   }
 
+  function lineHitsRect(p, q, r) {
+    // Liang-Barsky clip: true when the segment touches the rect.
+    let t0 = 0;
+    let t1 = 1;
+    const dx = q.x - p.x;
+    const dy = q.y - p.y;
+    const clips = [
+      [-dx, p.x - r.left],
+      [dx, r.right - p.x],
+      [-dy, p.y - r.top],
+      [dy, r.bottom - p.y],
+    ];
+    for (let i = 0; i < clips.length; i += 1) {
+      const a = clips[i][0];
+      const b = clips[i][1];
+      if (Math.abs(a) < 1e-9) {
+        if (b < 0) return false;
+        continue;
+      }
+      const t = b / a;
+      if (a < 0) {
+        if (t > t1) return false;
+        if (t > t0) t0 = t;
+      } else {
+        if (t < t0) return false;
+        if (t < t1) t1 = t;
+      }
+    }
+    return t1 >= t0;
+  }
+
   function segmentHitsBox(p, q, box, pad) {
     const padBox = {
       left: box.left - pad,
@@ -205,14 +236,13 @@
     if (maxX < padBox.left || minX > padBox.right || maxY < padBox.top || minY > padBox.bottom) {
       return false;
     }
-    // Orthogonal segments only.
     if (Math.abs(p.x - q.x) < EPS) {
       return p.x >= padBox.left && p.x <= padBox.right && maxY >= padBox.top && minY <= padBox.bottom;
     }
     if (Math.abs(p.y - q.y) < EPS) {
       return p.y >= padBox.top && p.y <= padBox.bottom && maxX >= padBox.left && minX <= padBox.right;
     }
-    return true;
+    return lineHitsRect(p, q, padBox);
   }
 
   function pathHitsObstacles(pts, obstacles, pad) {
@@ -1194,12 +1224,55 @@
     return "right";
   }
 
-  function calloutConnectorPoints(from, to, pos, side) {
+  function calloutFacingExit(pos) {
+    // Nearest exit that faces the anchor (never runs back through the box).
+    if (pos === "above") return "bottom";
+    if (pos === "below" || pos === "below-left" || pos === "below-right") return "top";
+    if (pos === "left") return "right";
+    return "left";
+  }
+
+  function calloutPathHitsBox(pts, box) {
+    // Inset so a stub that only leaves the exit edge is allowed; interior crossings fail.
+    const inset = 2;
+    const inner = {
+      left: box.left + inset,
+      right: box.right - inset,
+      top: box.top + inset,
+      bottom: box.bottom - inset,
+      width: Math.max(0, box.width - inset * 2),
+      height: Math.max(0, box.height - inset * 2),
+    };
+    if (inner.width < 1 || inner.height < 1) return false;
+    return pathHitsObstacles(pts, [{ box: inner }], 0) > 0;
+  }
+
+  function calloutOutsidePolyline(from, to, exit, callout) {
+    // Leave the requested side, step clear of the box, then reach the entry.
+    const pad = 8;
+    if (exit === "left") {
+      const x = callout.left - pad;
+      return simplify([from, { x, y: from.y }, { x, y: to.y }, to]);
+    }
+    if (exit === "right") {
+      const x = callout.right + pad;
+      return simplify([from, { x, y: from.y }, { x, y: to.y }, to]);
+    }
+    if (exit === "top") {
+      const y = callout.top - pad;
+      return simplify([from, { x: from.x, y }, { x: to.x, y }, to]);
+    }
+    if (exit === "bottom") {
+      const y = callout.bottom + pad;
+      return simplify([from, { x: from.x, y }, { x: to.x, y }, to]);
+    }
+    return null;
+  }
+
+  function calloutConnectorRaw(from, to, exit, enter) {
     // When the exit side is perpendicular to the edge the path enters, use an
     // L (leave sideways, run to the entry x/y, then enter perpendicular).
     // Same-axis exits keep a mid corridor (H-V-H or V-H-V).
-    const exit = calloutExitSide(pos, side);
-    const enter = calloutEnterEdge(pos);
     const exitHorizontal = exit === "left" || exit === "right";
     const enterVertical = enter === "top" || enter === "bottom";
     if (exitHorizontal && enterVertical) {
@@ -1226,6 +1299,27 @@
     ]);
   }
 
+  function calloutConnectorPoints(from, to, pos, side, calloutBox) {
+    const requested = calloutExitSide(pos, side);
+    const enter = calloutEnterEdge(pos);
+    let pts = calloutConnectorRaw(from, to, requested, enter);
+    if (!calloutBox || !calloutPathHitsBox(pts, calloutBox)) {
+      return pts;
+    }
+    // Keep the requested side: route outside the callout box.
+    const outside = calloutOutsidePolyline(from, to, requested, calloutBox);
+    if (outside && !calloutPathHitsBox(outside, calloutBox)) {
+      return outside;
+    }
+    // Fall back to the facing side (e.g. pos=above → bottom).
+    const fallback = calloutFacingExit(pos);
+    if (fallback === requested) {
+      return outside || pts;
+    }
+    const altFrom = calloutExitPoint(calloutBox, pos, fallback);
+    return calloutConnectorRaw(altFrom, to, fallback, enter);
+  }
+
   function drawCalloutConnectors(svg, flow, flowBox, scale) {
     Array.from(flow.querySelectorAll("div.flow-callout")).forEach((el) => {
       const anchorKey = el.getAttribute("data-anchor");
@@ -1247,7 +1341,7 @@
       } else {
         to = { x: n.right, y: n.cy };
       }
-      const pts = calloutConnectorPoints(from, to, pos, side);
+      const pts = calloutConnectorPoints(from, to, pos, side, c);
       const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
       path.setAttribute("d", pathD(pts));
       path.setAttribute("stroke-dasharray", "5 4");
@@ -1417,10 +1511,15 @@
       );
       const shape = plan.edge.shape === "straight" ? "straight" : "orthogonal";
       let pts;
-      if (shape === "straight") {
-        // Straight / diagonal between the same distributed ports as orthogonal.
-        pts = simplify([fromPort.point, toPort.point]);
+      const direct = simplify([fromPort.point, toPort.point]);
+      const directClear =
+        pathHitsObstacles(direct, plan.obstacles, HIT_PAD) === 0;
+      if (shape === "straight" && directClear) {
+        // Straight / diagonal only when the segment clears other nodes
+        // (including not running along their borders).
+        pts = direct;
       } else {
+        // Orthogonal (default), or straight falling back when blocked.
         pts = pickPathForPorts(
           plan.a,
           plan.b,
