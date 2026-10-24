@@ -1247,23 +1247,62 @@
     return pathHitsObstacles(pts, [{ box: inner }], 0) > 0;
   }
 
-  function calloutOutsidePolyline(from, to, exit, callout) {
-    // Leave the requested side, step clear of the box, then reach the entry.
+  function calloutFinalPerpendicular(pts, enter) {
+    // Last segment must meet the anchor edge at a right angle (not run along it).
+    if (!pts || pts.length < 2) return false;
+    const a = pts[pts.length - 2];
+    const b = pts[pts.length - 1];
+    const dx = Math.abs(a.x - b.x);
+    const dy = Math.abs(a.y - b.y);
+    if (enter === "top" || enter === "bottom") {
+      return dx < EPS && dy > 2;
+    }
+    return dy < EPS && dx > 2;
+  }
+
+  function calloutOutsidePolyline(from, to, exit, enter, callout) {
+    // Leave the requested side, step clear of the box, then enter perpendicular.
     const pad = 8;
-    if (exit === "left") {
-      const x = callout.left - pad;
+    if (exit === "left" || exit === "right") {
+      const x = exit === "left" ? callout.left - pad : callout.right + pad;
+      if (enter === "top" || enter === "bottom") {
+        let midY =
+          enter === "top" ? callout.bottom + pad : callout.top - pad;
+        if (enter === "top" && midY >= to.y - 2) midY = to.y - Math.max(pad, 10);
+        if (enter === "bottom" && midY <= to.y + 2) {
+          midY = to.y + Math.max(pad, 10);
+        }
+        if (enter === "top" && midY >= to.y - 2) return null;
+        if (enter === "bottom" && midY <= to.y + 2) return null;
+        return simplify([
+          from,
+          { x, y: from.y },
+          { x, y: midY },
+          { x: to.x, y: midY },
+          to,
+        ]);
+      }
       return simplify([from, { x, y: from.y }, { x, y: to.y }, to]);
     }
-    if (exit === "right") {
-      const x = callout.right + pad;
-      return simplify([from, { x, y: from.y }, { x, y: to.y }, to]);
-    }
-    if (exit === "top") {
-      const y = callout.top - pad;
-      return simplify([from, { x: from.x, y }, { x: to.x, y }, to]);
-    }
-    if (exit === "bottom") {
-      const y = callout.bottom + pad;
+    if (exit === "top" || exit === "bottom") {
+      const y = exit === "top" ? callout.top - pad : callout.bottom + pad;
+      if (enter === "left" || enter === "right") {
+        let midX =
+          enter === "left" ? callout.right + pad : callout.left - pad;
+        if (enter === "left" && midX >= to.x - 2) midX = to.x - Math.max(pad, 10);
+        if (enter === "right" && midX <= to.x + 2) {
+          midX = to.x + Math.max(pad, 10);
+        }
+        if (enter === "left" && midX >= to.x - 2) return null;
+        if (enter === "right" && midX <= to.x + 2) return null;
+        return simplify([
+          from,
+          { x: from.x, y },
+          { x: midX, y },
+          { x: midX, y: to.y },
+          to,
+        ]);
+      }
       return simplify([from, { x: from.x, y }, { x: to.x, y }, to]);
     }
     return null;
@@ -1303,17 +1342,28 @@
     const requested = calloutExitSide(pos, side);
     const enter = calloutEnterEdge(pos);
     let pts = calloutConnectorRaw(from, to, requested, enter);
-    if (!calloutBox || !calloutPathHitsBox(pts, calloutBox)) {
+    if (
+      (!calloutBox || !calloutPathHitsBox(pts, calloutBox)) &&
+      calloutFinalPerpendicular(pts, enter)
+    ) {
       return pts;
     }
     // Keep the requested side: route outside the callout box.
-    const outside = calloutOutsidePolyline(from, to, requested, calloutBox);
-    if (outside && !calloutPathHitsBox(outside, calloutBox)) {
+    const outside = calloutBox
+      ? calloutOutsidePolyline(from, to, requested, enter, calloutBox)
+      : null;
+    if (
+      outside &&
+      !calloutPathHitsBox(outside, calloutBox) &&
+      calloutFinalPerpendicular(outside, enter)
+    ) {
       return outside;
     }
     // Fall back to the facing side (e.g. pos=above → bottom).
     const fallback = calloutFacingExit(pos);
     if (fallback === requested) {
+      if (outside && calloutFinalPerpendicular(outside, enter)) return outside;
+      if (calloutFinalPerpendicular(pts, enter)) return pts;
       return outside || pts;
     }
     const altFrom = calloutExitPoint(calloutBox, pos, fallback);
@@ -1485,25 +1535,88 @@
       portCounts.set(fk, (portCounts.get(fk) || 0) + 1);
       portCounts.set(tk, (portCounts.get(tk) || 0) + 1);
     });
-    const portIndex = new Map();
 
-    function takePort(nodeKey, side, box) {
-      const key = `${nodeKey}:${side}`;
-      const count = portCounts.get(key) || 1;
-      const index = portIndex.get(key) || 0;
-      portIndex.set(key, index + 1);
+    // Pre-assign port slots. Same-side U/C fan-in reverses target slots so the
+    // farther source gets the farther port and nested trunks do not cross.
+    const fromSlotOf = new Array(plans.length);
+    const toSlotOf = new Array(plans.length);
+    const fromCursor = new Map();
+    plans.forEach((plan, idx) => {
+      const key = `${plan.edge.from}:${plan.fromSide}`;
+      const index = fromCursor.get(key) || 0;
+      fromCursor.set(key, index + 1);
+      fromSlotOf[idx] = index;
+    });
+    const toGroups = new Map();
+    plans.forEach((plan, idx) => {
+      const key = `${plan.edge.to}:${plan.toSide}`;
+      if (!toGroups.has(key)) toGroups.set(key, []);
+      toGroups.get(key).push(idx);
+    });
+    toGroups.forEach((idxs) => {
+      const sample = plans[idxs[0]];
+      const side = sample.toSide;
+      const allNest = idxs.every((i) => plans[i].fromSide === plans[i].toSide);
+      if (
+        allNest &&
+        (side === "top" || side === "bottom") &&
+        idxs.length > 1
+      ) {
+        idxs.sort((i, j) => plans[i].a.cx - plans[j].a.cx);
+        const avgSrc =
+          idxs.reduce((s, i) => s + plans[i].a.cx, 0) / idxs.length;
+        const fromLeft = sample.b.cx >= avgSrc;
+        idxs.forEach((planIdx, order) => {
+          toSlotOf[planIdx] = fromLeft
+            ? idxs.length - 1 - order
+            : order;
+        });
+      } else if (
+        allNest &&
+        (side === "left" || side === "right") &&
+        idxs.length > 1
+      ) {
+        idxs.sort((i, j) => plans[i].a.cy - plans[j].a.cy);
+        const avgSrc =
+          idxs.reduce((s, i) => s + plans[i].a.cy, 0) / idxs.length;
+        const fromAbove = sample.b.cy >= avgSrc;
+        idxs.forEach((planIdx, order) => {
+          toSlotOf[planIdx] = fromAbove
+            ? idxs.length - 1 - order
+            : order;
+        });
+      } else {
+        idxs.forEach((planIdx, order) => {
+          toSlotOf[planIdx] = order;
+        });
+      }
+    });
+
+    function portAt(box, side, slot, count) {
       const offset = clampPortOffset(
         box,
         side,
-        portSlotOffset(index, count, portGap)
+        portSlotOffset(slot, count, portGap)
       );
-      return { point: sidePointAt(box, side, offset), index, count };
+      return {
+        point: sidePointAt(box, side, offset),
+        index: slot,
+        count,
+      };
     }
 
     // Pass 2: route between allocated ports (orthogonal by default; straight opt-in).
-    plans.forEach((plan) => {
-      const fromPort = takePort(plan.edge.from, plan.fromSide, plan.a);
-      const toPort = takePort(plan.edge.to, plan.toSide, plan.b);
+    plans.forEach((plan, planIdx) => {
+      const fromCount =
+        portCounts.get(`${plan.edge.from}:${plan.fromSide}`) || 1;
+      const toCount = portCounts.get(`${plan.edge.to}:${plan.toSide}`) || 1;
+      const fromPort = portAt(
+        plan.a,
+        plan.fromSide,
+        fromSlotOf[planIdx],
+        fromCount
+      );
+      const toPort = portAt(plan.b, plan.toSide, toSlotOf[planIdx], toCount);
       const corridorShift = portSlotOffset(
         toPort.index,
         toPort.count,
@@ -1532,12 +1645,28 @@
           plan.fromSide,
           plan.toSide
         );
-        // Nudge U/C trunks apart for fan-in on the same side.
+        // Same-side U detours: nest trunks with full port-gap spacing and enough
+        // final drop that arrowheads stay clear of neighbouring trunks.
         if (
+          plan.fromSide === plan.toSide &&
+          (plan.toSide === "top" || plan.toSide === "bottom") &&
+          toPort.count > 1
+        ) {
+          const nestGap = portGap;
+          const baseClear = Math.max(portGap, 14);
+          const rank = toPort.index;
+          const midY =
+            plan.toSide === "top"
+              ? Math.min(fromPort.point.y, toPort.point.y) -
+                baseClear -
+                nestGap * rank
+              : Math.max(fromPort.point.y, toPort.point.y) +
+                baseClear +
+                nestGap * rank;
+          pts = buildUPath(fromPort.point, toPort.point, midY);
+        } else if (
           (plan.fromSide === "bottom" && plan.toSide === "top") ||
-          (plan.fromSide === "top" && plan.toSide === "bottom") ||
-          (plan.fromSide === "top" && plan.toSide === "top") ||
-          (plan.fromSide === "bottom" && plan.toSide === "bottom")
+          (plan.fromSide === "top" && plan.toSide === "bottom")
         ) {
           pts = rebuildOrthogonalWithPorts(
             pts,

@@ -688,6 +688,8 @@ def test_straight_same_row_skips_intermediate_borders(geometry_page):
 
 def test_straight_fan_in_same_row_avoids_borders_and_diverges(geometry_page):
     mid_ys = []
+    drops = []
+    paths = {}
     for src, avoid in (
         ("x15", ["y15", "z15"]),
         ("y15", ["x15", "z15"]),
@@ -705,16 +707,86 @@ def test_straight_fan_in_same_row_avoids_borders_and_diverges(geometry_page):
         assert hit.get("ok"), (src, hit)
         pts = hit.get("pts") or []
         assert pts, src
-        # Collect horizontal trunk y when present (U-shaped detour).
+        paths[src] = pts
+        # U-shaped detours only (direct same-row neighbours stay 2-point).
+        if len(pts) < 4:
+            continue
         for i in range(1, len(pts)):
             if abs(pts[i]["y"] - pts[i - 1]["y"]) < 0.75 and abs(
                 pts[i]["x"] - pts[i - 1]["x"]
             ) >= 8:
                 mid_ys.append(round(pts[i]["y"], 1))
+                drops.append(abs(pts[-1]["y"] - pts[i]["y"]))
                 break
     # Fan-in edges that detour must not collapse onto one shared trunk.
-    if len(mid_ys) >= 2:
-        assert len(set(mid_ys)) >= 2 or max(mid_ys) - min(mid_ys) >= 6, mid_ys
+    assert len(mid_ys) >= 2, paths
+    assert max(mid_ys) - min(mid_ys) >= 10, mid_ys
+    assert min(drops) >= 12, drops
+    # Farther source (x15) must take the farther drop port so trunks nest.
+    assert paths["x15"][-1]["x"] > paths["y15"][-1]["x"], (
+        paths["x15"],
+        paths["y15"],
+    )
+
+    # Nested trunks must not cross near the arrowheads (tight endpoint tolerance).
+    cross = geometry_page.evaluate(
+        """() => {
+          const slide = document.querySelectorAll('.slide')[14];
+          const flow = slide.querySelector('.flow');
+          function ptsOf(fromKey) {
+            const path = flow.querySelector(
+              `svg.flow-svg path.flow-arrow[data-from="${fromKey}"][data-to="t15"]`
+            );
+            if (!path) return null;
+            const pts = [];
+            const re = /([ML])\\s*([-\\d.]+)\\s+([-\\d.]+)/g;
+            let m;
+            const d = path.getAttribute('d') || '';
+            while ((m = re.exec(d))) pts.push({ x: +m[2], y: +m[3] });
+            return pts;
+          }
+          function segmentsCross(a1, a2, b1, b2) {
+            const eps = 0.75;
+            const aVert = Math.abs(a1.x - a2.x) < eps;
+            const bVert = Math.abs(b1.x - b2.x) < eps;
+            if (aVert === bVert) return false;
+            const vert = aVert ? [a1, a2] : [b1, b2];
+            const horz = aVert ? [b1, b2] : [a1, a2];
+            const x = vert[0].x;
+            const y = horz[0].y;
+            const yLo = Math.min(vert[0].y, vert[1].y) + eps;
+            const yHi = Math.max(vert[0].y, vert[1].y) - eps;
+            const xLo = Math.min(horz[0].x, horz[1].x) + eps;
+            const xHi = Math.max(horz[0].x, horz[1].x) - eps;
+            return x > xLo && x < xHi && y > yLo && y < yHi;
+          }
+          function near(p, q, tol) {
+            return Math.hypot(p.x - q.x, p.y - q.y) <= tol;
+          }
+          const a = ptsOf('x15');
+          const b = ptsOf('y15');
+          if (!a || !b) return { ok: false };
+          let crosses = 0;
+          let nearEnd = 0;
+          for (let i = 1; i < a.length; i++) {
+            for (let j = 1; j < b.length; j++) {
+              if (!segmentsCross(a[i - 1], a[i], b[j - 1], b[j])) continue;
+              crosses += 1;
+              const crossPt =
+                Math.abs(a[i - 1].x - a[i].x) < 0.75
+                  ? { x: a[i - 1].x, y: b[j - 1].y }
+                  : { x: b[j - 1].x, y: a[i - 1].y };
+              // Only ignore exact shared endpoints (~1px). An 8px exclusion
+              // would hide the nested-trunk crossing next to the arrowheads.
+              const ends = [a[0], a[a.length - 1], b[0], b[b.length - 1]];
+              if (ends.some((e) => near(crossPt, e, 1.5))) nearEnd += 1;
+              else return { ok: false, crosses, crossPt, a, b };
+            }
+          }
+          return { ok: true, crosses, nearEnd, a, b };
+        }"""
+    )
+    assert cross.get("ok"), cross
 
 
 def test_callout_above_side_left_avoids_own_box(geometry_page):
@@ -770,6 +842,9 @@ def test_callout_above_side_left_avoids_own_box(geometry_page):
           };
           const start = pts[0];
           const end = pts[pts.length - 1];
+          const prev = pts[pts.length - 2];
+          const finalDx = Math.abs(end.x - prev.x);
+          const finalDy = Math.abs(end.y - prev.y);
           const leftExit =
             Math.abs(start.x - box.left) < 3 && Math.abs(start.y - box.cy) < 8;
           const bottomExit =
@@ -780,6 +855,8 @@ def test_callout_above_side_left_avoids_own_box(geometry_page):
             leftExit,
             bottomExit,
             endNearTop: Math.hypot(end.x - nodeTop.x, end.y - nodeTop.y) < 8,
+            finalPerpendicular: finalDx < 0.75 && finalDy > 2,
+            entersDownward: prev.y < end.y - 1,
             pts,
           };
         }"""
@@ -788,6 +865,64 @@ def test_callout_above_side_left_avoids_own_box(geometry_page):
     assert not result["through"], result
     assert result["leftExit"] or result["bottomExit"], result
     assert result["endNearTop"], result
+    assert result["finalPerpendicular"], result
+    assert result["entersDownward"], result
+
+
+def test_callout_final_segment_perpendicular_all_pos_side(geometry_page):
+    # Slides 17..40 in fixtures/geometry/slides.md cover every pos/side pair.
+    result = geometry_page.evaluate(
+        """() => {
+          const slides = Array.from(document.querySelectorAll('.slide'));
+          const failures = [];
+          const seen = [];
+          const enterOf = {
+            above: 'top',
+            below: 'bottom',
+            'below-left': 'bottom',
+            'below-right': 'bottom',
+            left: 'left',
+            right: 'right',
+          };
+          // Matrix starts after the older geometry repros (slide index 16+).
+          for (let idx = 16; idx < slides.length; idx++) {
+            const slide = slides[idx];
+            const flow = slide.querySelector('.flow');
+            const callout = flow && flow.querySelector('div.flow-callout');
+            const path = flow && flow.querySelector('path.flow-callout-arrow');
+            if (!callout || !path) {
+              failures.push({ idx, reason: 'missing' });
+              continue;
+            }
+            const pos = callout.getAttribute('data-pos') || '';
+            const side = callout.getAttribute('data-side') || '';
+            seen.push(pos + ':' + side);
+            const enter = enterOf[pos];
+            const pts = [];
+            const re = /([ML])\\s*([-\\d.]+)\\s+([-\\d.]+)/g;
+            let m;
+            const d = path.getAttribute('d') || '';
+            while ((m = re.exec(d))) pts.push({ x: +m[2], y: +m[3] });
+            if (pts.length < 2) {
+              failures.push({ idx, pos, side, reason: 'short', pts });
+              continue;
+            }
+            const prev = pts[pts.length - 2];
+            const end = pts[pts.length - 1];
+            const dx = Math.abs(end.x - prev.x);
+            const dy = Math.abs(end.y - prev.y);
+            const ok =
+              enter === 'top' || enter === 'bottom'
+                ? dx < 0.75 && dy > 2
+                : dy < 0.75 && dx > 2;
+            if (!ok) failures.push({ idx, pos, side, enter, dx, dy, pts });
+          }
+          return { matrixCount: slides.length - 16, seen, failures };
+        }"""
+    )
+    assert result["matrixCount"] == 24, result
+    assert len(result["seen"]) == 24, result
+    assert result["failures"] == [], result
 
 
 def test_source_label_style_tokens_emitted():

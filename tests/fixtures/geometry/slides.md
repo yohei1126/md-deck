@@ -210,3 +210,219 @@ Target {#t15}
 Left -> Anchor {#a16} -> Right
 callout: a16 : above note [pos=above side=left]
 :::
+
+---
+
+# above side=left
+
+::: flow wide
+L -> A {#a} -> R
+callout: a : note [pos=above side=left]
+:::
+
+---
+
+# above side=right
+
+::: flow wide
+L -> A {#a} -> R
+callout: a : note [pos=above side=right]
+:::
+
+---
+
+# above side=top
+
+::: flow wide
+L -> A {#a} -> R
+callout: a : note [pos=above side=top]
+:::
+
+---
+
+# above side=bottom
+
+::: flow wide
+L -> A {#a} -> R
+callout: a : note [pos=above side=bottom]
+:::
+
+---
+
+# below side=left
+
+::: flow wide
+L -> A {#a} -> R
+callout: a : note [pos=below side=left]
+:::
+
+---
+
+# below side=right
+
+::: flow wide
+L -> A {#a} -> R
+callout: a : note [pos=below side=right]
+:::
+
+---
+
+# below side=top
+
+::: flow wide
+L -> A {#a} -> R
+callout: a : note [pos=below side=top]
+:::
+
+---
+
+# below side=bottom
+
+::: flow wide
+L -> A {#a} -> R
+callout: a : note [pos=below side=bottom]
+:::
+
+---
+
+# below-left side=left
+
+::: flow wide
+L -> A {#a} -> R
+callout: a : note [pos=below-left side=left]
+:::
+
+---
+
+# below-left side=right
+
+::: flow wide
+L -> A {#a} -> R
+callout: a : note [pos=below-left side=right]
+:::
+
+---
+
+# below-left side=top
+
+::: flow wide
+L -> A {#a} -> R
+callout: a : note [pos=below-left side=top]
+:::
+
+---
+
+# below-left side=bottom
+
+::: flow wide
+L -> A {#a} -> R
+callout: a : note [pos=below-left side=bottom]
+:::
+
+---
+
+# below-right side=left
+
+::: flow wide
+L -> A {#a} -> R
+callout: a : note [pos=below-right side=left]
+:::
+
+---
+
+# below-right side=right
+
+::: flow wide
+L -> A {#a} -> R
+callout: a : note [pos=below-right side=right]
+:::
+
+---
+
+# below-right side=top
+
+::: flow wide
+L -> A {#a} -> R
+callout: a : note [pos=below-right side=top]
+:::
+
+---
+
+# below-right side=bottom
+
+::: flow wide
+L -> A {#a} -> R
+callout: a : note [pos=below-right side=bottom]
+:::
+
+---
+
+# left side=left
+
+::: flow wide
+Spacer -> A {#a} -> R
+callout: a : note [pos=left side=left]
+:::
+
+---
+
+# left side=right
+
+::: flow wide
+Spacer -> A {#a} -> R
+callout: a : note [pos=left side=right]
+:::
+
+---
+
+# left side=top
+
+::: flow wide
+Spacer -> A {#a} -> R
+callout: a : note [pos=left side=top]
+:::
+
+---
+
+# left side=bottom
+
+::: flow wide
+Spacer -> A {#a} -> R
+callout: a : note [pos=left side=bottom]
+:::
+
+---
+
+# right side=left
+
+::: flow wide
+L -> A {#a} -> Spacer
+callout: a : note [pos=right side=left]
+:::
+
+---
+
+# right side=right
+
+::: flow wide
+L -> A {#a} -> Spacer
+callout: a : note [pos=right side=right]
+:::
+
+---
+
+# right side=top
+
+::: flow wide
+L -> A {#a} -> Spacer
+callout: a : note [pos=right side=top]
+:::
+
+---
+
+# right side=bottom
+
+::: flow wide
+L -> A {#a} -> Spacer
+callout: a : note [pos=right side=bottom]
+:::
