@@ -57,6 +57,7 @@ TOKEN_SPEC: dict[str, tuple[str, Any]] = {
     "gap": ("--gap", "16px"),
     "flow_callout_gap": ("--flow-callout-gap", "12px"),
     "flow_port_gap": ("--flow-port-gap", "12px"),
+    "flow_edge_shape": ("--flow-edge-shape", "orthogonal"),
     "card_radius": ("--card-radius", "8px"),
     "card_padding": ("--card-padding", "16px"),
     "key_message_radius": ("--key-message-radius", "8px"),
@@ -66,6 +67,7 @@ TOKEN_SPEC: dict[str, tuple[str, Any]] = {
     "flow_node_padding": ("--flow-node-padding", "12px"),
     "label_question": ("--label-question", "Question"),
     "label_key_message": ("--label-key-message", "Key Message"),
+    "label_source": ("--label-source", "Source:"),
     "question_label_placement": ("--question-label-placement", "inline"),
     "page_number_placement": ("--page-number-placement", "bottom-right"),
 }
@@ -96,12 +98,16 @@ ZERO_OR_NONE_TOKENS = frozenset(
 # Footer insets may be negative (pull toward the page edge past page padding).
 SIGNED_SIZE_TOKENS = frozenset({"footer_inset_bottom", "footer_inset_right"})
 
-LABEL_TOKENS = frozenset({"label_question", "label_key_message"})
+LABEL_TOKENS = frozenset({"label_question", "label_key_message", "label_source"})
+# label_source may be "" to hide the footer prefix; other labels stay non-empty.
+OPTIONAL_EMPTY_LABEL_TOKENS = frozenset({"label_source"})
 PLACEMENT_TOKENS = frozenset({"question_label_placement", "page_number_placement"})
 PAGE_NUMBER_PLACEMENTS = frozenset(
     {"bottom-right", "bottom-left", "bottom-center"}
 )
 QUESTION_LABEL_PLACEMENTS = frozenset({"inline", "block"})
+EDGE_SHAPE_TOKENS = frozenset({"flow_edge_shape"})
+EDGE_SHAPES = frozenset({"orthogonal", "straight"})
 
 FRONT_MATTER_RE = re.compile(r"\A---\s*\n(.*?)\n---\s*\n?", re.DOTALL)
 CSS_FENCE_RE = re.compile(r"```css\s*\n(.*?)```", re.DOTALL | re.IGNORECASE)
@@ -116,7 +122,7 @@ def _format_css_value(token: str, value: Any) -> str:
         # CSS string for content: var(--label-question)
         text = str(value).replace("\\", "\\\\").replace('"', '\\"')
         return f'"{text}"'
-    if token in PLACEMENT_TOKENS:
+    if token in PLACEMENT_TOKENS or token in EDGE_SHAPE_TOKENS:
         return str(value).strip().lower()
     if isinstance(value, str) and value.strip().lower() == "none":
         return "none"

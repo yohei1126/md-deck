@@ -64,6 +64,10 @@ flow_node_padding: 12
 # Optional; when omitted, defaults follow slides lang (en/ja).
 # label_question: "Question"
 # label_key_message: "Key Message"
+# label_source: "Source:"   # empty string hides the footer prefix
+# flow_edge_shape: orthogonal  # or straight
+# flow_callout_gap: 12
+# flow_port_gap: 12
 question_label_placement: inline
 page_number_placement: bottom-right
 ---

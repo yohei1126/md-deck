@@ -16,8 +16,11 @@ from md_deck.errors import CheckError, sort_errors
 from md_deck.flow import KNOWN_NODE_KINDS, collect_flow_nodes, parse_flow_body
 from md_deck.slides import ALLOWED_NESTING, BLOCK_OPTIONS
 from md_deck.style import (
+    EDGE_SHAPE_TOKENS,
+    EDGE_SHAPES,
     FRONT_MATTER_RE,
     LABEL_TOKENS,
+    OPTIONAL_EMPTY_LABEL_TOKENS,
     PAGE_NUMBER_PLACEMENTS,
     PLACEMENT_TOKENS,
     QUESTION_LABEL_PLACEMENTS,
@@ -365,9 +368,23 @@ def validate_style_tokens(tokens: Any, path: str, fm_line: int) -> list[CheckErr
                     CheckError(path, fm_line, f"token {key}: must be a non-empty string")
                 )
         elif key in LABEL_TOKENS:
-            if not isinstance(value, str) or not value.strip():
+            if not isinstance(value, str):
+                errors.append(
+                    CheckError(path, fm_line, f"token {key}: must be a string")
+                )
+            elif key not in OPTIONAL_EMPTY_LABEL_TOKENS and not value.strip():
                 errors.append(
                     CheckError(path, fm_line, f"token {key}: must be a non-empty string")
+                )
+        elif key in EDGE_SHAPE_TOKENS:
+            text = str(value).strip().lower()
+            if text not in EDGE_SHAPES:
+                errors.append(
+                    CheckError(
+                        path,
+                        fm_line,
+                        f"token {key}: expected {', '.join(sorted(EDGE_SHAPES))}, got {value!r}",
+                    )
                 )
         elif key in PLACEMENT_TOKENS:
             text = str(value).strip().lower()
@@ -484,7 +501,8 @@ def validate_slide_body(
     # Track fenced code (``` / ~~~) and ::: blocks (stack for allowed nesting).
     code_fence: str | None = None
     code_fence_line = 0
-    block_stack: list[tuple[str, int, list[str]]] = []  # (kind, start_line, lines)
+    # (kind, start_line, lines, options)
+    block_stack: list[tuple[str, int, list[str], frozenset[str]]] = []
 
     h1_lines: list[int] = []
     key_message_lines: list[int] = []
@@ -554,19 +572,23 @@ def validate_slide_body(
                         CheckError(path, lineno, "stray closing ::: without an open block")
                     )
                 else:
-                    kind, start_line, body_lines = block_stack.pop()
+                    kind, start_line, body_lines, block_opts = block_stack.pop()
                     errors.extend(
                         _validate_block_content(
                             path,
                             kind,
                             start_line,
                             "\n".join(body_lines),
+                            options=block_opts,
                         )
                     )
                     # Keep nested fence text inside the parent body so columns
                     # still see the inner flow as non-empty content.
                     if block_stack:
-                        opener = f"::: {kind}"
+                        opt_suffix = (
+                            (" " + " ".join(sorted(block_opts))) if block_opts else ""
+                        )
+                        opener = f"::: {kind}{opt_suffix}"
                         nested = [opener, *body_lines, ":::"]
                         block_stack[-1][2].extend(nested)
                 i += 1
@@ -596,10 +618,11 @@ def validate_slide_body(
                         f"(expected {', '.join(sorted(KNOWN_BLOCK_KINDS))})",
                     )
                 )
-                block_stack.append((kind or "unknown", lineno, []))
+                block_stack.append((kind or "unknown", lineno, [], frozenset()))
                 i += 1
                 continue
             allowed = BLOCK_OPTIONS.get(kind, frozenset())
+            seen_opts: set[str] = set()
             for opt in option_tokens:
                 for piece in re.split(r"[,|]+", opt):
                     piece = piece.strip().lower()
@@ -614,7 +637,9 @@ def validate_slide_body(
                                 f"(allowed: {', '.join(sorted(allowed)) or 'none'})",
                             )
                         )
-            block_stack.append((kind, lineno, []))
+                    else:
+                        seen_opts.add(piece)
+            block_stack.append((kind, lineno, [], frozenset(seen_opts)))
             i += 1
             continue
 
@@ -697,7 +722,7 @@ def validate_slide_body(
             )
         )
     while block_stack:
-        kind, start_line, _body = block_stack.pop()
+        kind, start_line, _body, _opts = block_stack.pop()
         errors.append(
             CheckError(
                 path,
@@ -762,6 +787,7 @@ def _validate_block_content(
     kind: str,
     start_line: int,
     body: str,
+    options: frozenset[str] | None = None,
 ) -> list[CheckError]:
     errors: list[CheckError] = []
     if kind not in KNOWN_BLOCK_KINDS:
@@ -778,7 +804,7 @@ def _validate_block_content(
             errors.append(CheckError(path, start_line, problem))
         for problem in _unknown_node_kinds(body):
             errors.append(CheckError(path, start_line, problem))
-        diagram = parse_flow_body(body)
+        diagram = parse_flow_body(body, options=options or frozenset())
         for err in diagram.errors:
             if err not in problems:
                 errors.append(CheckError(path, start_line, err))

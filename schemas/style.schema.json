@@ -57,6 +57,10 @@
     "gap": { "$ref": "#/$defs/sizeOrNone" },
     "flow_callout_gap": { "$ref": "#/$defs/sizeOrNone" },
     "flow_port_gap": { "$ref": "#/$defs/sizeOrNone" },
+    "flow_edge_shape": {
+      "type": "string",
+      "enum": ["orthogonal", "straight"]
+    },
     "card_radius": { "$ref": "#/$defs/sizeOrNone" },
     "card_padding": { "$ref": "#/$defs/sizeOrNone" },
     "key_message_radius": { "$ref": "#/$defs/sizeOrNone" },
@@ -66,6 +70,10 @@
     "flow_node_padding": { "$ref": "#/$defs/sizeOrNone" },
     "label_question": { "type": "string", "minLength": 1 },
     "label_key_message": { "type": "string", "minLength": 1 },
+    "label_source": {
+      "type": "string",
+      "description": "Footer source prefix. Empty string hides it. Defaults follow lang when omitted."
+    },
     "question_label_placement": {
       "type": "string",
       "enum": ["inline", "block"]

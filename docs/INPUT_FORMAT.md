@@ -91,12 +91,12 @@ Deck-specific:
 - At most one `**Key Message:**` line per slide
 - Known blocks: `::: question`, `::: flow`, `::: columns`, `::: source`
 - Block options after the kind are validated per kind; unknown options fail with `file:line`
-  - `flow`: `wide`
+  - `flow`: `wide`, `straight`
   - `columns`: `plain`, `panel`
   - `question` / `source`: no options
 - Every `:::` opener needs a matching closer; stray closers and `::` / `::::` lines fail
 - Nested blocks are forbidden, except `::: flow` inside `::: columns` (one level only)
-- Flow: at least two nodes; empty nodes in `A -> -> B` fail; unknown `[kind]` markers fail; unknown `route=` / `pos=` values fail; duplicate `{#id}` fails
+- Flow: at least two nodes; empty nodes in `A -> -> B` fail; unknown `[kind]` markers fail; unknown `route=` / `pos=` / `shape=` / `side=` values fail; duplicate `{#id}` fails
 - Columns: at least two non-empty parts split by a `+++` line; `+++` outside `columns` fails
 - Question and source blocks must not be empty
 - Tables: every row has the same column count; an empty first header cell promotes the first body column to `th[scope=row]`
@@ -135,16 +135,20 @@ callout: pdf : Ready to ship [pos=below]
 | Chips inside the node | `Name [[chip1, chip2]]` (split on `,` only; write `\,` for a literal comma; `/` stays inside the chip). A chips-only node `[[a, b]]` is allowed |
 | Line break in node / label / badge | `\n` or a trailing `\` |
 | Lane | `lane: Label` starts a lane |
-| Cross-lane link | `link: From => To : optional label [route=between]` (also `->` / `..>`; routes below). A bare `{#id} -> {#other}` that names nodes already defined in other lanes resolves the same way |
+| Cross-lane link | `link: From => To : optional label [route=between]` (also `->` / `..>`; routes below). Optional `shape=straight` (or `orthogonal`) per link. A bare `{#id} -> {#other}` that names nodes already defined in other lanes resolves the same way |
+| Edge shape on a chain | Trailing opts on the destination: `A -> B [shape=straight]` |
 | Callout | `callout: NodeId : text [pos=below]` (`above` / `below` / `below-left` / `below-right` / `left` / `right`). Optional `side=top\|bottom\|left\|right` sets where the connector leaves the callout box |
 | Stacked column | `A -> { Upper / Lower } -> B` (edges attach to the stack mid-box; write a separate edge to each member to fan out) |
 | Parallel edges | Repeat the same pair on separate lines; strokes offset and labels separate |
+| Straight edges (flow) | `::: flow straight` (may combine with `wide`) sets the default shape for every edge in that flow |
 
 `A -> B -> C` on one line still chains. Nodes on separate lines stay unconnected until you write an arrow or a `link:` line. A bare `{#id}` in a chain refers to the existing node with that id (any lane); redefining `Name {#id}` when the id is already taken is still an error.
 
 ### Link routes and anchors
 
-Cross-lane links and same-row edges that would pass through other nodes draw as orthogonal paths. Routing treats nodes, badges, callouts, and edge labels as obstacles, only in the rows or columns the path crosses. When several clear paths exist, the renderer picks a crossing-free one deterministically. Several edges that leave or enter the same node side use distinct ports spaced by `flow_port_gap` (default 12px) so arrowheads do not stack and trunks stay separate.
+Cross-lane links and same-row edges that would pass through other nodes draw as orthogonal paths by default. Routing treats nodes, badges, callouts, and edge labels as obstacles, only in the rows or columns the path crosses. When several clear paths exist, the renderer picks a crossing-free one deterministically. Several edges that leave or enter the same node side use distinct ports spaced by `flow_port_gap` (default 12px) so arrowheads do not stack and trunks stay separate.
+
+Opt into straight (diagonal) strokes with `shape=straight` on a `link:` or chain destination, `::: flow straight`, or the style token `flow_edge_shape: straight`. Straight edges still use the same distributed ports, so fan-in into one target spreads as a fan of diagonals. Orthogonal remains the default.
 
 | `route=` | Leaves source | Enters target | Corridor |
 | --- | --- | --- | --- |
@@ -179,19 +183,21 @@ Only `flow` may nest inside `columns`. Question, source, or another columns bloc
 
 ## Sources and footer
 
-- `Source: …` or `出典:…` / `出典：…` on its own line moves into the footer with class `.source`
-- Or `::: source` … `:::` for a longer note
+- `Source: …` or `出典:…` / `出典：…` on its own line moves into the footer with class `.source`. The `Source:` / `出典：` prefix is stripped from the line body; the visible prefix comes from `label_source` (see Labels)
+- Or `::: source` … `:::` for a longer note (also gets `label_source` when non-empty)
 - Page numbers render automatically as `n / total` with class `.page-number`
 - `page_number_placement` (`bottom-right` default, also `bottom-left`, `bottom-center`) positions the page mark independently of the source footer
 
 ## Labels
 
-Style tokens `label_question` and `label_key_message` set the visible label text. When omitted, defaults follow `lang`:
+Style tokens `label_question`, `label_key_message`, and `label_source` set the visible label text. When omitted, defaults follow `lang`:
 
-| `lang` | Question | Key Message |
-| --- | --- | --- |
-| `ja` (and `ja-*`) | 議論の問い | キーメッセージ |
-| other | Question | Key Message |
+| `lang` | Question | Key Message | Source |
+| --- | --- | --- | --- |
+| `ja` (and `ja-*`) | 議論の問い | キーメッセージ | 出典： |
+| other | Question | Key Message | Source: |
+
+Set `label_source: ""` to hide the footer source prefix (the pre-`label_source` look, where only the stripped body text appeared).
 
 `question_label_placement` is `inline` by default (label in the first paragraph) or `block` (label on its own line above the body).
 

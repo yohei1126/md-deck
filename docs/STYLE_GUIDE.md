@@ -89,12 +89,14 @@ Label tokens become both HTML label text (when set) and quoted CSS variables for
 | `flow_node_padding` | `--flow-node-padding` | `12px` | no | Flow node padding |
 | `flow_callout_gap` | `--flow-callout-gap` | `12px` | no | Gap between a callout box and its anchor node |
 | `flow_port_gap` | `--flow-port-gap` | `12px` | no | Spacing between fan-in / fan-out edge ports on one node side |
+| `flow_edge_shape` | `--flow-edge-shape` | `orthogonal` | no | Default edge shape: `orthogonal` or `straight` (overridden by `::: flow straight` or per-edge `shape=`) |
 | `label_question` | `--label-question` | from `lang` | no | Question label string |
 | `label_key_message` | `--label-key-message` | from `lang` | no | Key Message label string |
+| `label_source` | `--label-source` | from `lang` | no | Footer source prefix (`Source:` / `出典：`). Empty string hides it |
 | `question_label_placement` | `--question-label-placement` | `inline` | no | `inline` (label in first paragraph) or `block` |
 | `page_number_placement` | `--page-number-placement` | `bottom-right` | no | `bottom-right`, `bottom-left`, or `bottom-center` (independent of `.source`) |
 
-When `label_*` tokens are omitted, defaults follow the slides `lang` (`ja` → 議論の問い / キーメッセージ; otherwise Question / Key Message). See [INPUT_FORMAT.md](INPUT_FORMAT.md).
+When `label_*` tokens are omitted, defaults follow the slides `lang` (`ja` → 議論の問い / キーメッセージ / 出典：; otherwise Question / Key Message / Source:). See [INPUT_FORMAT.md](INPUT_FORMAT.md).
 
 ## Optional CSS fence
 
@@ -126,7 +128,7 @@ Rules from every `css` fence in the style file are appended after the generated 
 | Key Message | at most one `**Key Message:** …` line | extras fail |
 | Question box | `::: question` … `:::` | non-empty; known kinds only |
 | Source | `Source:` / `出典:` line or `::: source` | empty source block fails |
-| Flow | `::: flow` / `::: flow wide` with arrows, lanes, links, callouts, stacks, chips, `{#id}` | ≥2 nodes; known options/kinds/routes |
+| Flow | `::: flow` / `::: flow wide` / `::: flow straight` with arrows, lanes, links, callouts, stacks, chips, `{#id}`, `shape=` | ≥2 nodes; known options/kinds/routes/shapes |
 | Columns | `::: columns` / `plain` / `panel`, split by `+++`; may nest one `::: flow` | ≥2 non-empty columns; other nesting forbidden |
 | Hard break | trailing `\`; `\n` in flow labels/badges/titles | also: newlines inside question/source |
 | Table / lists | normal Markdown; empty corner → row headers | consistent columns; list class without forced `<p>` |

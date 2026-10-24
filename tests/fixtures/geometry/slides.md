@@ -139,3 +139,42 @@ B {#b9}
 [doc] Left {#l10} | a caption under the left node -> Right {#r10}
 callout: r10 : a fairly long callout note text [pos=below-left side=right]
 :::
+
+---
+
+# 11 Callout side=left below-right
+
+::: flow wide
+Anchor {#a11} -> Middle -> Right
+callout: a11 : a callout note [pos=below-right side=left]
+:::
+
+---
+
+# 12 Straight fan-in edges
+
+::: flow wide straight
+lane: Top
+P {#p12}
+Q {#q12}
+R {#r12}
+lane: Bottom
+Wide target node with a long title so it spans the row {#t12}
+link: p12 => t12 [route=between]
+link: q12 => t12 [route=between]
+link: r12 => t12 [route=between]
+:::
+
+---
+
+# 13 Per-edge straight shape
+
+::: flow wide
+lane: Top
+P {#p13}
+Q {#q13}
+lane: Bottom
+Target {#t13}
+link: p13 => t13 [route=between shape=straight]
+link: q13 => t13 [route=between]
+:::

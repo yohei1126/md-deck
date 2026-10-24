@@ -203,10 +203,14 @@ def test_labels_from_lang():
     ja = resolve_labels("ja", {})
     assert ja.label_question == "議論の問い"
     assert ja.label_key_message == "キーメッセージ"
+    assert ja.label_source == "出典："
     en = resolve_labels("en", {})
     assert en.label_question == "Question"
+    assert en.label_source == "Source:"
     override = resolve_labels("ja", {"label_question": "Q?"})
     assert override.label_question == "Q?"
+    hidden = resolve_labels("en", {"label_source": ""})
+    assert hidden.label_source == ""
     block = resolve_labels("en", {"question_label_placement": "block"})
     assert block.question_label_placement == "block"
 
@@ -222,6 +226,7 @@ def test_source_line_and_footer_hooks():
     )
     assert slides[0].source_html is not None
     assert "Public note" in slides[0].source_html
+    assert '<span class="label">Source:</span>' in slides[0].source_html
     html = build_html(
         slides,
         tokens_to_css({
@@ -243,6 +248,50 @@ def test_source_line_and_footer_hooks():
     assert 'class="source"' in html
     assert 'data-index="1"' in html
     assert 'class="title"' in html
+
+
+def test_label_source_empty_hides_prefix():
+    meta, slides = parse_deck(
+        "---\ntitle: T\nversion: \"1\"\ndate: \"2026-01-01\"\nlang: en\nstyle: x.md\n---\n\n"
+        "# Title\n\nBody\n\nSource: Public note\n",
+        style_tokens={"label_source": ""},
+    )
+    assert slides[0].source_html is not None
+    assert "Public note" in slides[0].source_html
+    assert "Source:" not in slides[0].source_html
+    assert 'class="label"' not in slides[0].source_html
+
+
+def test_label_source_ja_default():
+    meta, slides = parse_deck(
+        "---\ntitle: T\nversion: \"1\"\ndate: \"2026-01-01\"\nlang: ja\nstyle: x.md\n---\n\n"
+        "# Title\n\nBody\n\n出典：公開資料\n"
+    )
+    assert slides[0].source_html is not None
+    assert '<span class="label">出典：</span>' in slides[0].source_html
+    assert "公開資料" in slides[0].source_html
+
+
+def test_straight_edge_shape_on_link_and_flow_option():
+    link = parse_flow_body(
+        "lane: Top\nA {#a}\nlane: Bottom\nB {#b}\n"
+        "link: a => b [shape=straight]\n"
+    )
+    assert link.errors == []
+    assert link.links[0].shape == "straight"
+    html = render_flow_html(link)
+    assert 'data-shape="straight"' in html
+
+    flow_opt = parse_flow_body("A -> B\n", options=frozenset({"straight"}))
+    assert flow_opt.lanes[0].edges[0].shape == "straight"
+    assert 'flow-straight' in render_flow_html(flow_opt)
+
+    chain = parse_flow_body("A -> B [shape=straight]\n")
+    assert chain.errors == []
+    assert chain.lanes[0].edges[0].shape == "straight"
+
+    bad = parse_flow_body("A -> B [shape=zigzag]\n")
+    assert any("unknown edge shape" in e for e in bad.errors)
 
 
 def test_heading_attr_list_on_slide():

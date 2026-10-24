@@ -29,13 +29,21 @@ ALLOWED_NESTING = frozenset({("columns", "flow")})
 BLOCK_OPTIONS: dict[str, frozenset[str]] = {
     "question": frozenset(),
     "source": frozenset(),
-    "flow": frozenset({"wide"}),
+    "flow": frozenset({"wide", "straight"}),
     "columns": frozenset({"plain", "panel"}),
 }
 
 DEFAULT_LABELS = {
-    "ja": {"label_question": "議論の問い", "label_key_message": "キーメッセージ"},
-    "en": {"label_question": "Question", "label_key_message": "Key Message"},
+    "ja": {
+        "label_question": "議論の問い",
+        "label_key_message": "キーメッセージ",
+        "label_source": "出典：",
+    },
+    "en": {
+        "label_question": "Question",
+        "label_key_message": "Key Message",
+        "label_source": "Source:",
+    },
 }
 
 
@@ -43,6 +51,7 @@ DEFAULT_LABELS = {
 class RenderContext:
     label_question: str = "Question"
     label_key_message: str = "Key Message"
+    label_source: str = "Source:"
     question_label_placement: str = "inline"  # inline | block
 
 
@@ -79,6 +88,8 @@ def resolve_labels(
     defaults = DEFAULT_LABELS.get(base, DEFAULT_LABELS["en"])
     question = tokens.get("label_question")
     key = tokens.get("label_key_message")
+    # Empty string hides the source prefix; omit the token to use the lang default.
+    source = tokens.get("label_source")
     placement = str(tokens.get("question_label_placement") or "inline").lower()
     if placement not in {"inline", "block"}:
         placement = "inline"
@@ -86,6 +97,9 @@ def resolve_labels(
         label_question=str(question) if question is not None else defaults["label_question"],
         label_key_message=(
             str(key) if key is not None else defaults["label_key_message"]
+        ),
+        label_source=(
+            str(source) if source is not None else defaults["label_source"]
         ),
         question_label_placement=placement,
     )
@@ -228,6 +242,16 @@ def _render_source_block(body: str) -> str:
         extensions=["tables", "fenced_code", "sane_lists", "smarty", "attr_list"],
         output_format="html5",
     )
+
+
+def _prefix_source_label(html: str, ctx: RenderContext) -> str:
+    """Prepend label_source before footer source HTML; empty token hides it."""
+    label = ctx.label_source
+    if not label:
+        return html
+    # Fullwidth colon already closes the Japanese prefix; ASCII colon needs a space.
+    sep = "" if label.endswith("：") else " "
+    return f'<span class="label">{_escape(label)}</span>{sep}{html}'
 
 
 def _render_flow(body: str, options: frozenset[str]) -> str:
@@ -432,7 +456,7 @@ def render_slide_markdown(
     chunks: list[str] = []
     source_parts: list[str] = []
     if source_from_line:
-        source_parts.append(source_from_line)
+        source_parts.append(_prefix_source_label(source_from_line, ctx))
 
     lines = text.splitlines(keepends=True)
     i = 0
@@ -468,7 +492,9 @@ def render_slide_markdown(
                     elif kind == "columns":
                         chunks.append(_render_columns(body, options, ctx))
                     elif kind == "source":
-                        source_parts.append(_render_source_block(body))
+                        source_parts.append(
+                            _prefix_source_label(_render_source_block(body), ctx)
+                        )
                     i = next_i
                     continue
         buf.append(line)
