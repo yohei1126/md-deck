@@ -1,0 +1,30 @@
+# Python
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Build outputs
+out/
+dist/
+*.pdf
+!docs/**/*.pdf
+
+# Page check renders
+png/
+renders/
+check/
+*-renders/
+
+# Intermediate HTML kept during debugging
+*.deck.html
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+*.swp

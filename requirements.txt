@@ -1,0 +1,4 @@
+markdown>=3.5
+PyYAML>=6.0
+playwright>=1.40
+pypdf>=4.0

@@ -1,0 +1,65 @@
+name: md-deck
+description: Build a 16:9 PDF slide deck from Markdown with a style Markdown file.
+author: yohei1126
+
+branding:
+  icon: file-text
+  color: gray-dark
+
+inputs:
+  source:
+    description: Path to the slides Markdown file
+    required: true
+  output:
+    description: Path for the output PDF
+    required: true
+  style:
+    description: Path to the style Markdown file (tokens + optional css). Required unless the slides front matter sets style.
+    required: false
+    default: ""
+  css:
+    description: Optional extra CSS file applied after the style file
+    required: false
+    default: ""
+  working-directory:
+    description: Working directory for the build
+    required: false
+    default: "."
+
+runs:
+  using: composite
+  steps:
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.12"
+
+    - name: Install system fonts
+      shell: bash
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y --no-install-recommends fonts-noto-cjk
+
+    - name: Install md-deck dependencies
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: |
+        python -m pip install --upgrade pip
+        python -m pip install -r "${{ github.action_path }}/requirements.txt"
+        python -m playwright install --with-deps chromium
+
+    - name: Build PDF
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: |
+        set -euo pipefail
+        mkdir -p "$(dirname "${{ inputs.output }}")"
+        export PYTHONPATH="${{ github.action_path }}${PYTHONPATH:+:$PYTHONPATH}"
+        CMD=(python -m md_deck "${{ inputs.source }}" -o "${{ inputs.output }}")
+        if [ -n "${{ inputs.style }}" ]; then
+          CMD+=(--style "${{ inputs.style }}")
+        fi
+        if [ -n "${{ inputs.css }}" ]; then
+          CMD+=(--css "${{ inputs.css }}")
+        fi
+        "${CMD[@]}"
