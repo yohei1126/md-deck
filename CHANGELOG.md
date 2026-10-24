@@ -4,6 +4,9 @@
 
 ### Fixed
 
+- Same-row fan-in with three or more detour trunks grows the flow's top/bottom padding so nested trunks stay inside the flow box instead of climbing through the slide title. Nesting order is unchanged (farther source = outer trunk = farther port).
+- Same-row detour fan-in / fan-out ports use at least arrowhead width plus a gap (~18px) and a final stub at least arrowhead length (~18px). Cross-row diagonal fan-in still spaces ports by `flow_port_gap` (default 12px). Callout connectors use the same minimum final-segment length.
+- Same-row fan-out nests trunks at distinct heights with distinct source ports (mirror of fan-in), so parallel trunks no longer overlap collinearly as one bracket.
 - Callout connectors with `pos=above side=left` (and every other `pos`/`side` pair) keep a final segment perpendicular to the anchor edge they enter. Outside routing no longer runs the last segment along the node border; when that geometry is impossible the connector falls back to the facing side.
 - Same-row `::: flow straight` fan-in (and the orthogonal same-side U detour) assigns the farther source the farther target port so nested trunks do not cross next to the arrowheads. Trunk spacing and the final drop respect `flow_port_gap` so arrowheads stay clear.
 - Straight edges (`shape=straight`, `::: flow straight`, or `flow_edge_shape: straight`) no longer draw along intermediate node borders. When a straight segment would cross or run along a non-endpoint node, routing falls back to an obstacle-avoiding orthogonal path (same-row bends above/below, distinct fan-in trunks).

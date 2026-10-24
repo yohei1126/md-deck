@@ -426,3 +426,49 @@ callout: a : note [pos=right side=top]
 L -> A {#a} -> Spacer
 callout: a : note [pos=right side=bottom]
 :::
+
+---
+
+# 17 Straight fan-in four sources
+
+::: flow straight
+P {#p17}
+Q {#q17}
+R {#r17}
+S {#s17}
+T {#t17}
+{#p17} -> {#t17}
+{#q17} -> {#t17}
+{#r17} -> {#t17}
+{#s17} -> {#t17}
+:::
+
+---
+
+# 18 Orthogonal fan-in four sources
+
+::: flow
+P {#p18}
+Q {#q18}
+R {#r18}
+S {#s18}
+T {#t18}
+{#p18} -> {#t18}
+{#q18} -> {#t18}
+{#r18} -> {#t18}
+{#s18} -> {#t18}
+:::
+
+---
+
+# 19 Straight fan-out same row
+
+::: flow straight
+Source {#t19}
+Alpha {#x19}
+Beta {#y19}
+Gamma {#z19}
+{#t19} -> {#x19}
+{#t19} -> {#y19}
+{#t19} -> {#z19}
+:::

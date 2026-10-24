@@ -720,13 +720,17 @@ def test_straight_fan_in_same_row_avoids_borders_and_diverges(geometry_page):
                 break
     # Fan-in edges that detour must not collapse onto one shared trunk.
     assert len(mid_ys) >= 2, paths
-    assert max(mid_ys) - min(mid_ys) >= 10, mid_ys
-    assert min(drops) >= 12, drops
+    assert max(mid_ys) - min(mid_ys) >= 16, mid_ys
+    assert min(drops) >= 18, drops
     # Farther source (x15) must take the farther drop port so trunks nest.
     assert paths["x15"][-1]["x"] > paths["y15"][-1]["x"], (
         paths["x15"],
         paths["y15"],
     )
+    # Detour fan-in ports stay at least an arrowhead-width apart.
+    ends = [paths[s][-1]["x"] for s in ("x15", "y15") if len(paths[s]) >= 4]
+    if len(ends) >= 2:
+        assert abs(ends[0] - ends[1]) >= 16, ends
 
     # Nested trunks must not cross near the arrowheads (tight endpoint tolerance).
     cross = geometry_page.evaluate(
@@ -870,7 +874,8 @@ def test_callout_above_side_left_avoids_own_box(geometry_page):
 
 
 def test_callout_final_segment_perpendicular_all_pos_side(geometry_page):
-    # Slides 17..40 in fixtures/geometry/slides.md cover every pos/side pair.
+    # Slides 16..39 in fixtures/geometry/slides.md cover every pos/side pair.
+    # Later slides are unrelated repros; keep the matrix window fixed.
     result = geometry_page.evaluate(
         """() => {
           const slides = Array.from(document.querySelectorAll('.slide'));
@@ -884,10 +889,11 @@ def test_callout_final_segment_perpendicular_all_pos_side(geometry_page):
             left: 'left',
             right: 'right',
           };
-          // Matrix starts after the older geometry repros (slide index 16+).
-          for (let idx = 16; idx < slides.length; idx++) {
+          const MATRIX_START = 16;
+          const MATRIX_COUNT = 24;
+          for (let idx = MATRIX_START; idx < MATRIX_START + MATRIX_COUNT; idx++) {
             const slide = slides[idx];
-            const flow = slide.querySelector('.flow');
+            const flow = slide && slide.querySelector('.flow');
             const callout = flow && flow.querySelector('div.flow-callout');
             const path = flow && flow.querySelector('path.flow-callout-arrow');
             if (!callout || !path) {
@@ -911,13 +917,24 @@ def test_callout_final_segment_perpendicular_all_pos_side(geometry_page):
             const end = pts[pts.length - 1];
             const dx = Math.abs(end.x - prev.x);
             const dy = Math.abs(end.y - prev.y);
+            const finalLen = Math.hypot(dx, dy);
             const ok =
               enter === 'top' || enter === 'bottom'
                 ? dx < 0.75 && dy > 2
                 : dy < 0.75 && dx > 2;
             if (!ok) failures.push({ idx, pos, side, enter, dx, dy, pts });
+            else if (finalLen < 17.5) {
+              failures.push({
+                idx,
+                pos,
+                side,
+                reason: 'short-final',
+                finalLen,
+                pts,
+              });
+            }
           }
-          return { matrixCount: slides.length - 16, seen, failures };
+          return { matrixCount: MATRIX_COUNT, seen, failures };
         }"""
     )
     assert result["matrixCount"] == 24, result
@@ -936,3 +953,212 @@ def test_source_label_style_tokens_emitted():
     default_css = tokens_to_css(tokens, extra)
     assert "--source-label-weight: 600;" in default_css
     assert "--source-label-gap: 0.15em;" in default_css
+
+
+def _detour_trunk_meta(geometry_page, slide_index, sources, target):
+    return geometry_page.evaluate(
+        """({ slideIndex, sources, target }) => {
+          const slide = document.querySelectorAll('.slide')[slideIndex];
+          const flow = slide.querySelector('.flow');
+          const scale = Number(slide.dataset.scale || '1') || 1;
+          const fr = flow.getBoundingClientRect();
+          const h1 = slide.querySelector('h1');
+          const hr = h1.getBoundingClientRect();
+          // Title and anything outside the flow box count as obstacles.
+          const outside = {
+            left: -1e6,
+            right: 1e6,
+            top: -1e6,
+            bottom: 0,
+          };
+          const titleInFlow = {
+            left: (hr.left - fr.left) / scale,
+            right: (hr.right - fr.left) / scale,
+            top: (hr.top - fr.top) / scale,
+            bottom: (hr.bottom - fr.top) / scale,
+          };
+          function segHits(p, q, b, pad) {
+            const minX = Math.min(p.x, q.x), maxX = Math.max(p.x, q.x);
+            const minY = Math.min(p.y, q.y), maxY = Math.max(p.y, q.y);
+            const bl = b.left - pad, br = b.right + pad;
+            const bt = b.top - pad, bb = b.bottom + pad;
+            if (maxX < bl || minX > br || maxY < bt || minY > bb) return false;
+            if (Math.abs(p.x - q.x) < 0.75) return p.x >= bl && p.x <= br;
+            if (Math.abs(p.y - q.y) < 0.75) return p.y >= bt && p.y <= bb;
+            return true;
+          }
+          const paths = {};
+          const hitsTitle = [];
+          const hitsOutside = [];
+          const ends = [];
+          const midYs = [];
+          const finals = [];
+          for (const src of sources) {
+            const path = flow.querySelector(
+              `svg.flow-svg path.flow-arrow[data-from="${src}"][data-to="${target}"]`
+            );
+            if (!path) continue;
+            const pts = [];
+            const re = /([ML])\\s*([-\\d.]+)\\s+([-\\d.]+)/g;
+            let m;
+            const d = path.getAttribute('d') || '';
+            while ((m = re.exec(d))) pts.push({ x: +m[2], y: +m[3] });
+            paths[src] = pts;
+            for (let i = 1; i < pts.length; i++) {
+              if (segHits(pts[i - 1], pts[i], titleInFlow, 0.5)) {
+                hitsTitle.push(src);
+              }
+              // Any point above the flow content box (y < 0) is outside.
+              if (pts[i - 1].y < -0.5 || pts[i].y < -0.5) hitsOutside.push(src);
+              if (pts[i - 1].y > flow.clientHeight + 0.5 || pts[i].y > flow.clientHeight + 0.5) {
+                hitsOutside.push(src);
+              }
+            }
+            if (pts.length >= 4) {
+              ends.push(pts[pts.length - 1].x);
+              for (let i = 1; i < pts.length; i++) {
+                if (
+                  Math.abs(pts[i].y - pts[i - 1].y) < 0.75 &&
+                  Math.abs(pts[i].x - pts[i - 1].x) >= 8
+                ) {
+                  midYs.push(pts[i].y);
+                  finals.push(
+                    Math.hypot(
+                      pts[pts.length - 1].x - pts[pts.length - 2].x,
+                      pts[pts.length - 1].y - pts[pts.length - 2].y
+                    )
+                  );
+                  break;
+                }
+              }
+            }
+          }
+          return {
+            flowHeight: flow.clientHeight,
+            padTop: parseFloat(getComputedStyle(flow).paddingTop) || 0,
+            titleInFlow,
+            hitsTitle: [...new Set(hitsTitle)],
+            hitsOutside: [...new Set(hitsOutside)],
+            ends,
+            midYs,
+            finals,
+            paths,
+          };
+        }""",
+        {
+            "slideIndex": slide_index,
+            "sources": sources,
+            "target": target,
+        },
+    )
+
+
+def test_same_row_fan_in_trunks_stay_inside_flow_and_miss_title(geometry_page):
+    # Slide 40: four-source straight fan-in; slide 41: orthogonal twin.
+    for slide_index, prefix in ((40, "17"), (41, "18")):
+        sources = [f"p{prefix}", f"q{prefix}", f"r{prefix}", f"s{prefix}"]
+        target = f"t{prefix}"
+        meta = _detour_trunk_meta(geometry_page, slide_index, sources, target)
+        assert not meta["hitsTitle"], (slide_index, meta)
+        assert not meta["hitsOutside"], (slide_index, meta)
+        assert len(meta["midYs"]) >= 3, (slide_index, meta)
+        assert min(meta["midYs"]) >= 0, (slide_index, meta)
+        # Nested trunks at distinct heights; outer still inside the grown box.
+        assert max(meta["midYs"]) - min(meta["midYs"]) >= 30, (slide_index, meta)
+        assert meta["padTop"] >= 50, (slide_index, meta)
+        # Farther source keeps the farther (outer) port; no crossings.
+        assert (
+            meta["paths"][f"p{prefix}"][-1]["x"]
+            > meta["paths"][f"r{prefix}"][-1]["x"]
+        ), (slide_index, meta)
+
+
+def test_same_row_detour_port_spacing_and_final_segment(geometry_page):
+    meta = _detour_trunk_meta(
+        geometry_page, 40, ["p17", "q17", "r17", "s17"], "t17"
+    )
+    ends = sorted(meta["ends"])
+    assert len(ends) >= 3, meta
+    gaps = [ends[i + 1] - ends[i] for i in range(len(ends) - 1)]
+    assert min(gaps) >= 16, (gaps, meta)
+    assert meta["finals"] and min(meta["finals"]) >= 18, meta
+
+
+def test_same_row_fan_out_trunks_nested_not_collinear(geometry_page):
+    # Slide 42: Source -> Alpha (direct), Beta, Gamma (detours).
+    result = geometry_page.evaluate(
+        """() => {
+          const slide = document.querySelectorAll('.slide')[42];
+          const flow = slide.querySelector('.flow');
+          function ptsOf(fromKey, toKey) {
+            const path = flow.querySelector(
+              `svg.flow-svg path.flow-arrow[data-from="${fromKey}"][data-to="${toKey}"]`
+            );
+            if (!path) return null;
+            const pts = [];
+            const re = /([ML])\\s*([-\\d.]+)\\s+([-\\d.]+)/g;
+            let m;
+            const d = path.getAttribute('d') || '';
+            while ((m = re.exec(d))) pts.push({ x: +m[2], y: +m[3] });
+            return pts;
+          }
+          function horizSegs(pts) {
+            const segs = [];
+            for (let i = 1; i < pts.length; i++) {
+              if (
+                Math.abs(pts[i].y - pts[i - 1].y) < 0.75 &&
+                Math.abs(pts[i].x - pts[i - 1].x) >= 8
+              ) {
+                segs.push({
+                  y: pts[i].y,
+                  x0: Math.min(pts[i].x, pts[i - 1].x),
+                  x1: Math.max(pts[i].x, pts[i - 1].x),
+                });
+              }
+            }
+            return segs;
+          }
+          function collinearOverlap(a, b) {
+            if (Math.abs(a.y - b.y) > 0.75) return 0;
+            const lo = Math.max(a.x0, b.x0);
+            const hi = Math.min(a.x1, b.x1);
+            return Math.max(0, hi - lo);
+          }
+          const beta = ptsOf('t19', 'y19');
+          const gamma = ptsOf('t19', 'z19');
+          if (!beta || !gamma) return { ok: false, reason: 'missing' };
+          const hb = horizSegs(beta);
+          const hg = horizSegs(gamma);
+          let overlap = 0;
+          for (const a of hb) {
+            for (const b of hg) overlap = Math.max(overlap, collinearOverlap(a, b));
+          }
+          const midYs = [...hb, ...hg].map((s) => s.y);
+          const starts = [beta[0].x, gamma[0].x];
+          const finals = [
+            Math.hypot(
+              beta[beta.length - 1].x - beta[beta.length - 2].x,
+              beta[beta.length - 1].y - beta[beta.length - 2].y
+            ),
+            Math.hypot(
+              gamma[gamma.length - 1].x - gamma[gamma.length - 2].x,
+              gamma[gamma.length - 1].y - gamma[gamma.length - 2].y
+            ),
+          ];
+          return {
+            ok: true,
+            overlap,
+            midYs,
+            startGap: Math.abs(starts[0] - starts[1]),
+            finals,
+            beta,
+            gamma,
+          };
+        }"""
+    )
+    assert result.get("ok"), result
+    # Distinct nested trunks: no collinear overlap between different edges.
+    assert result["overlap"] < 1, result
+    assert max(result["midYs"]) - min(result["midYs"]) >= 16, result
+    assert result["startGap"] >= 16, result
+    assert min(result["finals"]) >= 18, result
