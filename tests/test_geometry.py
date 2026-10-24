@@ -12,7 +12,6 @@ from md_deck.slides import parse_deck
 from md_deck.style import load_style_file, tokens_to_css
 
 FIX = Path(__file__).parent / "fixtures" / "geometry"
-PROBE = Path("/tmp/pr3probe/pr3probe")
 
 # Shared JS: sample orthogonal path segments vs node boxes (layout space).
 HIT_JS = r"""
@@ -99,10 +98,8 @@ def geometry_page(tmp_path_factory):
         browser.close()
 
 
-def test_parse_probe_separate_lines_and_chips():
-    """Pytest parse/validation coverage for the uploaded probe decks."""
-    body = (PROBE / "slides.md").read_text(encoding="utf-8")
-    # Extract first flow bodies via the geometry fixture content (same shapes).
+def test_parse_separate_lines_and_chips():
+    """Parse coverage matching tests/fixtures/geometry/slides.md shapes."""
     d = parse_flow_body(
         "lane: Top\nP {#p}\nQ {#q}\nR {#r}\nlane: Bottom\nTarget {#t}\n"
         "link: p => t\nlink: q => t\nlink: r => t\n"
