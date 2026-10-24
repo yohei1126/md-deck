@@ -429,7 +429,11 @@ def _unknown_node_kinds(body: str) -> list[str]:
         for segment in segments:
             if not segment:
                 continue
-            kind_match = re.match(r"^\[([^\]]+)\]", segment)
+            # Chips-only / chips markers use [[...]]; do not treat them as [kind].
+            stripped = segment.lstrip()
+            if stripped.startswith("[["):
+                continue
+            kind_match = re.match(r"^\[([^\]]+)\]", stripped)
             if not kind_match:
                 continue
             kind = kind_match.group(1).strip().lower()

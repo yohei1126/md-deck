@@ -52,6 +52,8 @@
     "page_padding_right": { "$ref": "#/$defs/sizeOrNone" },
     "page_padding_bottom": { "$ref": "#/$defs/sizeOrNone" },
     "page_padding_left": { "$ref": "#/$defs/sizeOrNone" },
+    "footer_inset_bottom": { "$ref": "#/$defs/sizeOrNone" },
+    "footer_inset_right": { "$ref": "#/$defs/sizeOrNone" },
     "gap": { "$ref": "#/$defs/sizeOrNone" },
     "card_radius": { "$ref": "#/$defs/sizeOrNone" },
     "card_padding": { "$ref": "#/$defs/sizeOrNone" },

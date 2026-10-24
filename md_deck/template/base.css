@@ -168,6 +168,7 @@ body {
   align-items: center;
   gap: calc(var(--gap) * 1.5);
   padding: var(--card-padding) 0;
+  overflow: visible;
 }
 
 .flow.flow-wide {
@@ -350,8 +351,11 @@ th[scope="row"] {
 .slide-footer {
   position: absolute;
   left: var(--page-padding-left, var(--page-padding));
-  right: var(--page-padding-right, var(--page-padding));
-  bottom: 0.6em;
+  right: calc(
+    var(--page-padding-right, var(--page-padding)) +
+      var(--footer-inset-right, 0px)
+  );
+  bottom: var(--footer-inset-bottom, 0.6em);
   display: flex;
   justify-content: flex-start;
   align-items: flex-end;

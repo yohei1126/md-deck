@@ -7,8 +7,10 @@ import re
 from dataclasses import dataclass, field
 
 KNOWN_NODE_KINDS = frozenset({"actor", "system", "doc", "muted", "highlight"})
-KNOWN_LINK_ROUTES = frozenset({"up", "down", "left", "right", "auto"})
-KNOWN_CALLOUT_POS = frozenset({"above", "below", "left", "right"})
+KNOWN_LINK_ROUTES = frozenset({"up", "down", "left", "right", "auto", "between"})
+KNOWN_CALLOUT_POS = frozenset(
+    {"above", "below", "below-left", "below-right", "left", "right"}
+)
 
 # Longest operators first.
 ARROW_RE = re.compile(
@@ -67,16 +69,19 @@ class FlowEdge:
     label: str | None = None
     bidirectional: bool = False
     cross: bool = False
-    route: str = "auto"  # up | down | left | right | auto
+    route: str = "auto"  # up | down | left | right | auto | between
     pair_index: int = 0
     pair_count: int = 1
+    # "stack" attaches to the middle of the enclosing .flow-stack bbox.
+    source_attach: str = "node"  # node | stack
+    target_attach: str = "node"  # node | stack
 
 
 @dataclass
 class FlowCallout:
     anchor: str
     text: str
-    pos: str = "below"  # above | below | left | right
+    pos: str = "below"  # above | below | below-left | below-right | left | right
 
 
 @dataclass
@@ -126,6 +131,32 @@ def _parse_opts_map(raw: str | None) -> dict[str, str]:
     return out
 
 
+def _split_chips(chips_raw: str) -> list[str]:
+    """Split chip lists on commas only; honour \\, escapes inside a chip."""
+    chips: list[str] = []
+    buf: list[str] = []
+    i = 0
+    while i < len(chips_raw):
+        ch = chips_raw[i]
+        if ch == "\\" and i + 1 < len(chips_raw):
+            buf.append(chips_raw[i + 1])
+            i += 2
+            continue
+        if ch == ",":
+            piece = "".join(buf).strip()
+            if piece:
+                chips.append(piece)
+            buf = []
+            i += 1
+            continue
+        buf.append(ch)
+        i += 1
+    piece = "".join(buf).strip()
+    if piece:
+        chips.append(piece)
+    return [_hard_breaks(c) for c in chips]
+
+
 def parse_node_text(raw: str) -> FlowNode:
     text = raw.strip()
     kind: str | None = None
@@ -135,11 +166,9 @@ def parse_node_text(raw: str) -> FlowNode:
         text = match.group("rest").strip()
 
     chips: list[str] = []
-    chips_match = re.search(r"\[\[(?P<chips>[^\]]*)\]\]", text)
+    chips_match = re.search(r"\[\[(?P<chips>.*?)\]\]", text, re.DOTALL)
     if chips_match:
-        chips_raw = chips_match.group("chips")
-        chips = [c.strip() for c in re.split(r"[,;/]", chips_raw) if c.strip()]
-        chips = [_hard_breaks(c) for c in chips]
+        chips = _split_chips(chips_match.group("chips"))
         text = (text[: chips_match.start()] + text[chips_match.end() :]).strip()
 
     node_id: str | None = None
@@ -173,9 +202,14 @@ def parse_node_text(raw: str) -> FlowNode:
     title = _hard_breaks(title)
     if caption:
         caption = _hard_breaks(caption)
-    if not title:
+    # Chips-only nodes keep an empty title and render just the chip row.
+    if not title and not chips and not node_id:
         title = raw.strip() or "?"
-    key = node_id or title
+    if not title and chips and not node_id:
+        # Stable key from chip labels when no title / id was given.
+        key = "[[{0}]]".format(", ".join(chips))
+    else:
+        key = node_id or title or (raw.strip() or "?")
     return FlowNode(
         key=key,
         title=title,
@@ -246,11 +280,11 @@ def _ensure_node(
     lane: FlowLane | None = None,
 ) -> str:
     node = parse_node_text(raw)
-    if not node.title.strip() and not node.node_id:
+    if not node.title.strip() and not node.node_id and not node.chips:
         diagram.errors.append("empty flow node in arrow chain")
         return ""
     if reuse:
-        found = _find_key(diagram, node.node_id or node.title)
+        found = _find_key(diagram, node.node_id or node.title or node.key)
         if found is not None:
             _merge_node_fields(diagram.nodes[found], node)
             return found
@@ -261,10 +295,23 @@ def _ensure_node(
             if node.node_id and existing.node_id == node.node_id:
                 _merge_node_fields(existing, node)
                 return key
-            if not node.node_id and existing.title == node.title:
+            if (
+                not node.node_id
+                and node.title
+                and existing.title == node.title
+            ):
                 _merge_node_fields(existing, node)
                 return key
-    preferred = node.node_id or node.title
+            if (
+                not node.node_id
+                and not node.title
+                and node.chips
+                and existing.chips == node.chips
+                and not existing.title
+            ):
+                _merge_node_fields(existing, node)
+                return key
+    preferred = node.node_id or node.title or node.key
     if node.node_id and node.node_id in diagram.nodes:
         diagram.errors.append(f"duplicate flow node id {node.node_id!r}")
         key = _allocate_key(diagram, preferred)
@@ -384,9 +431,12 @@ def _parse_chain_line(diagram: FlowDiagram, lane: FlowLane, line: str) -> None:
         src_item, dst_item = resolved[i], resolved[i + 1]
         if src_item is None or dst_item is None:
             continue
-        # Edges from/to stacks connect the first node of each stack column.
-        src = src_item[0] if isinstance(src_item, list) else src_item
-        dst = dst_item[0] if isinstance(dst_item, list) else dst_item
+        # Stack columns attach at the stack bbox mid by default (first key is
+        # the descriptor target). Write separate edges to each member to fan out.
+        src_stack = isinstance(src_item, list)
+        dst_stack = isinstance(dst_item, list)
+        src = src_item[0] if src_stack else src_item
+        dst = dst_item[0] if dst_stack else dst_item
         style, label, bidirectional = _parse_arrow(op)
         lane.edges.append(
             FlowEdge(
@@ -395,6 +445,8 @@ def _parse_chain_line(diagram: FlowDiagram, lane: FlowLane, line: str) -> None:
                 style=style,
                 label=label,
                 bidirectional=bidirectional,
+                source_attach="stack" if src_stack else "node",
+                target_attach="stack" if dst_stack else "node",
             )
         )
 
@@ -499,20 +551,8 @@ def parse_flow_body(body: str, options: frozenset[str] | None = None) -> FlowDia
             continue
         _parse_chain_line(diagram, ensure_lane(), line)
 
-    # Backward compatible: nodes listed one per line (no arrows) still chain left→right.
-    for lane in diagram.lanes:
-        if len(lane.columns) >= 2 and not lane.edges:
-            keys = []
-            for col in lane.columns:
-                keys.append(col[0] if isinstance(col, list) else col)
-            for i in range(len(keys) - 1):
-                lane.edges.append(
-                    FlowEdge(
-                        source=keys[i],
-                        target=keys[i + 1],
-                        style="solid",
-                    )
-                )
+    # Separate lines are separate unconnected nodes. Only explicit arrows / link:
+    # lines create edges (breaking change vs older one-per-line auto-chain).
 
     all_edges = [e for lane in diagram.lanes for e in lane.edges] + list(diagram.links)
     _assign_parallel_indices(all_edges)
@@ -524,8 +564,11 @@ def _br_escape(text: str) -> str:
 
 
 def _node_inner_html(node: FlowNode) -> str:
-    title = _br_escape(node.title)
-    parts = [f'<span class="flow-node-title">{title}</span>']
+    parts: list[str] = []
+    if node.title:
+        parts.append(
+            f'<span class="flow-node-title">{_br_escape(node.title)}</span>'
+        )
     if node.caption:
         parts.append(
             f'<span class="flow-node-caption">{_br_escape(node.caption)}</span>'
@@ -539,6 +582,8 @@ def _node_inner_html(node: FlowNode) -> str:
             f'<span class="flow-chip">{_br_escape(c)}</span>' for c in node.chips
         )
         parts.append(f'<span class="flow-chips">{chip_html}</span>')
+    if not parts:
+        parts.append('<span class="flow-node-title">?</span>')
     return "".join(parts)
 
 
@@ -573,13 +618,23 @@ def _render_edge(edge: FlowEdge) -> str:
     )
     bi = ' data-bidirectional="true"' if edge.bidirectional else ""
     route = f' data-route="{html.escape(edge.route)}"' if edge.cross else ""
+    from_attach = (
+        f' data-from-attach="{html.escape(edge.source_attach)}"'
+        if edge.source_attach != "node"
+        else ""
+    )
+    to_attach = (
+        f' data-to-attach="{html.escape(edge.target_attach)}"'
+        if edge.target_attach != "node"
+        else ""
+    )
     kind = _edge_kind(edge)
     return (
         f'<div class="{classes}" data-from="{html.escape(edge.source)}" '
         f'data-to="{html.escape(edge.target)}" data-style="{edge.style}" '
         f'data-kind="{kind}" data-pair-index="{edge.pair_index}" '
         f'data-pair-count="{edge.pair_count}"'
-        f"{label_attr}{bi}{route}></div>"
+        f"{label_attr}{bi}{route}{from_attach}{to_attach}></div>"
     )
 
 
@@ -603,33 +658,23 @@ def render_flow_html(diagram: FlowDiagram) -> str:
     class_attr = "flow" + (f" {option_classes}" if option_classes else "")
     parts = [f'<div class="{class_attr}">']
 
-    multi = len(diagram.lanes) > 1 or any(lane.label for lane in diagram.lanes)
-    has_stack = any(
-        isinstance(col, list) for lane in diagram.lanes for col in lane.columns
-    )
-
-    if multi or has_stack:
-        parts.append('<div class="flow-lanes">')
-        for index, lane in enumerate(diagram.lanes):
-            parts.append(f'<div class="lane" data-lane="{index}">')
-            if lane.label:
-                parts.append(
-                    f'<div class="lane-label">{html.escape(lane.label)}</div>'
-                )
-            parts.append('<div class="flow-row">')
-            for col in lane.columns:
-                parts.append(_render_column(diagram, col))
-            parts.append("</div>")  # flow-row
-            for edge in lane.edges:
-                parts.append(_render_edge(edge))
-            parts.append("</div>")  # lane
-        parts.append("</div>")  # flow-lanes
-    else:
-        lane = diagram.lanes[0] if diagram.lanes else FlowLane()
+    # Always emit the same lane wrappers so single-lane and multi-lane CSS/JS match.
+    lanes = diagram.lanes or [FlowLane()]
+    parts.append('<div class="flow-lanes">')
+    for index, lane in enumerate(lanes):
+        parts.append(f'<div class="lane" data-lane="{index}">')
+        if lane.label:
+            parts.append(
+                f'<div class="lane-label">{html.escape(lane.label)}</div>'
+            )
+        parts.append('<div class="flow-row">')
         for col in lane.columns:
             parts.append(_render_column(diagram, col))
+        parts.append("</div>")  # flow-row
         for edge in lane.edges:
             parts.append(_render_edge(edge))
+        parts.append("</div>")  # lane
+    parts.append("</div>")  # flow-lanes
 
     for edge in diagram.links:
         parts.append(_render_edge(edge))

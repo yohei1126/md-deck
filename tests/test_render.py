@@ -36,6 +36,61 @@ def test_node_id_and_chips():
     assert node.badge == "live"
 
 
+def test_chips_split_on_comma_only_with_escape():
+    node = parse_node_text("N [[a/b, c]]")
+    assert node.chips == ["a/b", "c"]
+    escaped = parse_node_text(r"N [[a\,b, c]]")
+    assert escaped.chips == ["a,b", "c"]
+
+
+def test_chips_only_node():
+    diagram = parse_flow_body("A -> [[x, y]] -> B\n")
+    assert diagram.errors == []
+    assert any(n.chips == ["x", "y"] and not n.title for n in diagram.nodes.values())
+    html = render_flow_html(diagram)
+    assert "flow-chip" in html
+    assert "flow-lanes" in html
+    assert "flow-row" in html
+
+
+def test_separate_lines_do_not_auto_chain():
+    diagram = parse_flow_body(
+        "lane: Top\n"
+        "P {#p}\n"
+        "Q {#q}\n"
+        "R {#r}\n"
+        "lane: Bottom\n"
+        "Target {#t}\n"
+    )
+    assert diagram.lanes[0].edges == []
+    assert len(diagram.lanes[0].columns) == 3
+
+
+def test_between_route_and_stack_attach():
+    diagram = parse_flow_body(
+        "L -> { Up / Down } -> R\n"
+        "link: L => R : x [route=between]\n"
+        "callout: R : note [pos=below-left]\n"
+    )
+    stack_edges = diagram.lanes[0].edges
+    assert stack_edges[0].target_attach == "stack"
+    assert stack_edges[1].source_attach == "stack"
+    assert diagram.links[0].route == "between"
+    assert diagram.callouts[0].pos == "below-left"
+    html = render_flow_html(diagram)
+    assert 'data-to-attach="stack"' in html
+    assert 'data-from-attach="stack"' in html
+    assert 'data-route="between"' in html
+    assert 'data-pos="below-left"' in html
+
+
+def test_single_lane_always_emits_wrappers():
+    html = render_flow_html(parse_flow_body("A -> B\n"))
+    assert 'class="flow-lanes"' in html
+    assert 'class="lane"' in html
+    assert 'class="flow-row"' in html
+
+
 def test_label_and_badge_hard_breaks():
     diagram = parse_flow_body("A -[lab\\nel]-> B {bad\\nge}")
     edge = diagram.lanes[0].edges[0]
@@ -233,6 +288,8 @@ def test_tokens_allow_zero_and_none():
         "color_highlight": "#ff0",
         "font_size_table": 17,
         "page_number_placement": "bottom-center",
+        "footer_inset_bottom": "0.75em",
+        "footer_inset_right": 8,
     })
     assert "--card-radius: 0px;" in css
     assert "--border-width: none;" in css
@@ -240,3 +297,5 @@ def test_tokens_allow_zero_and_none():
     assert "--page-padding-top: 10px;" in css
     assert "--font-size-table: 17px;" in css
     assert "--page-number-placement: bottom-center;" in css
+    assert "--footer-inset-bottom: 0.75em;" in css
+    assert "--footer-inset-right: 8px;" in css
