@@ -484,7 +484,8 @@ def test_callout_side_exits_from_requested_side(geometry_page):
           const fr = flow.getBoundingClientRect();
           const callout = flow.querySelector('div.flow-callout');
           const path = flow.querySelector('path.flow-callout-arrow');
-          if (!callout || !path) return { ok: false };
+          const node = flow.querySelector('.flow-node[data-node="r10"]');
+          if (!callout || !path || !node) return { ok: false };
           const pts = [];
           const re = /([ML])\\s*([-\\d.]+)\\s+([-\\d.]+)/g;
           let m;
@@ -495,18 +496,156 @@ def test_callout_side_exits_from_requested_side(geometry_page):
             right: (cb.right - fr.left) / scale,
             cy: ((cb.top + cb.bottom) / 2 - fr.top) / scale,
           };
+          const nb = node.getBoundingClientRect();
+          const nodeBottom = {
+            x: ((nb.left + nb.right) / 2 - fr.left) / scale,
+            y: (nb.bottom - fr.top) / scale,
+          };
           const start = pts[0];
+          const end = pts[pts.length - 1];
+          const prev = pts[pts.length - 2];
+          // Final segment must be vertical into the bottom edge (not along it).
+          const finalDx = Math.abs(end.x - prev.x);
+          const finalDy = Math.abs(end.y - prev.y);
           return {
             ok: true,
             side: callout.getAttribute('data-side'),
             startNearRight:
               Math.abs(start.x - box.right) < 3 && Math.abs(start.y - box.cy) < 8,
+            endNearBottom:
+              Math.hypot(end.x - nodeBottom.x, end.y - nodeBottom.y) < 8,
+            finalPerpendicular: finalDx < 0.75 && finalDy > 2,
+            entersUpward: prev.y > end.y + 1,
+            pts,
           };
         }"""
     )
     assert result["ok"]
     assert result["side"] == "right"
     assert result["startNearRight"], result
+    assert result["endNearBottom"], result
+    assert result["finalPerpendicular"], result
+    assert result["entersUpward"], result
+
+
+def test_callout_side_left_below_right_l_shape(geometry_page):
+    result = geometry_page.evaluate(
+        """() => {
+          const slide = document.querySelectorAll('.slide')[10];
+          const flow = slide.querySelector('.flow');
+          const scale = Number(slide.dataset.scale || '1') || 1;
+          const fr = flow.getBoundingClientRect();
+          const callout = flow.querySelector('div.flow-callout');
+          const path = flow.querySelector('path.flow-callout-arrow');
+          const node = flow.querySelector('.flow-node[data-node="a11"]');
+          if (!callout || !path || !node) return { ok: false };
+          const pts = [];
+          const re = /([ML])\\s*([-\\d.]+)\\s+([-\\d.]+)/g;
+          let m;
+          const d = path.getAttribute('d') || '';
+          while ((m = re.exec(d))) pts.push({ x: +m[2], y: +m[3] });
+          const cb = callout.getBoundingClientRect();
+          const box = {
+            left: (cb.left - fr.left) / scale,
+            cy: ((cb.top + cb.bottom) / 2 - fr.top) / scale,
+          };
+          const nb = node.getBoundingClientRect();
+          const nodeBottom = {
+            x: ((nb.left + nb.right) / 2 - fr.left) / scale,
+            y: (nb.bottom - fr.top) / scale,
+          };
+          const start = pts[0];
+          const end = pts[pts.length - 1];
+          const prev = pts[pts.length - 2];
+          const finalDx = Math.abs(end.x - prev.x);
+          const finalDy = Math.abs(end.y - prev.y);
+          // L-shape: three points (or simplified), not a Z along the border.
+          return {
+            ok: true,
+            side: callout.getAttribute('data-side'),
+            startNearLeft:
+              Math.abs(start.x - box.left) < 3 && Math.abs(start.y - box.cy) < 8,
+            endNearBottom:
+              Math.hypot(end.x - nodeBottom.x, end.y - nodeBottom.y) < 8,
+            finalPerpendicular: finalDx < 0.75 && finalDy > 2,
+            entersUpward: prev.y > end.y + 1,
+            pointCount: pts.length,
+            pts,
+          };
+        }"""
+    )
+    assert result["ok"]
+    assert result["side"] == "left"
+    assert result["startNearLeft"], result
+    assert result["endNearBottom"], result
+    assert result["finalPerpendicular"], result
+    assert result["entersUpward"], result
+    assert result["pointCount"] <= 3, result
+
+
+def test_straight_flow_fan_in_uses_ports(geometry_page):
+    meta = geometry_page.evaluate(
+        """() => {
+          const slide = document.querySelectorAll('.slide')[11];
+          const flow = slide.querySelector('.flow');
+          const scale = Number(slide.dataset.scale || '1') || 1;
+          const fr = flow.getBoundingClientRect();
+          const t = flow.querySelector('.flow-node[data-node="t12"]').getBoundingClientRect();
+          return {
+            isStraightFlow: flow.classList.contains('flow-straight'),
+            top: (t.top - fr.top) / scale,
+            left: (t.left - fr.left) / scale,
+            right: (t.right - fr.left) / scale,
+          };
+        }"""
+    )
+    assert meta["isStraightFlow"]
+    ends = []
+    for src in ("p12", "q12", "r12"):
+        pts = _path_pts(geometry_page, 11, src, "t12")
+        assert pts and len(pts) == 2, (src, pts)
+        # Diagonal / straight: both dx and dy non-trivial for outer edges,
+        # or at least not forced orthogonal for the whole path set.
+        end = pts[-1]
+        assert abs(end["y"] - meta["top"]) < 2.5, (src, end, meta)
+        assert meta["left"] - 1 <= end["x"] <= meta["right"] + 1, (src, end, meta)
+        ends.append(end["x"])
+        shape = geometry_page.evaluate(
+            """({ slideIndex, fromKey, toKey }) => {
+              const slide = document.querySelectorAll('.slide')[slideIndex];
+              const path = slide.querySelector(
+                `svg.flow-svg path.flow-arrow[data-from="${fromKey}"][data-to="${toKey}"]`
+              );
+              return path ? path.getAttribute('data-shape') : null;
+            }""",
+            {"slideIndex": 11, "fromKey": src, "toKey": "t12"},
+        )
+        assert shape == "straight", (src, shape)
+    assert max(ends) - min(ends) >= 10, ends
+
+
+def test_per_edge_straight_shape_mixed_with_orthogonal(geometry_page):
+    straight = _path_pts(geometry_page, 12, "p13", "t13")
+    ortho = _path_pts(geometry_page, 12, "q13", "t13")
+    assert straight and len(straight) == 2, straight
+    assert ortho and len(ortho) >= 2, ortho
+    assert not _is_orthogonal(straight) or len(straight) == 2
+    # Orthogonal peer still bends (or is colinear); straight is a single segment.
+    assert _is_orthogonal(ortho), ortho
+    shapes = geometry_page.evaluate(
+        """() => {
+          const slide = document.querySelectorAll('.slide')[12];
+          const flow = slide.querySelector('.flow');
+          return {
+            p: flow.querySelector('path.flow-arrow[data-from="p13"][data-to="t13"]')
+              ?.getAttribute('data-shape'),
+            q: flow.querySelector('path.flow-arrow[data-from="q13"][data-to="t13"]')
+              ?.getAttribute('data-shape'),
+          };
+        }"""
+    )
+    assert shapes["p"] == "straight"
+    assert shapes["q"] == "orthogonal"
 
 
 def test_negative_footer_inset_accepted_and_emitted():

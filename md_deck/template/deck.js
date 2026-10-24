@@ -15,6 +15,11 @@
     return Number.isFinite(n) ? n : fallback;
   }
 
+  function cssTokenVar(el, name, fallback) {
+    const raw = getComputedStyle(el).getPropertyValue(name).trim();
+    return raw || fallback;
+  }
+
   function ensureMarkers(svg) {
     let defs = svg.querySelector("defs");
     if (!defs) {
@@ -887,6 +892,9 @@
     el.setAttribute("data-from", edge.from);
     el.setAttribute("data-to", edge.to);
     el.setAttribute("data-kind", edge.kind);
+    if (edge.shape) {
+      el.setAttribute("data-shape", edge.shape);
+    }
     el.classList.add("flow-arrow");
     if (edge.style === "dashed" || edge.kind === "dashed") {
       el.classList.add("flow-arrow-dashed");
@@ -984,23 +992,40 @@
     return "solid";
   }
 
+  function defaultFlowEdgeShape(flow) {
+    if (flow.classList.contains("flow-straight")) return "straight";
+    const token = cssTokenVar(flow, "--flow-edge-shape", "orthogonal")
+      .replace(/^["']|["']$/g, "")
+      .toLowerCase();
+    return token === "straight" ? "straight" : "orthogonal";
+  }
+
   function collectEdges(flow) {
+    const flowShape = defaultFlowEdgeShape(flow);
     const explicit = Array.from(flow.querySelectorAll(".flow-edge"));
     if (explicit.length) {
-      return explicit.map((el) => ({
-        from: el.getAttribute("data-from"),
-        to: el.getAttribute("data-to"),
-        style: el.getAttribute("data-style") || "solid",
-        label: el.getAttribute("data-label"),
-        bidirectional: el.getAttribute("data-bidirectional") === "true",
-        cross: el.classList.contains("flow-edge-cross"),
-        route: el.getAttribute("data-route") || "auto",
-        kind: edgeKind(el, el.classList.contains("flow-edge-cross")),
-        pairIndex: parseInt(el.getAttribute("data-pair-index") || "0", 10),
-        pairCount: parseInt(el.getAttribute("data-pair-count") || "1", 10),
-        fromAttach: el.getAttribute("data-from-attach") || "node",
-        toAttach: el.getAttribute("data-to-attach") || "node",
-      }));
+      return explicit.map((el) => {
+        const rawShape = (el.getAttribute("data-shape") || "").toLowerCase();
+        const shape =
+          rawShape === "straight" || rawShape === "orthogonal"
+            ? rawShape
+            : flowShape;
+        return {
+          from: el.getAttribute("data-from"),
+          to: el.getAttribute("data-to"),
+          style: el.getAttribute("data-style") || "solid",
+          label: el.getAttribute("data-label"),
+          bidirectional: el.getAttribute("data-bidirectional") === "true",
+          cross: el.classList.contains("flow-edge-cross"),
+          route: el.getAttribute("data-route") || "auto",
+          shape,
+          kind: edgeKind(el, el.classList.contains("flow-edge-cross")),
+          pairIndex: parseInt(el.getAttribute("data-pair-index") || "0", 10),
+          pairCount: parseInt(el.getAttribute("data-pair-count") || "1", 10),
+          fromAttach: el.getAttribute("data-from-attach") || "node",
+          toAttach: el.getAttribute("data-to-attach") || "node",
+        };
+      });
     }
     const nodes = Array.from(
       flow.querySelectorAll(".flow-row > .flow-node, :scope > .flow-node")
@@ -1015,6 +1040,7 @@
         bidirectional: false,
         cross: false,
         route: "auto",
+        shape: flowShape,
         kind: "solid",
         pairIndex: 0,
         pairCount: 1,
@@ -1151,6 +1177,55 @@
     return { x: c.left, y: c.cy };
   }
 
+  function calloutExitSide(pos, side) {
+    if (side === "top" || side === "bottom" || side === "left" || side === "right") {
+      return side;
+    }
+    if (pos === "below" || pos === "below-left" || pos === "below-right") return "top";
+    if (pos === "above") return "bottom";
+    if (pos === "left") return "right";
+    return "left";
+  }
+
+  function calloutEnterEdge(pos) {
+    if (pos === "below" || pos === "below-left" || pos === "below-right") return "bottom";
+    if (pos === "above") return "top";
+    if (pos === "left") return "left";
+    return "right";
+  }
+
+  function calloutConnectorPoints(from, to, pos, side) {
+    // When the exit side is perpendicular to the edge the path enters, use an
+    // L (leave sideways, run to the entry x/y, then enter perpendicular).
+    // Same-axis exits keep a mid corridor (H-V-H or V-H-V).
+    const exit = calloutExitSide(pos, side);
+    const enter = calloutEnterEdge(pos);
+    const exitHorizontal = exit === "left" || exit === "right";
+    const enterVertical = enter === "top" || enter === "bottom";
+    if (exitHorizontal && enterVertical) {
+      return simplify([from, { x: to.x, y: from.y }, to]);
+    }
+    if (!exitHorizontal && !enterVertical) {
+      return simplify([from, { x: from.x, y: to.y }, to]);
+    }
+    if (enterVertical) {
+      const midY = (from.y + to.y) / 2;
+      return simplify([
+        from,
+        { x: from.x, y: midY },
+        { x: to.x, y: midY },
+        to,
+      ]);
+    }
+    const midX = (from.x + to.x) / 2;
+    return simplify([
+      from,
+      { x: midX, y: from.y },
+      { x: midX, y: to.y },
+      to,
+    ]);
+  }
+
   function drawCalloutConnectors(svg, flow, flowBox, scale) {
     Array.from(flow.querySelectorAll("div.flow-callout")).forEach((el) => {
       const anchorKey = el.getAttribute("data-anchor");
@@ -1172,33 +1247,16 @@
       } else {
         to = { x: n.right, y: n.cy };
       }
-      const useVerticalMid =
-        (side === "top" || side === "bottom" || !side) &&
-        (pos === "below" ||
-          pos === "below-left" ||
-          pos === "below-right" ||
-          pos === "above");
-      const mid = useVerticalMid
-        ? [
-            from,
-            { x: from.x, y: (from.y + to.y) / 2 },
-            { x: to.x, y: (from.y + to.y) / 2 },
-            to,
-          ]
-        : [
-            from,
-            { x: (from.x + to.x) / 2, y: from.y },
-            { x: (from.x + to.x) / 2, y: to.y },
-            to,
-          ];
+      const pts = calloutConnectorPoints(from, to, pos, side);
       const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-      path.setAttribute("d", pathD(simplify(mid)));
+      path.setAttribute("d", pathD(pts));
       path.setAttribute("stroke-dasharray", "5 4");
       path.setAttribute("marker-end", "url(#flow-arrowhead)");
       path.classList.add("flow-arrow", "flow-callout-arrow", "flow-link", "flow-callout");
       path.setAttribute("data-from", anchorKey);
       path.setAttribute("data-to", anchorKey);
       path.setAttribute("data-kind", "link");
+      path.setAttribute("data-enter-edge", calloutEnterEdge(pos));
       svg.appendChild(path);
     });
   }
@@ -1348,7 +1406,7 @@
       return { point: sidePointAt(box, side, offset), index, count };
     }
 
-    // Pass 2: route between allocated ports (orthogonal, obstacle-aware).
+    // Pass 2: route between allocated ports (orthogonal by default; straight opt-in).
     plans.forEach((plan) => {
       const fromPort = takePort(plan.edge.from, plan.fromSide, plan.a);
       const toPort = takePort(plan.edge.to, plan.toSide, plan.b);
@@ -1357,34 +1415,46 @@
         toPort.count,
         portGap
       );
-      let pts = pickPathForPorts(
-        plan.a,
-        plan.b,
-        plan.route,
-        plan.obstacles,
-        drawn,
-        layoutBox,
-        fromPort.point,
-        toPort.point,
-        plan.fromSide,
-        plan.toSide
-      );
-      // Nudge U/C trunks apart for fan-in on the same side.
-      if (
-        (plan.fromSide === "bottom" && plan.toSide === "top") ||
-        (plan.fromSide === "top" && plan.toSide === "bottom") ||
-        (plan.fromSide === "top" && plan.toSide === "top") ||
-        (plan.fromSide === "bottom" && plan.toSide === "bottom")
-      ) {
-        pts = rebuildOrthogonalWithPorts(
-          pts,
+      const shape = plan.edge.shape === "straight" ? "straight" : "orthogonal";
+      let pts;
+      if (shape === "straight") {
+        // Straight / diagonal between the same distributed ports as orthogonal.
+        pts = simplify([fromPort.point, toPort.point]);
+      } else {
+        pts = pickPathForPorts(
+          plan.a,
+          plan.b,
+          plan.route,
+          plan.obstacles,
+          drawn,
+          layoutBox,
           fromPort.point,
           toPort.point,
-          corridorShift * 0.5
+          plan.fromSide,
+          plan.toSide
         );
-      }
-      if (!isOrthogonalPath(pts)) {
-        pts = rebuildOrthogonalWithPorts(null, fromPort.point, toPort.point, 0);
+        // Nudge U/C trunks apart for fan-in on the same side.
+        if (
+          (plan.fromSide === "bottom" && plan.toSide === "top") ||
+          (plan.fromSide === "top" && plan.toSide === "bottom") ||
+          (plan.fromSide === "top" && plan.toSide === "top") ||
+          (plan.fromSide === "bottom" && plan.toSide === "bottom")
+        ) {
+          pts = rebuildOrthogonalWithPorts(
+            pts,
+            fromPort.point,
+            toPort.point,
+            corridorShift * 0.5
+          );
+        }
+        if (!isOrthogonalPath(pts)) {
+          pts = rebuildOrthogonalWithPorts(
+            null,
+            fromPort.point,
+            toPort.point,
+            0
+          );
+        }
       }
       const shifted = parallelOffset(
         pts,
@@ -1394,7 +1464,7 @@
       drawPolyline(
         svg,
         shifted.pts,
-        plan.edge,
+        { ...plan.edge, shape },
         shifted.labelNudge,
         labelObstacles
       );
@@ -1404,7 +1474,7 @@
         drawPolyline(
           svg,
           back,
-          { ...plan.edge, label: null, bidirectional: false },
+          { ...plan.edge, shape, label: null, bidirectional: false },
           0,
           null
         );

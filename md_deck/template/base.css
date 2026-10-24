@@ -375,6 +375,11 @@ th[scope="row"] {
   line-height: 1.3;
 }
 
+.slide-footer .source .label {
+  font-weight: 600;
+  margin-inline-end: 0.15em;
+}
+
 /* Page number placement is independent of the source footer. */
 .slide-footer .page-number {
   position: absolute;

@@ -8,12 +8,15 @@ from dataclasses import dataclass, field
 
 KNOWN_NODE_KINDS = frozenset({"actor", "system", "doc", "muted", "highlight"})
 KNOWN_LINK_ROUTES = frozenset({"up", "down", "left", "right", "auto", "between"})
+KNOWN_EDGE_SHAPES = frozenset({"orthogonal", "straight"})
 KNOWN_CALLOUT_POS = frozenset(
     {"above", "below", "below-left", "below-right", "left", "right"}
 )
 KNOWN_CALLOUT_SIDES = frozenset({"top", "bottom", "left", "right"})
 # Spacing between fan-in / fan-out ports on one node side (px; mirrored in deck.js).
 FLOW_PORT_GAP_PX = 12
+# Trailing [shape=straight] (and peers) on a chain destination.
+TRAILING_OPTS_RE = re.compile(r"^(?P<body>.*?)\s*\[(?P<opts>[^\]]*)\]\s*$")
 
 # Longest operators first.
 ARROW_RE = re.compile(
@@ -73,6 +76,8 @@ class FlowEdge:
     bidirectional: bool = False
     cross: bool = False
     route: str = "auto"  # up | down | left | right | auto | between
+    # orthogonal (default) | straight (diagonal between distributed ports)
+    shape: str = "orthogonal"
     pair_index: int = 0
     pair_count: int = 1
     # "stack" attaches to the middle of the enclosing .flow-stack bbox.
@@ -134,6 +139,36 @@ def _parse_opts_map(raw: str | None) -> dict[str, str]:
         key, _, val = part.partition("=")
         out[key.strip().lower()] = val.strip().lower()
     return out
+
+
+def _split_trailing_opts(raw: str) -> tuple[str, dict[str, str]]:
+    """Peel a trailing [shape=…] / [route=…] opts map off a chain segment."""
+    text = raw.strip()
+    match = TRAILING_OPTS_RE.match(text)
+    if not match:
+        return text, {}
+    opts = _parse_opts_map(match.group("opts"))
+    known = {k: v for k, v in opts.items() if k in {"shape", "route"}}
+    if not known:
+        return text, {}
+    body = match.group("body").strip()
+    if not body:
+        return text, {}
+    return body, known
+
+
+def _resolve_edge_shape(
+    diagram: FlowDiagram, raw: str | None, default: str
+) -> str:
+    if raw is None or raw == "":
+        return default
+    if raw not in KNOWN_EDGE_SHAPES:
+        diagram.errors.append(
+            f"unknown edge shape {raw!r} "
+            f"(expected {', '.join(sorted(KNOWN_EDGE_SHAPES))})"
+        )
+        return default
+    return raw
 
 
 def _split_chips(chips_raw: str) -> list[str]:
@@ -447,7 +482,13 @@ def _key_belongs_in_lane(diagram: FlowDiagram, lane: FlowLane, key: str) -> bool
     return home == current
 
 
-def _parse_chain_line(diagram: FlowDiagram, lane: FlowLane, line: str) -> None:
+def _parse_chain_line(
+    diagram: FlowDiagram,
+    lane: FlowLane,
+    line: str,
+    *,
+    default_shape: str = "orthogonal",
+) -> None:
     parts, ops = _split_chain_parts(line)
 
     if len(parts) == 1 and not ops:
@@ -464,6 +505,18 @@ def _parse_chain_line(diagram: FlowDiagram, lane: FlowLane, line: str) -> None:
 
     if any(not p for p in parts):
         diagram.errors.append("empty flow node in arrow chain")
+
+    # Peel trailing [shape=…] opts from destination segments before node parse.
+    part_opts: list[dict[str, str]] = [{} for _ in parts]
+    cleaned_parts: list[str] = []
+    for i, part in enumerate(parts):
+        if not part or _is_stack_literal(part):
+            cleaned_parts.append(part)
+            continue
+        body, opts = _split_trailing_opts(part)
+        cleaned_parts.append(body)
+        part_opts[i] = opts
+    parts = cleaned_parts
 
     resolved: list[str | list[str] | None] = []
     for part in parts:
@@ -506,6 +559,15 @@ def _parse_chain_line(diagram: FlowDiagram, lane: FlowLane, line: str) -> None:
             and dst_home is not None
             and src_home != dst_home
         )
+        opts = part_opts[i + 1] if i + 1 < len(part_opts) else {}
+        shape = _resolve_edge_shape(diagram, opts.get("shape"), default_shape)
+        route = opts.get("route", "auto")
+        if route not in KNOWN_LINK_ROUTES:
+            diagram.errors.append(
+                f"unknown link route {route!r} "
+                f"(expected {', '.join(sorted(KNOWN_LINK_ROUTES))})"
+            )
+            route = "auto"
         edge = FlowEdge(
             source=src,
             target=dst,
@@ -513,7 +575,8 @@ def _parse_chain_line(diagram: FlowDiagram, lane: FlowLane, line: str) -> None:
             label=label,
             bidirectional=bidirectional,
             cross=cross,
-            route="auto",
+            route=route if cross else "auto",
+            shape=shape,
             source_attach="stack" if src_stack else "node",
             target_attach="stack" if dst_stack else "node",
         )
@@ -524,7 +587,12 @@ def _parse_chain_line(diagram: FlowDiagram, lane: FlowLane, line: str) -> None:
             lane.edges.append(edge)
 
 
-def _parse_link_line(diagram: FlowDiagram, line: str) -> None:
+def _parse_link_line(
+    diagram: FlowDiagram,
+    line: str,
+    *,
+    default_shape: str = "orthogonal",
+) -> None:
     match = LINK_RE.match(line.strip())
     if not match:
         diagram.errors.append(f"malformed link line: {line.strip()!r}")
@@ -542,6 +610,7 @@ def _parse_link_line(diagram: FlowDiagram, line: str) -> None:
             f"(expected {', '.join(sorted(KNOWN_LINK_ROUTES))})"
         )
         route = "auto"
+    shape = _resolve_edge_shape(diagram, opts.get("shape"), default_shape)
     src = _ensure_node(diagram, src_raw, reuse=True)
     dst = _ensure_node(diagram, dst_raw, reuse=True)
     if not src or not dst:
@@ -555,6 +624,7 @@ def _parse_link_line(diagram: FlowDiagram, line: str) -> None:
             label=label,
             cross=True,
             route=route,
+            shape=shape,
         )
     )
 
@@ -606,7 +676,9 @@ def _assign_parallel_indices(edges: list[FlowEdge]) -> None:
 
 
 def parse_flow_body(body: str, options: frozenset[str] | None = None) -> FlowDiagram:
-    diagram = FlowDiagram(options=options or frozenset())
+    opts = options or frozenset()
+    diagram = FlowDiagram(options=opts)
+    default_shape = "straight" if "straight" in opts else "orthogonal"
     current: FlowLane | None = None
 
     def ensure_lane() -> FlowLane:
@@ -626,12 +698,14 @@ def parse_flow_body(body: str, options: frozenset[str] | None = None) -> FlowDia
             diagram.lanes.append(current)
             continue
         if LINK_RE.match(line):
-            _parse_link_line(diagram, line)
+            _parse_link_line(diagram, line, default_shape=default_shape)
             continue
         if CALLOUT_RE.match(line):
             _parse_callout_line(diagram, line)
             continue
-        _parse_chain_line(diagram, ensure_lane(), line)
+        _parse_chain_line(
+            diagram, ensure_lane(), line, default_shape=default_shape
+        )
 
     # Separate lines are separate unconnected nodes. Only explicit arrows / link:
     # lines create edges (breaking change vs older one-per-line auto-chain).
@@ -691,7 +765,7 @@ def _edge_kind(edge: FlowEdge) -> str:
     return "solid"
 
 
-def _render_edge(edge: FlowEdge) -> str:
+def _render_edge(edge: FlowEdge, *, flow_default_shape: str = "orthogonal") -> str:
     classes = "flow-edge"
     if edge.cross:
         classes += " flow-edge-cross"
@@ -700,6 +774,11 @@ def _render_edge(edge: FlowEdge) -> str:
     )
     bi = ' data-bidirectional="true"' if edge.bidirectional else ""
     route = f' data-route="{html.escape(edge.route)}"' if edge.cross else ""
+    # Emit shape when it differs from the CSS-token fallback, or when straight
+    # so deck.js does not need to infer from the flow class alone.
+    shape = ""
+    if edge.shape == "straight" or edge.shape != flow_default_shape:
+        shape = f' data-shape="{html.escape(edge.shape)}"'
     from_attach = (
         f' data-from-attach="{html.escape(edge.source_attach)}"'
         if edge.source_attach != "node"
@@ -716,7 +795,7 @@ def _render_edge(edge: FlowEdge) -> str:
         f'data-to="{html.escape(edge.target)}" data-style="{edge.style}" '
         f'data-kind="{kind}" data-pair-index="{edge.pair_index}" '
         f'data-pair-count="{edge.pair_count}"'
-        f"{label_attr}{bi}{route}{from_attach}{to_attach}></div>"
+        f"{label_attr}{bi}{route}{shape}{from_attach}{to_attach}></div>"
     )
 
 
@@ -741,6 +820,9 @@ def _render_column(diagram: FlowDiagram, col: str | list[str]) -> str:
 def render_flow_html(diagram: FlowDiagram) -> str:
     option_classes = " ".join(sorted(f"flow-{opt}" for opt in diagram.options))
     class_attr = "flow" + (f" {option_classes}" if option_classes else "")
+    flow_default_shape = (
+        "straight" if "straight" in diagram.options else "orthogonal"
+    )
     parts = [f'<div class="{class_attr}">']
 
     # Always emit the same lane wrappers so single-lane and multi-lane CSS/JS match.
@@ -757,12 +839,14 @@ def render_flow_html(diagram: FlowDiagram) -> str:
             parts.append(_render_column(diagram, col))
         parts.append("</div>")  # flow-row
         for edge in lane.edges:
-            parts.append(_render_edge(edge))
+            parts.append(
+                _render_edge(edge, flow_default_shape=flow_default_shape)
+            )
         parts.append("</div>")  # lane
     parts.append("</div>")  # flow-lanes
 
     for edge in diagram.links:
-        parts.append(_render_edge(edge))
+        parts.append(_render_edge(edge, flow_default_shape=flow_default_shape))
     for callout in diagram.callouts:
         parts.append(_render_callout(callout))
 

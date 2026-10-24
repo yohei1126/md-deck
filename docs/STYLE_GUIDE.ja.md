@@ -39,8 +39,8 @@ md-deck はレンダリングだけを担当し、見た目のテーマは同梱
 - その他の色: Key Message / Question / card / flow / table 向け
 - タイポ: 各 `font_size_*`（表専用の `font_size_table` を含む）, `font_weight_*`, `line_height`
 - 形: `card_radius`, `key_message_radius`, `question_radius`, `border_width`, `card_padding`（`0` / `none` 可）
-- フロー: `flow_node_min_width`, `flow_node_padding`, `flow_callout_gap`, `flow_port_gap`
-- ラベル: `label_question`, `label_key_message`（省略時は `lang` から既定。`ja` なら「議論の問い」「キーメッセージ」）
+- フロー: `flow_node_min_width`, `flow_node_padding`, `flow_callout_gap`, `flow_port_gap`, `flow_edge_shape`（`orthogonal` / `straight`）
+- ラベル: `label_question`, `label_key_message`, `label_source`（省略時は `lang` から既定。`ja` なら「議論の問い」「キーメッセージ」「出典：」。`label_source: ""` で接頭辞を隠す）
 - 配置: `question_label_placement`（`inline` / `block`）、`page_number_placement`（`bottom-right` / `bottom-left` / `bottom-center`。出典フッターとは別）
 
 ## 任意の CSS フェンス
@@ -62,7 +62,7 @@ md-deck はレンダリングだけを担当し、見た目のテーマは同梱
 | Key Message | 各スライド最大 1 行の `**Key Message:** ...` | 複数はエラー |
 | 問いボックス | `::: question` … `:::` | 空禁止 |
 | 出典 | `Source:` / `出典:` 行、または `::: source` | 空の source ブロックはエラー |
-| フロー | `::: flow` / `::: flow wide`。矢印・lane・link・callout・stack・chips・`{#id}` | ノード 2 つ以上。未知オプション／種類／route はエラー |
+| フロー | `::: flow` / `::: flow wide` / `::: flow straight`。矢印・lane・link・callout・stack・chips・`{#id}`・`shape=` | ノード 2 つ以上。未知オプション／種類／route／shape はエラー |
 | カラム | `::: columns` / `plain` / `panel` を `+++` で分割。中に `::: flow` を 1 段だけネスト可 | 非空カラム 2 つ以上。それ以外のネストは不可 |
 | 改行 | 行末 `\`。フローのラベル／バッジ／タイトルは `\n` 可。question/source 内は単一改行も改行扱い | |
 | 表・リスト | 通常の Markdown。表の左上セルが空なら行見出し（`th[scope=row]`） | 列数一致、インデント。リスト項目の class は単純項目では `<p>` 化しない |

@@ -38,6 +38,7 @@ becomes `<section class="slide path-diagram" id="routing" data-index="…">`.
 | `.column` | One column | Split by `+++` |
 | `.column-head` | First heading in a column | First `h2`–`h6` in that column |
 | `.source` | Footer source | `Source:` / `出典:` line or `::: source` |
+| `.source .label` | Source prefix | Text from `label_source` or `lang` default (omitted when `label_source` is empty) |
 | `.page-number` | Footer page mark | Auto `n / total` |
 | `.page-number[data-placement]` | same | `bottom-right` (default), `bottom-left`, or `bottom-center` from `page_number_placement` |
 | `.slide-footer` | Footer wrapper | Layout only; source stays left, page number placement is separate |
@@ -63,6 +64,7 @@ becomes `<section class="slide path-diagram" id="routing" data-index="…">`.
 | --- | --- | --- |
 | `.flow` | Flow root | `::: flow` |
 | `.flow.flow-wide` | same | `::: flow wide` |
+| `.flow.flow-straight` | same | `::: flow straight` (default edge shape) |
 | `.flow-lanes` | Lane stack | Always present (single-lane flows included) |
 | `.lane` | One lane | `lane: Label` or the implicit single lane |
 | `.lane[data-lane]` | same | 0-based lane index |
@@ -83,6 +85,7 @@ becomes `<section class="slide path-diagram" id="routing" data-index="…">`.
 | `div.flow-callout[data-side]` | same | Optional connector exit side (`top` / `bottom` / `left` / `right`) |
 | `path.flow-callout` | Callout connector (SVG) | Same hook name on the dashed connector path |
 | `.flow-edge` | Edge descriptor | Hidden; read by `deck.js` |
+| `.flow-edge[data-shape]` | same | `orthogonal` (default) or `straight` |
 | `.flow-edge[data-from-attach]` / `[data-to-attach]` | same | `stack` when the chain endpoint was a `{ A / B }` column |
 | `.flow-edge-cross` | Cross-lane edge | From `link: A => B : label` |
 | `.flow-svg` | SVG overlay | Drawn at render time |
@@ -100,6 +103,7 @@ Every drawn arrow path and label text carries these hooks. Style CSS may target 
 | `.flow-label` | SVG `<text>` | Arrow label (`.flow-edge-label` kept as an alias) |
 | `[data-from]` / `[data-to]` | path and text | Endpoint node keys |
 | `[data-kind]` | path and text | `solid`, `dashed`, `bidirectional`, or `link` |
+| `[data-shape]` | path | `orthogonal` or `straight` when set on the edge |
 
 Theme node kinds in the style file:
 
