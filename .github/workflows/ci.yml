@@ -1,0 +1,49 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  check-and-build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v10.3.2
+        with:
+          enable-cache: true
+
+      - name: Install fonts
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends fonts-noto-cjk
+
+      - name: Sync project
+        run: uv sync --frozen --group dev
+
+      - name: Unit tests
+        run: uv run pytest -q
+
+      - name: Check examples/sample.md
+        run: uv run md-deck check examples/sample.md
+
+      - name: Install Chromium
+        run: uv run playwright install --with-deps chromium
+
+      - name: Build examples/sample.md
+        run: |
+          mkdir -p out
+          uv run md-deck build examples/sample.md \
+            -o out/sample.pdf \
+            --check-deterministic
+
+      - name: Upload sample PDF
+        uses: actions/upload-artifact@v4
+        with:
+          name: sample-pdf
+          path: out/sample.pdf
+          if-no-files-found: error

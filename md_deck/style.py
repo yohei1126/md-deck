@@ -1,0 +1,141 @@
+"""Parse deck style Markdown into CSS variables and optional extra rules."""
+
+from __future__ import annotations
+
+import re
+from pathlib import Path
+from typing import Any
+
+import yaml
+
+# Token name -> (css variable, default used only when building docs examples).
+# The generator does not apply a built-in visual theme; these defaults are the
+# plain fallback values when a listed token is omitted from a style file.
+TOKEN_SPEC: dict[str, tuple[str, Any]] = {
+    "page_width": ("--page-width", "1280px"),
+    "page_height": ("--page-height", "720px"),
+    "color_background": ("--color-background", "#ffffff"),
+    "color_text": ("--color-text", "#000000"),
+    "color_muted": ("--color-muted", "#444444"),
+    "color_border": ("--color-border", "#cccccc"),
+    "color_title": ("--color-title", "#000000"),
+    "color_key_message_bg": ("--color-key-message-bg", "#f5f5f5"),
+    "color_key_message_text": ("--color-key-message-text", "#000000"),
+    "color_key_message_border": ("--color-key-message-border", "#cccccc"),
+    "color_question_bg": ("--color-question-bg", "#f5f5f5"),
+    "color_question_text": ("--color-question-text", "#000000"),
+    "color_question_border": ("--color-question-border", "#cccccc"),
+    "color_card_bg": ("--color-card-bg", "#ffffff"),
+    "color_card_border": ("--color-card-border", "#cccccc"),
+    "color_flow_node_bg": ("--color-flow-node-bg", "#ffffff"),
+    "color_flow_node_border": ("--color-flow-node-border", "#000000"),
+    "color_flow_arrow": ("--color-flow-arrow", "#000000"),
+    "color_table_header_bg": ("--color-table-header-bg", "#f0f0f0"),
+    "color_table_border": ("--color-table-border", "#cccccc"),
+    "font_family": ("--font-family", "sans-serif"),
+    "font_size_body": ("--font-size-body", "22px"),
+    "font_size_title": ("--font-size-title", "36px"),
+    "font_size_key_message": ("--font-size-key-message", "20px"),
+    "font_size_question": ("--font-size-question", "18px"),
+    "font_size_small": ("--font-size-small", "16px"),
+    "font_weight_title": ("--font-weight-title", "700"),
+    "font_weight_body": ("--font-weight-body", "400"),
+    "line_height": ("--line-height", "1.45"),
+    "page_padding": ("--page-padding", "48px"),
+    "gap": ("--gap", "16px"),
+    "card_radius": ("--card-radius", "8px"),
+    "card_padding": ("--card-padding", "16px"),
+    "key_message_radius": ("--key-message-radius", "8px"),
+    "question_radius": ("--question-radius", "8px"),
+    "border_width": ("--border-width", "1px"),
+    "flow_node_min_width": ("--flow-node-min-width", "120px"),
+    "flow_node_padding": ("--flow-node-padding", "12px"),
+}
+
+FRONT_MATTER_RE = re.compile(r"\A---\s*\n(.*?)\n---\s*\n?", re.DOTALL)
+CSS_FENCE_RE = re.compile(r"```css\s*\n(.*?)```", re.DOTALL | re.IGNORECASE)
+
+
+def _format_css_value(token: str, value: Any) -> str:
+    if value is None:
+        return str(TOKEN_SPEC[token][1])
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        # Bare numbers for sizes become px, except unitless line-height / weights.
+        if token in {"line_height", "font_weight_title", "font_weight_body"}:
+            return str(value)
+        return f"{value}px"
+    text = str(value).strip()
+    return text
+
+
+def parse_style_markdown(text: str) -> tuple[dict[str, Any], str]:
+    """Return (tokens, extra_css). Prose outside front matter / css fences is ignored."""
+    tokens: dict[str, Any] = {}
+    rest = text
+    match = FRONT_MATTER_RE.match(text)
+    if match:
+        loaded = yaml.safe_load(match.group(1)) or {}
+        if not isinstance(loaded, dict):
+            raise ValueError("Style front matter must be a YAML mapping of tokens.")
+        tokens = loaded
+        rest = text[match.end() :]
+
+    extras = [block.strip() for block in CSS_FENCE_RE.findall(rest) if block.strip()]
+    return tokens, "\n\n".join(extras)
+
+
+def load_style_file(path: Path) -> tuple[dict[str, Any], str]:
+    return parse_style_markdown(path.read_text(encoding="utf-8"))
+
+
+def tokens_to_css(tokens: dict[str, Any], extra_css: str = "") -> str:
+    """Build a :root rule from tokens, filling omitted tokens with plain defaults."""
+    unknown = sorted(set(tokens) - set(TOKEN_SPEC))
+    if unknown:
+        raise ValueError(
+            "Unknown style token(s): "
+            + ", ".join(unknown)
+            + ". See docs/STYLE_GUIDE.md for the schema."
+        )
+
+    lines = [":root {"]
+    for name, (css_var, default) in TOKEN_SPEC.items():
+        raw = tokens[name] if name in tokens else default
+        # If default already includes units (str), keep; else format.
+        if name in tokens:
+            value = _format_css_value(name, raw)
+        else:
+            value = str(default)
+        lines.append(f"  {css_var}: {value};")
+    lines.append("}")
+    parts = ["\n".join(lines)]
+    if extra_css.strip():
+        parts.append(extra_css.strip())
+    return "\n\n".join(parts) + "\n"
+
+
+def resolve_style_path(
+    cli_style: Path | None,
+    source_meta: dict[str, Any],
+    source_path: Path,
+) -> Path:
+    """Require a style file from --style or the slides' `style:` front matter."""
+    if cli_style is not None:
+        path = cli_style
+    else:
+        rel = source_meta.get("style")
+        if not rel:
+            raise SystemExit(
+                "No style file given. Pass --style path/to/deck_style.md "
+                "or set `style: deck_style.md` in the slides front matter. "
+                "md-deck has no built-in visual theme; each deck repo supplies style."
+            )
+        path = Path(str(rel))
+        if not path.is_absolute():
+            path = (source_path.parent / path).resolve()
+
+    if not path.is_file():
+        raise SystemExit(f"Style file not found: {path}")
+    return path.resolve()

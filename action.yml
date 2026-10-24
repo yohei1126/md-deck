@@ -1,0 +1,111 @@
+name: md-deck
+description: Check and build a 16:9 PDF slide deck from Markdown with a style Markdown file.
+author: yohei1126
+
+branding:
+  icon: file-text
+  color: gray-dark
+
+inputs:
+  source:
+    description: Path to the slides Markdown file
+    required: true
+  output:
+    description: Path for the output PDF (required unless check-only is true)
+    required: false
+    default: ""
+  style:
+    description: Path to the style Markdown file (overrides slides front matter style)
+    required: false
+    default: ""
+  css:
+    description: Optional extra CSS file applied after the style file
+    required: false
+    default: ""
+  check-only:
+    description: If true, run md-deck check only (no Chromium, no PDF)
+    required: false
+    default: "false"
+  allow-html:
+    description: If true, allow raw HTML in slides
+    required: false
+    default: "false"
+  working-directory:
+    description: Working directory for resolving source/output/style/css paths
+    required: false
+    default: "."
+
+runs:
+  using: composite
+  steps:
+    - name: Install uv
+      uses: astral-sh/setup-uv@v10.3.2
+      with:
+        enable-cache: true
+
+    - name: Install system fonts
+      if: inputs.check-only != 'true'
+      shell: bash
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y --no-install-recommends fonts-noto-cjk
+
+    - name: Sync md-deck
+      shell: bash
+      working-directory: ${{ github.action_path }}
+      run: |
+        set -euo pipefail
+        uv sync --frozen
+
+    - name: Install Chromium
+      if: inputs.check-only != 'true'
+      shell: bash
+      working-directory: ${{ github.action_path }}
+      run: |
+        set -euo pipefail
+        uv run playwright install --with-deps chromium
+
+    - name: Check deck
+      if: inputs.check-only == 'true'
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: |
+        set -euo pipefail
+        CMD=(
+          uv run --directory "${{ github.action_path }}" md-deck check
+          "${{ inputs.source }}"
+        )
+        if [ -n "${{ inputs.style }}" ]; then
+          CMD+=(--style "${{ inputs.style }}")
+        fi
+        if [ "${{ inputs.allow-html }}" = "true" ]; then
+          CMD+=(--allow-html)
+        fi
+        "${CMD[@]}"
+
+    - name: Build PDF
+      if: inputs.check-only != 'true'
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: |
+        set -euo pipefail
+        if [ -z "${{ inputs.output }}" ]; then
+          echo "output is required unless check-only is true" >&2
+          exit 1
+        fi
+        mkdir -p "$(dirname "${{ inputs.output }}")"
+        CMD=(
+          uv run --directory "${{ github.action_path }}" md-deck build
+          "${{ inputs.source }}"
+          -o "${{ inputs.output }}"
+        )
+        if [ -n "${{ inputs.style }}" ]; then
+          CMD+=(--style "${{ inputs.style }}")
+        fi
+        if [ -n "${{ inputs.css }}" ]; then
+          CMD+=(--css "${{ inputs.css }}")
+        fi
+        if [ "${{ inputs.allow-html }}" = "true" ]; then
+          CMD+=(--allow-html)
+        fi
+        "${CMD[@]}"

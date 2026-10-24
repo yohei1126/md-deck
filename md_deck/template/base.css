@@ -1,0 +1,202 @@
+/* Structural layout only. Visual identity comes from the deck style Markdown. */
+
+@page {
+  size: var(--page-width) var(--page-height);
+  margin: 0;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  width: var(--page-width);
+  background: var(--color-background);
+  color: var(--color-text);
+  font-family: var(--font-family);
+  font-size: var(--font-size-body);
+  font-weight: var(--font-weight-body);
+  line-height: var(--line-height);
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
+.deck {
+  width: var(--page-width);
+}
+
+.slide {
+  position: relative;
+  width: var(--page-width);
+  height: var(--page-height);
+  padding: var(--page-padding);
+  overflow: hidden;
+  page-break-after: always;
+  break-after: page;
+  background: var(--color-background);
+  color: var(--color-text);
+}
+
+.slide:last-child {
+  page-break-after: auto;
+  break-after: auto;
+}
+
+.slide-inner {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  transform-origin: top left;
+}
+
+.slide-content {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap);
+}
+
+.slide h1 {
+  margin: 0;
+  color: var(--color-title);
+  font-size: var(--font-size-title);
+  font-weight: var(--font-weight-title);
+  line-height: 1.25;
+}
+
+.slide h2,
+.slide h3 {
+  margin: 0;
+  color: var(--color-title);
+  font-weight: var(--font-weight-title);
+}
+
+.slide p {
+  margin: 0;
+}
+
+.slide ul,
+.slide ol {
+  margin: 0;
+  padding-left: 1.4em;
+}
+
+.slide li + li {
+  margin-top: 0.35em;
+}
+
+.key-message {
+  margin: 0;
+  padding: var(--card-padding);
+  border: var(--border-width) solid var(--color-key-message-border);
+  border-radius: var(--key-message-radius);
+  background: var(--color-key-message-bg);
+  color: var(--color-key-message-text);
+  font-size: var(--font-size-key-message);
+}
+
+.key-message .label {
+  font-weight: var(--font-weight-title);
+}
+
+.question {
+  margin: 0;
+  padding: var(--card-padding);
+  border: var(--border-width) solid var(--color-question-border);
+  border-radius: var(--question-radius);
+  background: var(--color-question-bg);
+  color: var(--color-question-text);
+  font-size: var(--font-size-question);
+}
+
+.question .label {
+  font-weight: var(--font-weight-title);
+  display: block;
+  margin-bottom: 0.35em;
+}
+
+.columns {
+  display: flex;
+  gap: var(--gap);
+  flex: 1 1 auto;
+  min-height: 0;
+  align-items: stretch;
+}
+
+.column {
+  flex: 1 1 0;
+  min-width: 0;
+  padding: var(--card-padding);
+  border: var(--border-width) solid var(--color-card-border);
+  border-radius: var(--card-radius);
+  background: var(--color-card-bg);
+}
+
+.flow {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: calc(var(--gap) * 1.5);
+  padding: var(--card-padding) 0;
+}
+
+.flow-node {
+  position: relative;
+  z-index: 1;
+  min-width: var(--flow-node-min-width);
+  padding: var(--flow-node-padding);
+  border: var(--border-width) solid var(--color-flow-node-border);
+  border-radius: var(--card-radius);
+  background: var(--color-flow-node-bg);
+  text-align: center;
+}
+
+.flow-svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  overflow: visible;
+  z-index: 0;
+}
+
+.flow-svg path {
+  fill: none;
+  stroke: var(--color-flow-arrow);
+  stroke-width: 2;
+  marker-end: url(#flow-arrowhead);
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-size-small);
+}
+
+th,
+td {
+  border: var(--border-width) solid var(--color-table-border);
+  padding: 0.45em 0.7em;
+  text-align: left;
+  vertical-align: top;
+}
+
+th {
+  background: var(--color-table-header-bg);
+  font-weight: var(--font-weight-title);
+}
+
+.muted {
+  color: var(--color-muted);
+}
+
+.slide[data-overflow="true"] {
+  outline: 3px solid #c00;
+  outline-offset: -3px;
+}
