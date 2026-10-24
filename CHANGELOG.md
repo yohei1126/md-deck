@@ -4,6 +4,8 @@
 
 ### Fixed
 
+- Callout connectors with `pos=above side=left` (and every other `pos`/`side` pair) keep a final segment perpendicular to the anchor edge they enter. Outside routing no longer runs the last segment along the node border; when that geometry is impossible the connector falls back to the facing side.
+- Same-row `::: flow straight` fan-in (and the orthogonal same-side U detour) assigns the farther source the farther target port so nested trunks do not cross next to the arrowheads. Trunk spacing and the final drop respect `flow_port_gap` so arrowheads stay clear.
 - Straight edges (`shape=straight`, `::: flow straight`, or `flow_edge_shape: straight`) no longer draw along intermediate node borders. When a straight segment would cross or run along a non-endpoint node, routing falls back to an obstacle-avoiding orthogonal path (same-row bends above/below, distinct fan-in trunks).
 - Callout connectors with `pos=above|below` and a sideways `side=` that would run back through the callout box now leave the requested side and route outside the box, or fall back to the facing side.
 - Callout connectors with `side=left|right` and `pos=below*` / `above` (and the mirrored `side=top|bottom` with `pos=left|right`) draw an L that leaves the callout side, runs to the anchor entry x/y, then enters the node edge with the arrowhead pointing into the node. The previous H-V-H mid path left the last segment along the node border. Geometry checks now require the final segment to be perpendicular to the edge it enters.
