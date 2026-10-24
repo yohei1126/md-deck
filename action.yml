@@ -22,17 +22,17 @@ inputs:
     required: false
     default: ""
   working-directory:
-    description: Working directory for the build
+    description: Working directory for resolving source/output/style/css paths
     required: false
     default: "."
 
 runs:
   using: composite
   steps:
-    - name: Set up Python
-      uses: actions/setup-python@v5
+    - name: Install uv
+      uses: astral-sh/setup-uv@v10.3.2
       with:
-        python-version: "3.12"
+        enable-cache: true
 
     - name: Install system fonts
       shell: bash
@@ -40,13 +40,13 @@ runs:
         sudo apt-get update
         sudo apt-get install -y --no-install-recommends fonts-noto-cjk
 
-    - name: Install md-deck dependencies
+    - name: Sync md-deck and install Chromium
       shell: bash
-      working-directory: ${{ inputs.working-directory }}
+      working-directory: ${{ github.action_path }}
       run: |
-        python -m pip install --upgrade pip
-        python -m pip install -r "${{ github.action_path }}/requirements.txt"
-        python -m playwright install --with-deps chromium
+        set -euo pipefail
+        uv sync --frozen
+        uv run playwright install --with-deps chromium
 
     - name: Build PDF
       shell: bash
@@ -54,8 +54,11 @@ runs:
       run: |
         set -euo pipefail
         mkdir -p "$(dirname "${{ inputs.output }}")"
-        export PYTHONPATH="${{ github.action_path }}${PYTHONPATH:+:$PYTHONPATH}"
-        CMD=(python -m md_deck "${{ inputs.source }}" -o "${{ inputs.output }}")
+        CMD=(
+          uv run --directory "${{ github.action_path }}" md-deck
+          "${{ inputs.source }}"
+          -o "${{ inputs.output }}"
+        )
         if [ -n "${{ inputs.style }}" ]; then
           CMD+=(--style "${{ inputs.style }}")
         fi

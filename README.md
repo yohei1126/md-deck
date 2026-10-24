@@ -11,19 +11,26 @@ This repository’s `examples/` folder holds sample slides and a plain sample st
 
 ## Install
 
+Uses [uv](https://docs.astral.sh/uv/). From a clone:
+
 ```bash
-python -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-playwright install chromium
+uv sync
+uv run playwright install chromium
 ```
 
-Japanese decks need a CJK font on the machine that renders PDF, for example `fonts-noto-cjk` on Debian/Ubuntu.
+Or run a pinned tag straight from GitHub without a local clone:
+
+```bash
+uvx --from git+https://github.com/yohei1126/md-deck@v0.1.0 md-deck \
+  slides.md -o out.pdf --style deck_style.md
+```
+
+Japanese decks need a CJK font on the machine that renders PDF, for example `fonts-noto-cjk` on Debian/Ubuntu. md-deck is not published to PyPI yet; install from Git or use the Action.
 
 ## Usage
 
 ```bash
-python -m md_deck examples/sample.md -o out/sample.pdf --style examples/deck_style.md
+uv run md-deck examples/sample.md -o out/sample.pdf --style examples/deck_style.md
 ```
 
 Or set `style: deck_style.md` in the slides front matter and omit `--style`.
@@ -59,7 +66,7 @@ The HTML→PDF step uses Chromium through Playwright. After writing the PDF, md-
 
 ## GitHub Action
 
-Composite action at the repo root (`action.yml`). Inputs: `source`, `output`, optional `style`, optional `css`.
+Composite action at the repo root (`action.yml`). Inputs: `source`, `output`, optional `style`, optional `css`. It installs uv, syncs this project from the Action checkout, installs Playwright Chromium, then runs `md-deck`.
 
 ```yaml
 - uses: yohei1126/md-deck@v0.1.0

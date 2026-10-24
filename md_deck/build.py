@@ -91,7 +91,7 @@ def _normalize_pdf(path: Path) -> None:
     except ImportError as exc:  # pragma: no cover
         raise SystemExit(
             "pypdf is required for deterministic PDF metadata. "
-            "Install requirements.txt."
+            "Run `uv sync` in the md-deck checkout."
         ) from exc
 
     reader = PdfReader(str(path))
@@ -291,5 +291,10 @@ def main(argv: list[str] | None = None) -> int:
     return 0
 
 
-if __name__ == "__main__":
+def cli() -> None:
+    """Console-script entry point for `md-deck`."""
     raise SystemExit(main())
+
+
+if __name__ == "__main__":
+    cli()
