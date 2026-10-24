@@ -43,6 +43,7 @@ TOKEN_SPEC: dict[str, tuple[str, Any]] = {
     "font_size_key_message": ("--font-size-key-message", "20px"),
     "font_size_question": ("--font-size-question", "18px"),
     "font_size_small": ("--font-size-small", "16px"),
+    "font_size_table": ("--font-size-table", "16px"),
     "font_weight_title": ("--font-weight-title", "700"),
     "font_weight_body": ("--font-weight-body", "400"),
     "line_height": ("--line-height", "1.45"),
@@ -61,6 +62,8 @@ TOKEN_SPEC: dict[str, tuple[str, Any]] = {
     "flow_node_padding": ("--flow-node-padding", "12px"),
     "label_question": ("--label-question", "Question"),
     "label_key_message": ("--label-key-message", "Key Message"),
+    "question_label_placement": ("--question-label-placement", "inline"),
+    "page_number_placement": ("--page-number-placement", "bottom-right"),
 }
 
 # Tokens that may be 0 or the keyword none (radii, borders, paddings).
@@ -83,6 +86,11 @@ ZERO_OR_NONE_TOKENS = frozenset(
 )
 
 LABEL_TOKENS = frozenset({"label_question", "label_key_message"})
+PLACEMENT_TOKENS = frozenset({"question_label_placement", "page_number_placement"})
+PAGE_NUMBER_PLACEMENTS = frozenset(
+    {"bottom-right", "bottom-left", "bottom-center"}
+)
+QUESTION_LABEL_PLACEMENTS = frozenset({"inline", "block"})
 
 FRONT_MATTER_RE = re.compile(r"\A---\s*\n(.*?)\n---\s*\n?", re.DOTALL)
 CSS_FENCE_RE = re.compile(r"```css\s*\n(.*?)```", re.DOTALL | re.IGNORECASE)
@@ -97,6 +105,8 @@ def _format_css_value(token: str, value: Any) -> str:
         # CSS string for content: var(--label-question)
         text = str(value).replace("\\", "\\\\").replace('"', '\\"')
         return f'"{text}"'
+    if token in PLACEMENT_TOKENS:
+        return str(value).strip().lower()
     if isinstance(value, str) and value.strip().lower() == "none":
         return "none"
     if isinstance(value, (int, float)) and not isinstance(value, bool):
@@ -152,6 +162,9 @@ def tokens_to_css(tokens: dict[str, Any], extra_css: str = "") -> str:
         )
 
     expanded = _expand_padding_sides(tokens)
+    # font_size_table falls back to font_size_small when omitted.
+    if "font_size_table" not in expanded and "font_size_small" in expanded:
+        expanded["font_size_table"] = expanded["font_size_small"]
 
     lines = [":root {"]
     for name, (css_var, default) in TOKEN_SPEC.items():

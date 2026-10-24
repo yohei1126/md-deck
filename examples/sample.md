@@ -1,6 +1,6 @@
 ---
 title: md-deck sample
-version: "0.2.0"
+version: "0.3.0"
 date: "2026-10-24"
 lang: en
 style: deck_style.md
@@ -25,50 +25,67 @@ Source: md-deck examples
 
 - Slides are Markdown
 - Separators are `---`
-- Output is PDF (PNG optional)
+- Highlighted list item
+  {: .highlight}
 
-| Piece | Role |
-| --- | --- |
-| Content `.md` | Slide body |
-| Style `.md` | Tokens and optional CSS |
-| md-deck | HTML and PDF rendering |
+|  | Content | Style |
+| --- | --- | --- |
+| File | `.md` slides | `.md` tokens |
+| Role | Slide body | Theme and CSS |
+| Tool | md-deck | HTML and PDF |
+
+The empty corner cell marks the first column as row headers (`th[scope=row]`).
 
 ---
 
 # Flow diagrams
 
-**Key Message:** Flow blocks build boxes and arrows; kinds and labels stay in Markdown.
+**Key Message:** Flow blocks build boxes and arrows; kinds, ids, chips, and routes stay in Markdown.
 
 ::: flow wide
 lane: Pipeline
-[actor] Author | writes -> [doc] Slides {md} -.[check].-> [system] md-deck -> [highlight] PDF
+[actor] Author {#author} | writes -> [doc] Spec {#spec} {md} -[review\npass]-> [system] Builder [[lint, render]]
 lane: Style
-[muted] Tokens ..> [system] md-deck
-link: Slides => Tokens : bind
+[muted] Tokens {#tokens} ..> [highlight] PDF {#pdf}
+link: spec => tokens : bind [route=down]
+link: author ..> pdf : emit
+callout: pdf : Ship it [pos=below]
 :::
 
-Arrow forms: `A -> B`, `A -[label]-> B`, `A ..> B`, `A -.[label].-> B`, and `A <-> B`. Node markers: `[actor]`, `[system]`, `[doc]`, `[muted]`, `[highlight]`. Caption with `Name | caption`; badge with `Name {badge}`.
+Arrow forms: `A -> B`, `A -[label]-> B`, `A ..> B`, `A -.[label].-> B`, and `A <-> B`. Node markers: `[actor]`, `[system]`, `[doc]`, `[muted]`, `[highlight]`. Caption with `Name | caption`; badge with `Name {badge}`; id with `Name {#id}`; chips with `Name [[a, b]]`. Cross-lane links: `link: From => To : label [route=down]`.
 
 ---
 
-# Two columns
+# Parallel edges and stacks
 
-**Key Message:** `::: columns` splits on `+++`; options pick chrome.
+**Key Message:** Parallel arrows offset automatically; `{ A / B }` stacks nodes in one column.
+
+::: flow
+Source -[solid]-> Target
+Source -.[dashed].-> Target
+Left -> { Upper / Lower } -> Right
+:::
+
+---
+
+# Columns with nested flow
+
+**Key Message:** `::: columns` may contain one nested `::: flow` per column; other nesting stays forbidden.
 
 ::: columns panel
-## Content
+## Content path
 
-- Title (`#`)
-- Key Message
-- Lists and tables
+::: flow
+Draft -> Review -> Publish
+:::
 
 +++
 
-## Style
+## Style path
 
-- YAML tokens
-- Optional `css` fence
-- Prose for humans
+::: flow
+Tokens -> CSS -> PDF
+:::
 :::
 
 ::: columns plain

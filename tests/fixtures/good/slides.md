@@ -13,6 +13,10 @@ style: deck_style.md
 A short body line.\
 With a hard break.
 
+- Plain item
+- Highlighted item
+  {: .highlight}
+
 Source: Example public notes
 
 ---
@@ -21,20 +25,34 @@ Source: Example public notes
 
 ::: flow wide
 lane: Upstream
-[actor] Start | ready {go} -> [system] Middle -.[step].-> [doc] End
+[actor] Start {#start} | ready {go} -> [system] Middle -[lab\nel]-> [doc] End [[alpha, beta]]
 lane: Downstream
-[muted] Side ..> [highlight] Focus
-link: End => Focus : handoff
+[muted] Side ..> [highlight] Focus {#focus}
+link: End => focus : handoff [route=down]
+link: start ..> Focus : alt
+callout: focus : Check here [pos=below]
 :::
 
 ---
 
-# Columns
+# Parallel and stack
+
+::: flow
+A -[solid\npath]-> B
+A -.[dashed\npath].-> B
+C -> { Upper / Lower } -> D
+:::
+
+---
+
+# Columns with nested flow
 
 ::: columns panel
 ## Left head
 
-Left column text
+::: flow
+In -> Out
+:::
 
 +++
 
@@ -42,6 +60,15 @@ Left column text
 
 Right column text
 :::
+
+---
+
+# Tables
+
+|  | Alpha | Beta |
+| --- | --- | --- |
+| Row one | a1 | b1 |
+| Row two | a2 | b2 |
 
 ---
 

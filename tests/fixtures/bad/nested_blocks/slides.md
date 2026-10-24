@@ -10,8 +10,8 @@ style: deck_style.md
 
 ::: columns
 Left
-::: flow
-A -> B
+::: question
+Not allowed inside columns
 :::
 +++
 Right

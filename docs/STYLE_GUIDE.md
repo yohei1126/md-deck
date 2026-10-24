@@ -67,7 +67,8 @@ Label tokens become both HTML label text (when set) and quoted CSS variables for
 | `font_size_title` | `--font-size-title` | `36px` | no | Title size |
 | `font_size_key_message` | `--font-size-key-message` | `20px` | no | Key Message size |
 | `font_size_question` | `--font-size-question` | `18px` | no | Question size |
-| `font_size_small` | `--font-size-small` | `16px` | no | Tables, footer, captions |
+| `font_size_small` | `--font-size-small` | `16px` | no | Footer, captions, chips |
+| `font_size_table` | `--font-size-table` | `font_size_small` | no | Table body size (falls back to `font_size_small` when omitted) |
 | `font_weight_title` | `--font-weight-title` | `700` | no | Titles and labels |
 | `font_weight_body` | `--font-weight-body` | `400` | no | Body weight |
 | `line_height` | `--line-height` | `1.45` | no | Body line height |
@@ -86,6 +87,8 @@ Label tokens become both HTML label text (when set) and quoted CSS variables for
 | `flow_node_padding` | `--flow-node-padding` | `12px` | no | Flow node padding |
 | `label_question` | `--label-question` | from `lang` | no | Question label string |
 | `label_key_message` | `--label-key-message` | from `lang` | no | Key Message label string |
+| `question_label_placement` | `--question-label-placement` | `inline` | no | `inline` (label in first paragraph) or `block` |
+| `page_number_placement` | `--page-number-placement` | `bottom-right` | no | `bottom-right`, `bottom-left`, or `bottom-center` (independent of `.source`) |
 
 When `label_*` tokens are omitted, defaults follow the slides `lang` (`ja` → 議論の問い / キーメッセージ; otherwise Question / Key Message). See [INPUT_FORMAT.md](INPUT_FORMAT.md).
 
@@ -119,10 +122,10 @@ Rules from every `css` fence in the style file are appended after the generated 
 | Key Message | at most one `**Key Message:** …` line | extras fail |
 | Question box | `::: question` … `:::` | non-empty; known kinds only |
 | Source | `Source:` / `出典:` line or `::: source` | empty source block fails |
-| Flow | `::: flow` / `::: flow wide` with arrows, lanes, links | ≥2 nodes; known options/kinds |
-| Columns | `::: columns` / `plain` / `panel`, split by `+++` | ≥2 non-empty columns |
-| Hard break | trailing `\` | also: newlines inside question/source |
-| Table / lists | normal Markdown | consistent table columns; list indent sanity |
+| Flow | `::: flow` / `::: flow wide` with arrows, lanes, links, callouts, stacks, chips, `{#id}` | ≥2 nodes; known options/kinds/routes |
+| Columns | `::: columns` / `plain` / `panel`, split by `+++`; may nest one `::: flow` | ≥2 non-empty columns; other nesting forbidden |
+| Hard break | trailing `\`; `\n` in flow labels/badges/titles | also: newlines inside question/source |
+| Table / lists | normal Markdown; empty corner → row headers | consistent columns; list class without forced `<p>` |
 | Code fence | ` ``` ` … ` ``` ` | must close |
 | HTML | not used by default | fails unless `--allow-html` |
 

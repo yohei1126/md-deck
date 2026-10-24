@@ -74,7 +74,7 @@ Required tokens (must be present):
 | `font_family` | Font stack |
 | `font_size_body` | Base body size |
 
-All other tokens in the [style guide](STYLE_GUIDE.md) are optional and fall back to plain defaults when omitted. Unknown token names are errors. Values are type-checked (CSS colours, sizes with optional `px`/`rem`/`em`/`%`, `0` / `none` where allowed, font weights, line-height, label strings).
+All other tokens in the [style guide](STYLE_GUIDE.md) are optional and fall back to plain defaults when omitted. Unknown token names are errors. Values are type-checked (CSS colours, sizes with optional `px`/`rem`/`em`/`%`, `0` / `none` where allowed, font weights, line-height, label strings, placement enums).
 
 ## Referenced assets
 
@@ -95,14 +95,15 @@ Deck-specific:
   - `columns`: `plain`, `panel`
   - `question` / `source`: no options
 - Every `:::` opener needs a matching closer; stray closers and `::` / `::::` lines fail
-- No nested blocks
-- Flow: at least two nodes; empty nodes in `A -> -> B` fail; unknown `[kind]` markers fail
+- Nested blocks are forbidden, except `::: flow` inside `::: columns` (one level only)
+- Flow: at least two nodes; empty nodes in `A -> -> B` fail; unknown `[kind]` markers fail; unknown `route=` / `pos=` values fail; duplicate `{#id}` fails
 - Columns: at least two non-empty parts split by a `+++` line; `+++` outside `columns` fails
 - Question and source blocks must not be empty
-- Tables: every row has the same column count
+- Tables: every row has the same column count; an empty first header cell promotes the first body column to `th[scope=row]`
 - Fenced code blocks must close
 - Raw HTML is forbidden unless `--allow-html`
-- Hard line breaks: a backslash at end of line (`\`). Inside `question` / `source` blocks, single newlines also become breaks
+- Hard line breaks: a backslash at end of line (`\`), or `\n` inside flow titles, captions, badges, and arrow labels. Inside `question` / `source` blocks, single newlines also become breaks
+- List item classes via `attr_list` on the next line stay on `<li>` without forcing a wrapping `<p>` for simple items
 
 Generic hygiene (via [pymarkdownlnt](https://github.com/jackdewinter/pymarkdown) on each slide body): heading increment (MD001), list indent (MD005/MD007), hard tabs (MD010), list marker spacing (MD030), fenced-code blanks/language/style (MD031/MD040/MD046). A committed [`pymarkdown.json`](../pymarkdown.json) documents the repo defaults; `md-deck check` applies its own enable/disable set so deck-specific rules stay authoritative for H1 count and HTML.
 
@@ -111,11 +112,12 @@ Generic hygiene (via [pymarkdownlnt](https://github.com/jackdewinter/pymarkdown)
 ```markdown
 ::: flow wide
 lane: Intake
-[actor] Writer | drafts -> [doc] Spec {v1} -[review]-> [system] Builder
+[actor] Writer {#writer} | drafts -> [doc] Spec {#spec} {v1} -[review\npass]-> [system] Builder [[lint, pack]]
 lane: Publish
-[muted] Archive ..> [highlight] PDF
-link: Builder => PDF : emit
-link: Spec ..> Archive : store
+[muted] Archive ..> [highlight] PDF {#pdf}
+link: Builder => pdf : emit [route=down]
+link: spec ..> Archive : store
+callout: pdf : Ready to ship [pos=below]
 :::
 ```
 
@@ -127,19 +129,45 @@ link: Spec ..> Archive : store
 | Labelled dashed | `A -.[label].-> B` |
 | Bidirectional pair | `A <-> B` or `A <-[label]-> B` |
 | Node kind | `[actor]`, `[system]`, `[doc]`, `[muted]`, `[highlight]` before the name |
+| Node id | `Name {#id}` (stable `data-node` / link target; works with duplicate titles and `\n` breaks) |
 | Caption (second line) | `Name \| caption` |
-| Badge | `Name {badge}` |
-| Line break in node text | `\n` inside the title/caption, or use caption |
+| Badge | `Name {badge}` (must not start with `#`) |
+| Chips inside the node | `Name [[chip1, chip2, chip3]]` |
+| Line break in node / label / badge | `\n` or a trailing `\` |
 | Lane | `lane: Label` starts a lane |
-| Cross-lane link | `link: From => To : optional label` (also `->` / `..>`) |
+| Cross-lane link | `link: From => To : optional label [route=down]` (also `->` / `..>`; routes: `auto`, `up`, `down`, `left`, `right`) |
+| Callout | `callout: NodeId : text [pos=below]` (`above` / `below` / `left` / `right`) |
+| Stacked column | `A -> { Upper / Lower } -> B` |
+| Parallel edges | Repeat the same pair on separate lines; strokes offset and labels separate |
 
-Existing `A -> B -> C` chains and one-node-per-line lists keep working.
+Existing `A -> B -> C` chains and one-node-per-line lists keep working. Cross-lane links draw as orthogonal (right-angled) paths that route around nodes; `route=` picks the corridor when the default is ambiguous.
+
+## Columns and nesting
+
+```markdown
+::: columns panel
+## Left
+
+::: flow
+A -> B
+:::
+
++++
+
+## Right
+
+Notes
+:::
+```
+
+Only `flow` may nest inside `columns`. Question, source, or another columns block inside columns still fails the check.
 
 ## Sources and footer
 
 - `Source: …` or `出典:…` / `出典：…` on its own line moves into the footer with class `.source`
 - Or `::: source` … `:::` for a longer note
 - Page numbers render automatically as `n / total` with class `.page-number`
+- `page_number_placement` (`bottom-right` default, also `bottom-left`, `bottom-center`) positions the page mark independently of the source footer
 
 ## Labels
 
@@ -149,6 +177,8 @@ Style tokens `label_question` and `label_key_message` set the visible label text
 | --- | --- | --- |
 | `ja` (and `ja-*`) | 議論の問い | キーメッセージ |
 | other | Question | Key Message |
+
+`question_label_placement` is `inline` by default (label in the first paragraph) or `block` (label on its own line above the body).
 
 ## Commands
 
