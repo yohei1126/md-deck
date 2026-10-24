@@ -1,6 +1,6 @@
 # Stable styling hooks
 
-md-deck emits a fixed set of classes and data attributes so deck style CSS can theme slides without `#slide-N` or `:nth-child()` selectors. Treat this list as the styling API: names here stay stable across releases unless a breaking change is called out in the changelog or PR.
+md-deck emits a fixed set of classes and data attributes so deck style CSS can theme slides without `#slide-N` or `:nth-child()` selectors. Treat this list as the styling API: names here stay stable across releases unless a breaking change is called out in the GitHub Release notes or PR.
 
 The generator still ships **no visual theme**. Hooks are layout landmarks only. Colours, type, radii, and chrome belong in the deck's style Markdown (tokens and `css` fences).
 
