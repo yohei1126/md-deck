@@ -348,6 +348,8 @@ th[scope="row"] {
   color: var(--color-muted);
 }
 
+/* footer_inset_right is added to page_padding_right (negative pulls toward
+   the page edge). footer_inset_bottom is measured from the page edge. */
 .slide-footer {
   position: absolute;
   left: var(--page-padding-left, var(--page-padding));

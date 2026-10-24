@@ -35,11 +35,11 @@ md-deck はレンダリングだけを担当し、見た目のテーマは同梱
 
 - 必須色・フォント: `color_background`, `color_text`, `color_title`, `font_family`, `font_size_body`
 - 追加色: `color_top_bar`, `color_accent_2`, `color_highlight`, `color_highlight_bg`, `color_gray`, `color_muted`
-- ページ: `page_width`, `page_height`, `page_padding`, `page_padding_*`, `footer_inset_bottom`, `footer_inset_right`, `gap`
+- ページ: `page_width`, `page_height`, `page_padding`, `page_padding_*`, `footer_inset_bottom`, `footer_inset_right`（負の値可）, `gap`
 - その他の色: Key Message / Question / card / flow / table 向け
 - タイポ: 各 `font_size_*`（表専用の `font_size_table` を含む）, `font_weight_*`, `line_height`
 - 形: `card_radius`, `key_message_radius`, `question_radius`, `border_width`, `card_padding`（`0` / `none` 可）
-- フロー: `flow_node_min_width`, `flow_node_padding`
+- フロー: `flow_node_min_width`, `flow_node_padding`, `flow_callout_gap`, `flow_port_gap`
 - ラベル: `label_question`, `label_key_message`（省略時は `lang` から既定。`ja` なら「議論の問い」「キーメッセージ」）
 - 配置: `question_label_placement`（`inline` / `block`）、`page_number_placement`（`bottom-right` / `bottom-left` / `bottom-center`。出典フッターとは別）
 

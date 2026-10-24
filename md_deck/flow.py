@@ -11,6 +11,9 @@ KNOWN_LINK_ROUTES = frozenset({"up", "down", "left", "right", "auto", "between"}
 KNOWN_CALLOUT_POS = frozenset(
     {"above", "below", "below-left", "below-right", "left", "right"}
 )
+KNOWN_CALLOUT_SIDES = frozenset({"top", "bottom", "left", "right"})
+# Spacing between fan-in / fan-out ports on one node side (px; mirrored in deck.js).
+FLOW_PORT_GAP_PX = 12
 
 # Longest operators first.
 ARROW_RE = re.compile(
@@ -82,6 +85,8 @@ class FlowCallout:
     anchor: str
     text: str
     pos: str = "below"  # above | below | below-left | below-right | left | right
+    # Optional exit side on the callout box (overrides the default from pos).
+    side: str | None = None  # top | bottom | left | right
 
 
 @dataclass
@@ -261,6 +266,35 @@ def _find_key(diagram: FlowDiagram, ref: str) -> str | None:
     return matches[-1] if matches else None
 
 
+def _find_key_by_id(diagram: FlowDiagram, node_id: str) -> str | None:
+    """Resolve a node by its explicit {#id} (most recent match)."""
+    matches = [
+        key for key, node in diagram.nodes.items() if node.node_id == node_id
+    ]
+    if node_id in diagram.nodes and diagram.nodes[node_id].node_id == node_id:
+        return node_id
+    return matches[-1] if matches else None
+
+
+def _is_id_reference(node: FlowNode) -> bool:
+    """True for a bare `{#id}` mention (no new title / kind / chips / badge)."""
+    return bool(
+        node.node_id
+        and not (node.title or "").strip()
+        and not node.chips
+        and node.kind is None
+        and node.caption is None
+        and node.badge is None
+    )
+
+
+def _lane_index_for_key(diagram: FlowDiagram, key: str) -> int | None:
+    for index, lane in enumerate(diagram.lanes):
+        if key in lane.node_keys:
+            return index
+    return None
+
+
 def _merge_node_fields(existing: FlowNode, node: FlowNode) -> None:
     if existing.kind is None and node.kind is not None:
         existing.kind = node.kind
@@ -282,6 +316,17 @@ def _ensure_node(
     node = parse_node_text(raw)
     if not node.title.strip() and not node.node_id and not node.chips:
         diagram.errors.append("empty flow node in arrow chain")
+        return ""
+    # Bare {#id} always refers to an already-defined node (any lane).
+    if _is_id_reference(node):
+        found = _find_key_by_id(diagram, node.node_id or "")
+        if found is not None:
+            return found
+        diagram.errors.append(
+            f"unknown flow node id {node.node_id!r}; "
+            f"define it with a title (Name {{#{node.node_id}}}) or use "
+            f"link: … => … for cross-lane edges"
+        )
         return ""
     if reuse:
         found = _find_key(diagram, node.node_id or node.title or node.key)
@@ -312,7 +357,7 @@ def _ensure_node(
                 _merge_node_fields(existing, node)
                 return key
     preferred = node.node_id or node.title or node.key
-    if node.node_id and node.node_id in diagram.nodes:
+    if node.node_id and _find_key_by_id(diagram, node.node_id) is not None:
         diagram.errors.append(f"duplicate flow node id {node.node_id!r}")
         key = _allocate_key(diagram, preferred)
     else:
@@ -390,6 +435,18 @@ def _add_column(lane: FlowLane, key_or_stack: str | list[str]) -> None:
     lane.columns.append(key_or_stack)
 
 
+def _key_belongs_in_lane(diagram: FlowDiagram, lane: FlowLane, key: str) -> bool:
+    """False when key already lives in a different lane (cross-lane id ref)."""
+    home = _lane_index_for_key(diagram, key)
+    if home is None:
+        return True
+    try:
+        current = diagram.lanes.index(lane)
+    except ValueError:
+        return True
+    return home == current
+
+
 def _parse_chain_line(diagram: FlowDiagram, lane: FlowLane, line: str) -> None:
     parts, ops = _split_chain_parts(line)
 
@@ -401,7 +458,7 @@ def _parse_chain_line(diagram: FlowDiagram, lane: FlowLane, line: str) -> None:
                 _add_column(lane, keys)
             return
         key = _ensure_node(diagram, raw, lane=lane)
-        if key:
+        if key and _key_belongs_in_lane(diagram, lane, key):
             _add_column(lane, key)
         return
 
@@ -425,7 +482,11 @@ def _parse_chain_line(diagram: FlowDiagram, lane: FlowLane, line: str) -> None:
     for item in resolved:
         if item is None:
             continue
-        _add_column(lane, item)
+        if isinstance(item, list):
+            _add_column(lane, item)
+            continue
+        if _key_belongs_in_lane(diagram, lane, item):
+            _add_column(lane, item)
 
     for i, op in enumerate(ops):
         src_item, dst_item = resolved[i], resolved[i + 1]
@@ -438,17 +499,29 @@ def _parse_chain_line(diagram: FlowDiagram, lane: FlowLane, line: str) -> None:
         src = src_item[0] if src_stack else src_item
         dst = dst_item[0] if dst_stack else dst_item
         style, label, bidirectional = _parse_arrow(op)
-        lane.edges.append(
-            FlowEdge(
-                source=src,
-                target=dst,
-                style=style,
-                label=label,
-                bidirectional=bidirectional,
-                source_attach="stack" if src_stack else "node",
-                target_attach="stack" if dst_stack else "node",
-            )
+        src_home = _lane_index_for_key(diagram, src)
+        dst_home = _lane_index_for_key(diagram, dst)
+        cross = (
+            src_home is not None
+            and dst_home is not None
+            and src_home != dst_home
         )
+        edge = FlowEdge(
+            source=src,
+            target=dst,
+            style=style,
+            label=label,
+            bidirectional=bidirectional,
+            cross=cross,
+            route="auto",
+            source_attach="stack" if src_stack else "node",
+            target_attach="stack" if dst_stack else "node",
+        )
+        if cross:
+            # Same routing / hooks as `link:`; keep the node out of this lane.
+            diagram.links.append(edge)
+        else:
+            lane.edges.append(edge)
 
 
 def _parse_link_line(diagram: FlowDiagram, line: str) -> None:
@@ -504,10 +577,19 @@ def _parse_callout_line(diagram: FlowDiagram, line: str) -> None:
             f"(expected {', '.join(sorted(KNOWN_CALLOUT_POS))})"
         )
         pos = "below"
+    side = opts.get("side")
+    if side is not None and side not in KNOWN_CALLOUT_SIDES:
+        diagram.errors.append(
+            f"unknown callout side {side!r} "
+            f"(expected {', '.join(sorted(KNOWN_CALLOUT_SIDES))})"
+        )
+        side = None
     anchor = _ensure_node(diagram, anchor_raw, reuse=True)
     if not anchor:
         return
-    diagram.callouts.append(FlowCallout(anchor=anchor, text=text, pos=pos))
+    diagram.callouts.append(
+        FlowCallout(anchor=anchor, text=text, pos=pos, side=side)
+    )
 
 
 def _assign_parallel_indices(edges: list[FlowEdge]) -> None:
@@ -639,9 +721,12 @@ def _render_edge(edge: FlowEdge) -> str:
 
 
 def _render_callout(callout: FlowCallout) -> str:
+    side_attr = (
+        f' data-side="{html.escape(callout.side)}"' if callout.side else ""
+    )
     return (
         f'<div class="flow-callout" data-anchor="{html.escape(callout.anchor)}" '
-        f'data-pos="{html.escape(callout.pos)}">'
+        f'data-pos="{html.escape(callout.pos)}"{side_attr}>'
         f"{_br_escape(callout.text)}</div>"
     )
 

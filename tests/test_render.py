@@ -70,18 +70,47 @@ def test_between_route_and_stack_attach():
     diagram = parse_flow_body(
         "L -> { Up / Down } -> R\n"
         "link: L => R : x [route=between]\n"
-        "callout: R : note [pos=below-left]\n"
+        "callout: R : note [pos=below-left side=right]\n"
     )
     stack_edges = diagram.lanes[0].edges
     assert stack_edges[0].target_attach == "stack"
     assert stack_edges[1].source_attach == "stack"
     assert diagram.links[0].route == "between"
     assert diagram.callouts[0].pos == "below-left"
+    assert diagram.callouts[0].side == "right"
     html = render_flow_html(diagram)
     assert 'data-to-attach="stack"' in html
     assert 'data-from-attach="stack"' in html
     assert 'data-route="between"' in html
     assert 'data-pos="below-left"' in html
+    assert 'data-side="right"' in html
+
+
+def test_cross_lane_id_arrow_resolves():
+    diagram = parse_flow_body(
+        "lane: Top\n"
+        "A {#a}\n"
+        "lane: Bottom\n"
+        "B {#b}\n"
+        "{#a} -> {#b}\n"
+    )
+    assert diagram.errors == []
+    assert "a" in diagram.nodes
+    assert "b" in diagram.nodes
+    assert len(diagram.links) == 1
+    assert diagram.links[0].source == "a"
+    assert diagram.links[0].target == "b"
+    assert diagram.links[0].cross is True
+    # Foreign id must not be re-placed in the bottom lane.
+    assert "a" not in diagram.lanes[1].node_keys
+    html = render_flow_html(diagram)
+    assert html.count('data-node="a"') == 1
+    assert 'data-kind="link"' in html
+
+
+def test_unknown_bare_id_is_clear_error():
+    diagram = parse_flow_body("lane: Top\nA {#a}\n{#missing} -> {#a}\n")
+    assert any("unknown flow node id 'missing'" in e for e in diagram.errors)
 
 
 def test_single_lane_always_emits_wrappers():
@@ -290,6 +319,8 @@ def test_tokens_allow_zero_and_none():
         "page_number_placement": "bottom-center",
         "footer_inset_bottom": "0.75em",
         "footer_inset_right": 8,
+        "flow_callout_gap": 16,
+        "flow_port_gap": 12,
     })
     assert "--card-radius: 0px;" in css
     assert "--border-width: none;" in css
@@ -299,3 +330,19 @@ def test_tokens_allow_zero_and_none():
     assert "--page-number-placement: bottom-center;" in css
     assert "--footer-inset-bottom: 0.75em;" in css
     assert "--footer-inset-right: 8px;" in css
+    assert "--flow-callout-gap: 16px;" in css
+    assert "--flow-port-gap: 12px;" in css
+
+
+def test_footer_inset_allows_negative():
+    css = tokens_to_css({
+        "color_background": "#fff",
+        "color_text": "#000",
+        "color_title": "#000",
+        "font_family": "sans-serif",
+        "font_size_body": 22,
+        "footer_inset_right": "-20px",
+        "footer_inset_bottom": -4,
+    })
+    assert "--footer-inset-right: -20px;" in css
+    assert "--footer-inset-bottom: -4px;" in css

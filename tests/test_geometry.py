@@ -354,3 +354,166 @@ def test_footer_inset_token_emitted():
     css = tokens_to_css(tokens, extra)
     assert "--footer-inset-bottom:" in css
     assert "--footer-inset-right:" in css
+    assert "--flow-callout-gap:" in css
+    assert "--flow-port-gap:" in css
+
+
+def _path_pts(page, slide_index, from_key, to_key):
+    return page.evaluate(
+        """({ slideIndex, fromKey, toKey }) => {
+          const slide = document.querySelectorAll('.slide')[slideIndex];
+          const path = slide.querySelector(
+            `svg.flow-svg path.flow-arrow[data-from="${fromKey}"][data-to="${toKey}"]`
+          );
+          if (!path) return null;
+          const pts = [];
+          const re = /([ML])\\s*([-\\d.]+)\\s+([-\\d.]+)/g;
+          let m;
+          const d = path.getAttribute('d') || '';
+          while ((m = re.exec(d))) pts.push({ x: +m[2], y: +m[3] });
+          return pts;
+        }""",
+        {"slideIndex": slide_index, "fromKey": from_key, "toKey": to_key},
+    )
+
+
+def _is_orthogonal(pts):
+    for i in range(1, len(pts)):
+        dx = abs(pts[i]["x"] - pts[i - 1]["x"])
+        dy = abs(pts[i]["y"] - pts[i - 1]["y"])
+        if dx >= 0.75 and dy >= 0.75:
+            return False
+    return True
+
+
+def test_fan_in_ports_distributed_and_orthogonal(geometry_page):
+    meta = geometry_page.evaluate(
+        """() => {
+          const slide = document.querySelectorAll('.slide')[6];
+          const flow = slide.querySelector('.flow');
+          const scale = Number(slide.dataset.scale || '1') || 1;
+          const fr = flow.getBoundingClientRect();
+          const t = flow.querySelector('.flow-node[data-node="t7"]').getBoundingClientRect();
+          return {
+            top: (t.top - fr.top) / scale,
+            left: (t.left - fr.left) / scale,
+            right: (t.right - fr.left) / scale,
+            cx: ((t.left + t.right) / 2 - fr.left) / scale,
+          };
+        }"""
+    )
+    ends = []
+    mid_ys = []
+    for src in ("p7", "q7", "r7"):
+        pts = _path_pts(geometry_page, 6, src, "t7")
+        assert pts and len(pts) >= 2, src
+        assert _is_orthogonal(pts), (src, pts)
+        end = pts[-1]
+        assert abs(end["y"] - meta["top"]) < 2.5, (src, end, meta)
+        assert meta["left"] - 1 <= end["x"] <= meta["right"] + 1, (src, end, meta)
+        ends.append(end["x"])
+        if len(pts) >= 4:
+            mid_ys.append(pts[1]["y"])
+        hit = geometry_page.evaluate(
+            HIT_JS,
+            {
+                "slideIndex": 6,
+                "fromKey": src,
+                "toKey": "t7",
+                "avoidKeys": ["p7", "q7", "r7", "t7"],
+            },
+        )
+        foreign = [k for k in hit.get("hits", []) if k not in {src, "t7"}]
+        assert not foreign, (src, hit)
+    # Distinct entry ports along the target top.
+    assert max(ends) - min(ends) >= 10, ends
+    assert len(set(round(x, 1) for x in ends)) >= 2, ends
+    # Shared trunks should not collapse to one horizontal y for all three.
+    if len(mid_ys) >= 3:
+        assert max(mid_ys) - min(mid_ys) >= 8 or len(set(round(y, 1) for y in mid_ys)) >= 2, mid_ys
+
+
+def test_same_row_edges_skip_intermediate_nodes(geometry_page):
+    for src, avoid in (
+        ("p8", ["q8", "r8"]),
+        ("q8", ["p8", "r8"]),
+        ("r8", ["p8", "q8"]),
+    ):
+        result = geometry_page.evaluate(
+            HIT_JS,
+            {
+                "slideIndex": 7,
+                "fromKey": src,
+                "toKey": "t8",
+                "avoidKeys": avoid,
+            },
+        )
+        assert result.get("ok"), (src, result)
+        pts = result.get("pts") or []
+        assert _is_orthogonal(pts), (src, pts)
+
+
+def test_cross_lane_id_arrow_renders_link(geometry_page):
+    result = geometry_page.evaluate(
+        """() => {
+          const slide = document.querySelectorAll('.slide')[8];
+          const flow = slide.querySelector('.flow');
+          const path = flow.querySelector('path.flow-arrow[data-from="a9"][data-to="b9"]');
+          const nodes = Array.from(flow.querySelectorAll('.flow-node')).map(
+            (n) => n.getAttribute('data-node')
+          );
+          return {
+            hasPath: !!path,
+            isLink: path ? path.classList.contains('flow-link') : false,
+            nodes,
+          };
+        }"""
+    )
+    assert result["hasPath"]
+    assert result["isLink"]
+    assert result["nodes"].count("a9") == 1
+    assert result["nodes"].count("b9") == 1
+
+
+def test_callout_side_exits_from_requested_side(geometry_page):
+    result = geometry_page.evaluate(
+        """() => {
+          const slide = document.querySelectorAll('.slide')[9];
+          const flow = slide.querySelector('.flow');
+          const scale = Number(slide.dataset.scale || '1') || 1;
+          const fr = flow.getBoundingClientRect();
+          const callout = flow.querySelector('div.flow-callout');
+          const path = flow.querySelector('path.flow-callout-arrow');
+          if (!callout || !path) return { ok: false };
+          const pts = [];
+          const re = /([ML])\\s*([-\\d.]+)\\s+([-\\d.]+)/g;
+          let m;
+          const d = path.getAttribute('d') || '';
+          while ((m = re.exec(d))) pts.push({ x: +m[2], y: +m[3] });
+          const cb = callout.getBoundingClientRect();
+          const box = {
+            right: (cb.right - fr.left) / scale,
+            cy: ((cb.top + cb.bottom) / 2 - fr.top) / scale,
+          };
+          const start = pts[0];
+          return {
+            ok: true,
+            side: callout.getAttribute('data-side'),
+            startNearRight:
+              Math.abs(start.x - box.right) < 3 && Math.abs(start.y - box.cy) < 8,
+          };
+        }"""
+    )
+    assert result["ok"]
+    assert result["side"] == "right"
+    assert result["startNearRight"], result
+
+
+def test_negative_footer_inset_accepted_and_emitted():
+    from md_deck.validate import check_deck
+
+    errors = check_deck(FIX / "slides_footer.md")
+    assert errors == [], errors
+    tokens, extra = load_style_file(FIX / "deck_style_footer.md")
+    css = tokens_to_css(tokens, extra)
+    assert "--footer-inset-right: -20px;" in css

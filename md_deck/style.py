@@ -55,6 +55,8 @@ TOKEN_SPEC: dict[str, tuple[str, Any]] = {
     "footer_inset_bottom": ("--footer-inset-bottom", "0.6em"),
     "footer_inset_right": ("--footer-inset-right", "0px"),
     "gap": ("--gap", "16px"),
+    "flow_callout_gap": ("--flow-callout-gap", "12px"),
+    "flow_port_gap": ("--flow-port-gap", "12px"),
     "card_radius": ("--card-radius", "8px"),
     "card_padding": ("--card-padding", "16px"),
     "key_message_radius": ("--key-message-radius", "8px"),
@@ -84,10 +86,15 @@ ZERO_OR_NONE_TOKENS = frozenset(
         "footer_inset_right",
         "card_padding",
         "gap",
+        "flow_callout_gap",
+        "flow_port_gap",
         "flow_node_padding",
         "flow_node_min_width",
     }
 )
+
+# Footer insets may be negative (pull toward the page edge past page padding).
+SIGNED_SIZE_TOKENS = frozenset({"footer_inset_bottom", "footer_inset_right"})
 
 LABEL_TOKENS = frozenset({"label_question", "label_key_message"})
 PLACEMENT_TOKENS = frozenset({"question_label_placement", "page_number_placement"})
