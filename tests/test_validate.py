@@ -60,6 +60,10 @@ def format_errs(errors):
         ("absolute_path", "absolute local path"),
         ("stray_closer", "stray closing"),
         ("bad_style", "unknown style token"),
+        ("unknown_flow_option", "unknown option"),
+        ("unknown_node_kind", "unknown flow node kind"),
+        ("unknown_column_option", "unknown option"),
+        ("bad_negative_radius", "invalid size"),
     ],
 )
 def test_bad_fixtures_fail_with_needle(folder: str, needle: str):

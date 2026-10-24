@@ -8,8 +8,13 @@ page_height: 720
 color_background: "#ffffff"
 color_text: "#000000"
 color_muted: "#444444"
+color_gray: "#444444"
 color_border: "#cccccc"
 color_title: "#000000"
+color_top_bar: "#000000"
+color_accent_2: "#666666"
+color_highlight: "#000000"
+color_highlight_bg: "#f0f0f0"
 
 color_key_message_bg: "#f5f5f5"
 color_key_message_text: "#000000"
@@ -40,6 +45,10 @@ font_weight_body: 400
 line_height: 1.45
 
 page_padding: 48
+page_padding_top: 48
+page_padding_right: 48
+page_padding_bottom: 48
+page_padding_left: 48
 gap: 16
 card_radius: 8
 card_padding: 16
@@ -48,16 +57,22 @@ question_radius: 8
 border_width: 1
 flow_node_min_width: 120
 flow_node_padding: 12
+
+# Optional; when omitted, defaults follow slides lang (en/ja).
+# label_question: "Question"
+# label_key_message: "Key Message"
 ---
 
 # Example deck style (plain)
 
-This file is an **example only**. It shows every token the generator reads and uses a neutral black-on-white look so CI can build `examples/sample.md` without shipping a product theme.
+This file is an **example only**. It shows tokens the generator reads and uses a neutral black-on-white look so CI can build `examples/sample.md` without shipping a product theme.
 
 Deck repositories keep their own style Markdown (front matter tokens plus human-readable guidance). Humans and tools such as NotebookLM can read the prose; md-deck ignores prose and only uses:
 
 1. YAML front matter tokens (above)
 2. Optional fenced `css` blocks for extra rules
+
+Style CSS should target the stable hooks in [HOOKS.md](../docs/HOOKS.md) (for example `.flow-node[data-kind="doc"]`), not `#slide-N … :nth-child()` selectors.
 
 ## English note
 
@@ -65,11 +80,24 @@ Tokens drive CSS variables. Omit a token and the generator fills a plain default
 
 ## 日本語メモ
 
-このファイルは形式の見本です。色やフォントの本番指定は、各デッキ用リポジトリのスタイル Markdown に置きます。md-deck 本体にはデザインやブランド色は含まれません。
+このファイルは形式の見本です。色やフォントの本番指定は、各デッキ用リポジトリのスタイル Markdown に置きます。md-deck 本体にはデザインやブランド色は含まれません。見た目のフックは [HOOKS.md](../docs/HOOKS.md) を参照してください。
 
 ```css
 /* Optional extra rules. Example: slightly tighter lists in this sample. */
 .slide li {
   margin-top: 0.3em;
+}
+
+.flow-node[data-kind="doc"] {
+  font-weight: 700;
+}
+
+.flow-node[data-kind="muted"] {
+  color: var(--color-muted);
+}
+
+.flow-node[data-kind="highlight"] {
+  background: var(--color-highlight-bg);
+  border-color: var(--color-highlight);
 }
 ```

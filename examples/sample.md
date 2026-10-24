@@ -1,76 +1,102 @@
 ---
-title: md-deck サンプル
-version: "0.1.0"
+title: md-deck sample
+version: "0.2.0"
 date: "2026-10-24"
-lang: ja
+lang: en
 style: deck_style.md
-subtitle: 入力契約と記法の見本
+subtitle: Input contract and syntax walkthrough
 author: md-deck
-audience: ツール利用者
+audience: Tool users
 ---
 
-# md-deck へようこそ
+# Welcome to md-deck {#welcome .intro}
 
-**Key Message:** Markdown 1 ファイルから、同じ入力なら同じ 16:9 PDF を生成する。
+**Key Message:** One Markdown file yields the same 16:9 PDF every time.
 
-md-deck はレイアウトとビルドだけを担当します。見た目はデッキ側のスタイル Markdown が決めます。
+md-deck owns layout and the build. Colours, type, and chrome live in the deck's style Markdown.
+
+Source: md-deck examples
 
 ---
 
-# 箇条書きと表
+# Lists and tables
 
-**Key Message:** 通常の Markdown 記法（リスト・表）がそのままで使える。
+**Key Message:** Ordinary Markdown lists and tables work as-is.
 
-- 入力はスライド用 Markdown
-- 区切りは `---`
-- 出力は PDF（必要なら PNG も）
+- Slides are Markdown
+- Separators are `---`
+- Output is PDF (PNG optional)
 
-| 項目 | 役割 |
+| Piece | Role |
 | --- | --- |
-| コンテンツ `.md` | スライド本文 |
-| スタイル `.md` | 色・フォント・余白などのトークン |
-| md-deck | HTML 化と PDF レンダリング |
+| Content `.md` | Slide body |
+| Style `.md` | Tokens and optional CSS |
+| md-deck | HTML and PDF rendering |
 
 ---
 
-# フロー図
+# Flow diagrams
 
-**Key Message:** `::: flow` と `->` で手順を箱と矢印にする。
+**Key Message:** Flow blocks build boxes and arrows; kinds and labels stay in Markdown.
 
-::: flow
-Markdown -> HTML -> PDF
+::: flow wide
+lane: Pipeline
+[actor] Author | writes -> [doc] Slides {md} -.[check].-> [system] md-deck -> [highlight] PDF
+lane: Style
+[muted] Tokens ..> [system] md-deck
+link: Slides => Tokens : bind
 :::
 
+Arrow forms: `A -> B`, `A -[label]-> B`, `A ..> B`, `A -.[label].-> B`, and `A <-> B`. Node markers: `[actor]`, `[system]`, `[doc]`, `[muted]`, `[highlight]`. Caption with `Name | caption`; badge with `Name {badge}`.
+
 ---
 
-# 2 カラム
+# Two columns
 
-**Key Message:** `::: columns` を `+++` で分割する。
+**Key Message:** `::: columns` splits on `+++`; options pick chrome.
 
-::: columns
-### 左：コンテンツ
+::: columns panel
+## Content
 
-- タイトル（`#`）
+- Title (`#`)
 - Key Message
-- 箇条書き・表
+- Lists and tables
 
 +++
 
-### 右：スタイル
+## Style
 
-- YAML トークン
-- 任意の `css` フェンス
-- 人間向けの解説文
+- YAML tokens
+- Optional `css` fence
+- Prose for humans
+:::
+
+::: columns plain
+### Bare left
+
+No card border from the generator.
+
++++
+
+### Bare right
+
+Style CSS can still colour these.
 :::
 
 ---
 
-# 問いを残す
+# Questions and breaks
 
-**Key Message:** 議論用の枠は `::: question` で置く。
+**Key Message:** Discussion boxes use `::: question`; a trailing `\` forces a line break.
 
-サンプルは中立なツール紹介です。業務名や社名は含めていません。
+Line one continues\
+on the next line without trailing spaces.
 
 ::: question
-このサンプルを手元でビルドし、スタイル トークンを 1 つ変えて差分を確認してみてください。
+Try building this sample.
+Change one style token and compare the PDF.
+:::
+
+::: source
+md-deck examples (generic sample content)
 :::
