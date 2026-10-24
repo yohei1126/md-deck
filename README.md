@@ -1,6 +1,6 @@
 # md-deck
 
-md-deck turns one Markdown file into a clean 16:9 PDF slide deck. Same source bytes produce the same PDF. The tool owns layout and rendering only: page size, overflow checks, flow arrows, and the build pipeline.
+md-deck turns one Markdown file into a clean 16:9 PDF slide deck. Same source bytes produce the same PDF. The tool owns layout and rendering only: page size, overflow checks, flow arrows, footers, and the build pipeline.
 
 **Content and visual style live in the deck repository**, not in md-deck. Each deck supplies:
 
@@ -61,20 +61,20 @@ Exit is non-zero if validation fails, or if a slide still overflows after shrink
 
 ## Input contract and conventions
 
-Required slides front matter: `title`, `version`, `date` (yyyy-mm-dd), `lang`, `style`. Optional: `subtitle`, `author`, `audience`. Unknown keys fail the check.
+Required slides front matter: `title`, `version`, `date` (yyyy-mm-dd), `lang`, `style`. Optional: `subtitle`, `author`, `audience`. Unknown keys fail the check. `lang` sets `<html lang>` and default question / key-message labels.
 
-Required style tokens: `color_background`, `color_text`, `color_title`, `font_family`, `font_size_body`. Other tokens are optional with plain defaults. Schemas: [`schemas/slides.schema.json`](schemas/slides.schema.json), [`schemas/style.schema.json`](schemas/style.schema.json).
+Required style tokens: `color_background`, `color_text`, `color_title`, `font_family`, `font_size_body`. Other tokens are optional with plain defaults (`0` / `none` allowed on radii and borders; per-side `page_padding_*`; label and accent colour tokens). Schemas: [`schemas/slides.schema.json`](schemas/slides.schema.json), [`schemas/style.schema.json`](schemas/style.schema.json).
 
-Full contract, Markdown rules, and a minimal example: [docs/INPUT_FORMAT.md](docs/INPUT_FORMAT.md). Token tables: [docs/STYLE_GUIDE.md](docs/STYLE_GUIDE.md) / [docs/STYLE_GUIDE.ja.md](docs/STYLE_GUIDE.ja.md).
+Full contract and flow syntax (labelled / dashed arrows, lanes, node kinds, sources): [docs/INPUT_FORMAT.md](docs/INPUT_FORMAT.md). Token tables: [docs/STYLE_GUIDE.md](docs/STYLE_GUIDE.md) / [docs/STYLE_GUIDE.ja.md](docs/STYLE_GUIDE.ja.md). Stable CSS hooks: [docs/HOOKS.md](docs/HOOKS.md).
 
-Slide conventions in short: slides separated by `---`; exactly one `#` title per slide; at most one `**Key Message:**`; `::: question` / `::: flow` with `A -> B` / `::: columns` split by `+++`.
+Slide conventions in short: slides separated by `---`; exactly one `#` title per slide (optional `{#id .class}`); at most one `**Key Message:**`; `::: question` / `::: flow` / `::: columns` / `::: source`; trailing `\` for hard breaks; footer page numbers as `n / total`.
 
 ## Style and content split
 
 | Piece | Where it lives | Role |
 | --- | --- | --- |
-| Slides `.md` | Deck repo | Front matter + titles, Key Message, lists, tables, flow, columns, questions |
-| Style `.md` | Deck repo | Tokens (colours, fonts, spacing) + prose style guide + optional `css` |
+| Slides `.md` | Deck repo | Front matter + titles, Key Message, lists, tables, flow, columns, questions, sources |
+| Style `.md` | Deck repo | Tokens (colours, fonts, spacing, labels) + prose style guide + optional `css` targeting [HOOKS.md](docs/HOOKS.md) |
 | md-deck | This repo | Check contract, parse Markdown, apply style tokens, render with headless Chromium |
 
 ## Determinism

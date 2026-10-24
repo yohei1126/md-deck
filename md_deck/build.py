@@ -6,7 +6,7 @@ import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 
-from md_deck.slides import parse_deck
+from md_deck.slides import SlideRender, parse_deck
 from md_deck.style import load_style_file, resolve_style_path, tokens_to_css
 
 PACKAGE_DIR = Path(__file__).resolve().parent
@@ -21,10 +21,11 @@ def _read_template(name: str) -> str:
 
 
 def build_html(
-    slides_html: list[str],
+    slides: list[SlideRender],
     theme_css: str,
     extra_css_files: list[Path],
     title: str,
+    lang: str = "en",
 ) -> str:
     base_css = _read_template("base.css")
     deck_js = _read_template("deck.js")
@@ -33,16 +34,35 @@ def build_html(
         extras.append(path.read_text(encoding="utf-8"))
     extra_block = "\n".join(extras)
 
+    total = len(slides)
     slide_blocks = []
-    for index, body in enumerate(slides_html, start=1):
+    for index, slide in enumerate(slides, start=1):
+        classes = ["slide"]
+        if slide.slide_classes:
+            classes.extend(slide.slide_classes)
+        class_attr = " ".join(classes)
+        # Prefer author id from heading attrs; else stable slide-N.
+        slide_id = slide.slide_id or f"slide-{index}"
+        source = ""
+        if slide.source_html:
+            source = f'<div class="source">{slide.source_html}</div>'
+        footer = (
+            f'<footer class="slide-footer">'
+            f"{source}"
+            f'<div class="page-number">{index} / {total}</div>'
+            f"</footer>"
+        )
         slide_blocks.append(
-            f'<section class="slide" id="slide-{index}" data-slide="{index}">'
-            f'<div class="slide-inner"><div class="slide-content">{body}</div></div>'
+            f'<section class="{class_attr}" id="{_escape(slide_id)}" '
+            f'data-index="{index}" data-slide="{index}">'
+            f'<div class="slide-inner"><div class="slide-content">{slide.html}</div></div>'
+            f"{footer}"
             f"</section>"
         )
 
+    lang_attr = _escape(lang or "en")
     return f"""<!DOCTYPE html>
-<html lang="ja">
+<html lang="{lang_attr}">
 <head>
 <meta charset="utf-8"/>
 <title>{_escape(title)}</title>
@@ -179,13 +199,19 @@ def build_deck(
     keep_html: Path | None = None,
 ) -> list[int]:
     text = source.read_text(encoding="utf-8")
-    meta, slides = parse_deck(text)
-    style_path = resolve_style_path(style, meta, source)
+    # Need style tokens before parse for label defaults override
+    # Resolve style path needs meta first — peek front matter
+    from md_deck.slides import split_front_matter
+
+    meta_peek, _ = split_front_matter(text)
+    style_path = resolve_style_path(style, meta_peek, source)
     tokens, style_extra = load_style_file(style_path)
     theme_css = tokens_to_css(tokens, style_extra)
 
+    meta, slides = parse_deck(text, style_tokens=tokens)
     title = str(meta.get("title") or source.stem)
-    html = build_html(slides, theme_css, extra_css or [], title)
+    lang = str(meta.get("lang") or "en")
+    html = build_html(slides, theme_css, extra_css or [], title, lang=lang)
     if keep_html is not None:
         keep_html.parent.mkdir(parents=True, exist_ok=True)
         keep_html.write_text(html, encoding="utf-8")

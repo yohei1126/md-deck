@@ -4,6 +4,8 @@ md-deck accepts two Markdown files from a deck repository: slides and style. `md
 
 Machine-readable schemas ship in [`schemas/slides.schema.json`](../schemas/slides.schema.json) and [`schemas/style.schema.json`](../schemas/style.schema.json). Editors and other tools can reuse them; the CLI validates with `jsonschema`.
 
+Stable HTML classes and data attributes for style CSS are listed in [HOOKS.md](HOOKS.md).
+
 ## Minimal valid example
 
 `slides.md`:
@@ -52,7 +54,7 @@ uv run md-deck build slides.md -o out.pdf
 | `title` | yes | Non-empty string |
 | `version` | yes | Non-empty string |
 | `date` | yes | ISO `yyyy-mm-dd` and a real calendar day |
-| `lang` | yes | Language tag, at least 2 characters (`ja`, `en`, …) |
+| `lang` | yes | Language tag, at least 2 characters (`ja`, `en`, …). Sets `<html lang>` and default label tokens |
 | `style` | yes | Relative path to the style Markdown; file must exist |
 | `subtitle` | no | String |
 | `author` | no | String |
@@ -72,7 +74,7 @@ Required tokens (must be present):
 | `font_family` | Font stack |
 | `font_size_body` | Base body size |
 
-All other tokens in the [style guide](STYLE_GUIDE.md) are optional and fall back to plain defaults when omitted. Unknown token names are errors. Values are type-checked (CSS colours, positive sizes with optional `px`/`rem`/`em`/`%`, font weights, line-height).
+All other tokens in the [style guide](STYLE_GUIDE.md) are optional and fall back to plain defaults when omitted. Unknown token names are errors. Values are type-checked (CSS colours, sizes with optional `px`/`rem`/`em`/`%`, `0` / `none` where allowed, font weights, line-height, label strings).
 
 ## Referenced assets
 
@@ -84,19 +86,69 @@ Deck-specific:
 
 - At least one non-empty slide; a trailing `---` that creates an empty slide is an error
 - Exactly one H1 (`# …`) per slide; no H1 inside `:::` blocks
+- Optional heading attributes via `attr_list`: `# Title {#id .class}` (sets slide `id` / classes and the `h1` attributes)
 - Heading levels must not skip (H1 then H4 is an error)
 - At most one `**Key Message:**` line per slide
-- `::: question` / `flow` / `columns` only; unknown kinds (e.g. `::: note`) fail
+- Known blocks: `::: question`, `::: flow`, `::: columns`, `::: source`
+- Block options after the kind are validated per kind; unknown options fail with `file:line`
+  - `flow`: `wide`
+  - `columns`: `plain`, `panel`
+  - `question` / `source`: no options
 - Every `:::` opener needs a matching closer; stray closers and `::` / `::::` lines fail
 - No nested blocks
-- Flow: at least two nodes; empty nodes in `A -> -> B` fail
+- Flow: at least two nodes; empty nodes in `A -> -> B` fail; unknown `[kind]` markers fail
 - Columns: at least two non-empty parts split by a `+++` line; `+++` outside `columns` fails
-- Question blocks must not be empty
+- Question and source blocks must not be empty
 - Tables: every row has the same column count
 - Fenced code blocks must close
 - Raw HTML is forbidden unless `--allow-html`
+- Hard line breaks: a backslash at end of line (`\`). Inside `question` / `source` blocks, single newlines also become breaks
 
 Generic hygiene (via [pymarkdownlnt](https://github.com/jackdewinter/pymarkdown) on each slide body): heading increment (MD001), list indent (MD005/MD007), hard tabs (MD010), list marker spacing (MD030), fenced-code blanks/language/style (MD031/MD040/MD046). A committed [`pymarkdown.json`](../pymarkdown.json) documents the repo defaults; `md-deck check` applies its own enable/disable set so deck-specific rules stay authoritative for H1 count and HTML.
+
+## Flow syntax
+
+```markdown
+::: flow wide
+lane: Intake
+[actor] Writer | drafts -> [doc] Spec {v1} -[review]-> [system] Builder
+lane: Publish
+[muted] Archive ..> [highlight] PDF
+link: Builder => PDF : emit
+link: Spec ..> Archive : store
+:::
+```
+
+| Construct | Syntax |
+| --- | --- |
+| Solid arrow | `A -> B` |
+| Labelled solid | `A -[label]-> B` |
+| Dashed arrow | `A ..> B` |
+| Labelled dashed | `A -.[label].-> B` |
+| Bidirectional pair | `A <-> B` or `A <-[label]-> B` |
+| Node kind | `[actor]`, `[system]`, `[doc]`, `[muted]`, `[highlight]` before the name |
+| Caption (second line) | `Name \| caption` |
+| Badge | `Name {badge}` |
+| Line break in node text | `\n` inside the title/caption, or use caption |
+| Lane | `lane: Label` starts a lane |
+| Cross-lane link | `link: From => To : optional label` (also `->` / `..>`) |
+
+Existing `A -> B -> C` chains and one-node-per-line lists keep working.
+
+## Sources and footer
+
+- `Source: …` or `出典:…` / `出典：…` on its own line moves into the footer with class `.source`
+- Or `::: source` … `:::` for a longer note
+- Page numbers render automatically as `n / total` with class `.page-number`
+
+## Labels
+
+Style tokens `label_question` and `label_key_message` set the visible label text. When omitted, defaults follow `lang`:
+
+| `lang` | Question | Key Message |
+| --- | --- | --- |
+| `ja` (and `ja-*`) | 議論の問い | キーメッセージ |
+| other | Question | Key Message |
 
 ## Commands
 

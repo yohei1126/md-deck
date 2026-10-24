@@ -17,8 +17,13 @@ TOKEN_SPEC: dict[str, tuple[str, Any]] = {
     "color_background": ("--color-background", "#ffffff"),
     "color_text": ("--color-text", "#000000"),
     "color_muted": ("--color-muted", "#444444"),
+    "color_gray": ("--color-gray", "#444444"),
     "color_border": ("--color-border", "#cccccc"),
     "color_title": ("--color-title", "#000000"),
+    "color_top_bar": ("--color-top-bar", "#000000"),
+    "color_accent_2": ("--color-accent-2", "#666666"),
+    "color_highlight": ("--color-highlight", "#000000"),
+    "color_highlight_bg": ("--color-highlight-bg", "#f5f5f5"),
     "color_key_message_bg": ("--color-key-message-bg", "#f5f5f5"),
     "color_key_message_text": ("--color-key-message-text", "#000000"),
     "color_key_message_border": ("--color-key-message-border", "#cccccc"),
@@ -42,6 +47,10 @@ TOKEN_SPEC: dict[str, tuple[str, Any]] = {
     "font_weight_body": ("--font-weight-body", "400"),
     "line_height": ("--line-height", "1.45"),
     "page_padding": ("--page-padding", "48px"),
+    "page_padding_top": ("--page-padding-top", "48px"),
+    "page_padding_right": ("--page-padding-right", "48px"),
+    "page_padding_bottom": ("--page-padding-bottom", "48px"),
+    "page_padding_left": ("--page-padding-left", "48px"),
     "gap": ("--gap", "16px"),
     "card_radius": ("--card-radius", "8px"),
     "card_padding": ("--card-padding", "16px"),
@@ -50,7 +59,30 @@ TOKEN_SPEC: dict[str, tuple[str, Any]] = {
     "border_width": ("--border-width", "1px"),
     "flow_node_min_width": ("--flow-node-min-width", "120px"),
     "flow_node_padding": ("--flow-node-padding", "12px"),
+    "label_question": ("--label-question", "Question"),
+    "label_key_message": ("--label-key-message", "Key Message"),
 }
+
+# Tokens that may be 0 or the keyword none (radii, borders, paddings).
+ZERO_OR_NONE_TOKENS = frozenset(
+    {
+        "card_radius",
+        "key_message_radius",
+        "question_radius",
+        "border_width",
+        "page_padding",
+        "page_padding_top",
+        "page_padding_right",
+        "page_padding_bottom",
+        "page_padding_left",
+        "card_padding",
+        "gap",
+        "flow_node_padding",
+        "flow_node_min_width",
+    }
+)
+
+LABEL_TOKENS = frozenset({"label_question", "label_key_message"})
 
 FRONT_MATTER_RE = re.compile(r"\A---\s*\n(.*?)\n---\s*\n?", re.DOTALL)
 CSS_FENCE_RE = re.compile(r"```css\s*\n(.*?)```", re.DOTALL | re.IGNORECASE)
@@ -61,6 +93,12 @@ def _format_css_value(token: str, value: Any) -> str:
         return str(TOKEN_SPEC[token][1])
     if isinstance(value, bool):
         return "true" if value else "false"
+    if token in LABEL_TOKENS:
+        # CSS string for content: var(--label-question)
+        text = str(value).replace("\\", "\\\\").replace('"', '\\"')
+        return f'"{text}"'
+    if isinstance(value, str) and value.strip().lower() == "none":
+        return "none"
     if isinstance(value, (int, float)) and not isinstance(value, bool):
         # Bare numbers for sizes become px, except unitless line-height / weights.
         if token in {"line_height", "font_weight_title", "font_weight_body"}:
@@ -90,6 +128,19 @@ def load_style_file(path: Path) -> tuple[dict[str, Any], str]:
     return parse_style_markdown(path.read_text(encoding="utf-8"))
 
 
+def _expand_padding_sides(tokens: dict[str, Any]) -> dict[str, Any]:
+    """Fill per-side page padding from page_padding when a side is omitted."""
+    out = dict(tokens)
+    base = out.get("page_padding")
+    if base is None:
+        return out
+    for side in ("top", "right", "bottom", "left"):
+        key = f"page_padding_{side}"
+        if key not in out:
+            out[key] = base
+    return out
+
+
 def tokens_to_css(tokens: dict[str, Any], extra_css: str = "") -> str:
     """Build a :root rule from tokens, filling omitted tokens with plain defaults."""
     unknown = sorted(set(tokens) - set(TOKEN_SPEC))
@@ -100,14 +151,17 @@ def tokens_to_css(tokens: dict[str, Any], extra_css: str = "") -> str:
             + ". See docs/STYLE_GUIDE.md for the schema."
         )
 
+    expanded = _expand_padding_sides(tokens)
+
     lines = [":root {"]
     for name, (css_var, default) in TOKEN_SPEC.items():
-        raw = tokens[name] if name in tokens else default
-        # If default already includes units (str), keep; else format.
-        if name in tokens:
+        raw = expanded[name] if name in expanded else default
+        if name in expanded:
             value = _format_css_value(name, raw)
         else:
             value = str(default)
+            if name in LABEL_TOKENS and not str(default).startswith('"'):
+                value = f'"{default}"'
         lines.append(f"  {css_var}: {value};")
     lines.append("}")
     parts = ["\n".join(lines)]

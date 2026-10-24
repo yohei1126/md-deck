@@ -13,9 +13,11 @@ import yaml
 from jsonschema import Draft202012Validator
 
 from md_deck.errors import CheckError, sort_errors
-from md_deck.style import FRONT_MATTER_RE, TOKEN_SPEC
+from md_deck.flow import KNOWN_NODE_KINDS, collect_flow_nodes, parse_flow_body
+from md_deck.slides import BLOCK_OPTIONS
+from md_deck.style import FRONT_MATTER_RE, LABEL_TOKENS, TOKEN_SPEC, ZERO_OR_NONE_TOKENS
 
-KNOWN_BLOCK_KINDS = frozenset({"question", "flow", "columns"})
+KNOWN_BLOCK_KINDS = frozenset(BLOCK_OPTIONS.keys())
 SLIDES_OPTIONAL_KEYS = frozenset({"subtitle", "author", "audience"})
 SLIDES_REQUIRED_KEYS = frozenset({"title", "version", "date", "lang", "style"})
 SLIDES_ALLOWED_KEYS = SLIDES_REQUIRED_KEYS | SLIDES_OPTIONAL_KEYS
@@ -47,6 +49,7 @@ KEY_MESSAGE_LINE_RE = re.compile(
     r"^\s*\*\*Key Message:\*\*\s*(?P<body>.*)$",
     re.IGNORECASE,
 )
+SOURCE_LINE_RE = re.compile(r"^(?:Source|出典)\s*[:：]\s*(?P<body>.*)$", re.IGNORECASE)
 H1_RE = re.compile(r"^#\s+\S")
 HEADING_RE = re.compile(r"^(#{1,6})\s+\S")
 TABLE_ROW_RE = re.compile(r"^\s*\|.*\|\s*$")
@@ -245,13 +248,20 @@ def _is_valid_color(value: Any) -> bool:
     return bool(COLOR_RE.match(value.strip()))
 
 
-def _is_valid_size(value: Any) -> bool:
+def _is_valid_size(value: Any, *, allow_zero_or_none: bool = False) -> bool:
     if isinstance(value, bool):
         return False
     if isinstance(value, (int, float)):
+        if allow_zero_or_none:
+            return value >= 0
         return value > 0
     if isinstance(value, str):
-        return bool(SIZE_STR_RE.match(value.strip()))
+        text = value.strip()
+        if allow_zero_or_none and text.lower() == "none":
+            return True
+        if allow_zero_or_none and re.fullmatch(r"0+(\.0+)?(px|rem|em|%)?", text):
+            return True
+        return bool(SIZE_STR_RE.match(text))
     return False
 
 
@@ -335,6 +345,11 @@ def validate_style_tokens(tokens: Any, path: str, fm_line: int) -> list[CheckErr
                 errors.append(
                     CheckError(path, fm_line, f"token {key}: must be a non-empty string")
                 )
+        elif key in LABEL_TOKENS:
+            if not isinstance(value, str) or not value.strip():
+                errors.append(
+                    CheckError(path, fm_line, f"token {key}: must be a non-empty string")
+                )
         else:
             # sizes
             if key in TOKEN_SPEC and (
@@ -346,35 +361,56 @@ def validate_style_tokens(tokens: Any, path: str, fm_line: int) -> list[CheckErr
                 or key.endswith("_radius")
                 or key in {"gap", "border_width", "flow_node_min_width", "flow_node_padding"}
             ):
-                if not _is_valid_size(value):
+                allow_zero = key in ZERO_OR_NONE_TOKENS
+                if not _is_valid_size(value, allow_zero_or_none=allow_zero):
+                    hint = (
+                        "non-negative number, none, or value with px/rem/em/%"
+                        if allow_zero
+                        else "positive number or value with px/rem/em/%"
+                    )
                     errors.append(
                         CheckError(
                             path,
                             fm_line,
-                            f"token {key}: invalid size (positive number or value with px/rem/em/%): {value!r}",
+                            f"token {key}: invalid size ({hint}): {value!r}",
                         )
                     )
     return errors
 
 
 def _flow_nodes(body: str) -> tuple[list[str], list[str]]:
-    """Return (nodes, empty_node_problems)."""
-    nodes: list[str] = []
+    """Return (nodes, problems) using the flow parser."""
+    return collect_flow_nodes(body)
+
+
+def _unknown_node_kinds(body: str) -> list[str]:
+    """Return error messages for unknown [kind] markers on flow nodes."""
+    from md_deck.flow import ARROW_RE, LANE_RE, LINK_RE
+
     problems: list[str] = []
     for line in body.splitlines():
         raw = line.strip()
-        if not raw:
+        if not raw or LANE_RE.match(raw) or LINK_RE.match(raw):
             continue
-        if "->" in raw:
-            parts = [p.strip() for p in raw.split("->")]
-            for part in parts:
-                if not part:
-                    problems.append("empty flow node in arrow chain")
-                else:
-                    nodes.append(part)
-        else:
-            nodes.append(raw)
-    return nodes, problems
+        segments: list[str] = []
+        pos = 0
+        for match in ARROW_RE.finditer(raw):
+            segments.append(raw[pos : match.start()].strip())
+            pos = match.end()
+        segments.append(raw[pos:].strip())
+        for segment in segments:
+            if not segment:
+                continue
+            kind_match = re.match(r"^\[([^\]]+)\]", segment)
+            if not kind_match:
+                continue
+            kind = kind_match.group(1).strip().lower()
+            if kind not in KNOWN_NODE_KINDS:
+                problems.append(
+                    f"unknown flow node kind {kind!r} "
+                    f"(expected {', '.join(sorted(KNOWN_NODE_KINDS))})"
+                )
+    return problems
 
 
 def validate_slide_body(
@@ -469,17 +505,10 @@ def validate_slide_body(
                 i += 1
                 continue
 
-            # opener: ::: kind
-            kind = rest.split()[0].lower() if rest.split() else ""
-            extra = rest[len(kind) :].strip() if kind else rest
-            if extra:
-                errors.append(
-                    CheckError(
-                        path,
-                        lineno,
-                        f"malformed block opener; unexpected text after kind: {extra!r}",
-                    )
-                )
+            # opener: ::: kind [options...]
+            tokens = rest.split()
+            kind = tokens[0].lower() if tokens else ""
+            option_tokens = tokens[1:] if tokens else []
             if block_kind is not None:
                 errors.append(
                     CheckError(
@@ -496,7 +525,7 @@ def validate_slide_body(
                         path,
                         lineno,
                         f"unknown block kind {kind!r} "
-                        f"(expected question, flow, or columns)",
+                        f"(expected {', '.join(sorted(KNOWN_BLOCK_KINDS))})",
                     )
                 )
                 # still enter a pseudo block so closer matches
@@ -505,6 +534,22 @@ def validate_slide_body(
                 block_lines = []
                 i += 1
                 continue
+            allowed = BLOCK_OPTIONS.get(kind, frozenset())
+            for opt in option_tokens:
+                # Allow comma-separated forms: plain,panel
+                for piece in re.split(r"[,|]+", opt):
+                    piece = piece.strip().lower()
+                    if not piece:
+                        continue
+                    if piece not in allowed:
+                        errors.append(
+                            CheckError(
+                                path,
+                                lineno,
+                                f"unknown option {piece!r} for ::: {kind} "
+                                f"(allowed: {', '.join(sorted(allowed)) or 'none'})",
+                            )
+                        )
             block_kind = kind
             block_start_line = lineno
             block_lines = []
@@ -660,10 +705,20 @@ def _validate_block_content(
     if kind == "question":
         if not body.strip():
             errors.append(CheckError(path, start_line, "question block is empty"))
+    elif kind == "source":
+        if not body.strip():
+            errors.append(CheckError(path, start_line, "source block is empty"))
     elif kind == "flow":
         nodes, problems = _flow_nodes(body)
         for problem in problems:
             errors.append(CheckError(path, start_line, problem))
+        for problem in _unknown_node_kinds(body):
+            errors.append(CheckError(path, start_line, problem))
+        diagram = parse_flow_body(body)
+        for err in diagram.errors:
+            if err not in problems:
+                errors.append(CheckError(path, start_line, err))
+        # link: lines may reference nodes; require at least two nodes overall
         if len(nodes) < 2:
             errors.append(
                 CheckError(

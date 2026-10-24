@@ -2,7 +2,7 @@
 
 md-deck renders decks. It does not ship a visual theme. Each deck repository owns two Markdown files: slide content and a style file. The style file is both the human-readable style guide and the machine-readable theme.
 
-The **input contract** (required front matter, schemas, asset paths, and `md-deck check` rules) is spelled out in [INPUT_FORMAT.md](INPUT_FORMAT.md). This page lists tokens and authoring conventions.
+The **input contract** (required front matter, schemas, asset paths, and `md-deck check` rules) is in [INPUT_FORMAT.md](INPUT_FORMAT.md). HTML hooks for style CSS are in [HOOKS.md](HOOKS.md). This page lists tokens and authoring conventions.
 
 ## Style file shape
 
@@ -29,15 +29,26 @@ Optional tokens use the plain defaults in the table below when omitted. Unknown 
 
 Bare numbers for lengths become `px`, except `line_height`, `font_weight_title`, and `font_weight_body`, which stay unitless. Strings are emitted as written (so you can pass `"1.5rem"` or a font stack). Colours must be valid CSS colour strings (`#rgb`, `#rrggbb`, `rgb()`, `hsl()`, or a named colour).
 
+For radii, borders, and paddings in `ZERO_OR_NONE` scope, `0` and `none` are allowed (for example `card_radius: 0`, `border_width: none`).
+
+Per-side page padding: set `page_padding_top` / `_right` / `_bottom` / `_left`. If a side is omitted but `page_padding` is set, that side inherits `page_padding`.
+
+Label tokens become both HTML label text (when set) and quoted CSS variables for `content: var(--label-question)`.
+
 | Token | CSS variable | Plain default | Required | Role |
 | --- | --- | --- | --- | --- |
 | `page_width` | `--page-width` | `1280px` | no | Slide width |
 | `page_height` | `--page-height` | `720px` | no | Slide height |
 | `color_background` | `--color-background` | `#ffffff` | **yes** | Page background |
 | `color_text` | `--color-text` | `#000000` | **yes** | Body text |
-| `color_muted` | `--color-muted` | `#444444` | no | Secondary text (`.muted`) |
+| `color_muted` | `--color-muted` | `#444444` | no | Secondary text (`.muted`, captions) |
+| `color_gray` | `--color-gray` | `#444444` | no | Gray accent (alias-style token for decks that distinguish gray from muted) |
 | `color_border` | `--color-border` | `#cccccc` | no | Generic border token |
 | `color_title` | `--color-title` | `#000000` | **yes** | `h1`–`h3` / accent |
+| `color_top_bar` | `--color-top-bar` | `#000000` | no | Top bar / rule colour for style CSS |
+| `color_accent_2` | `--color-accent-2` | `#666666` | no | Secondary accent |
+| `color_highlight` | `--color-highlight` | `#000000` | no | Highlight stroke / text |
+| `color_highlight_bg` | `--color-highlight-bg` | `#f5f5f5` | no | Highlight fill |
 | `color_key_message_bg` | `--color-key-message-bg` | `#f5f5f5` | no | Key Message box fill |
 | `color_key_message_text` | `--color-key-message-text` | `#000000` | no | Key Message text |
 | `color_key_message_border` | `--color-key-message-border` | `#cccccc` | no | Key Message border |
@@ -56,40 +67,61 @@ Bare numbers for lengths become `px`, except `line_height`, `font_weight_title`,
 | `font_size_title` | `--font-size-title` | `36px` | no | Title size |
 | `font_size_key_message` | `--font-size-key-message` | `20px` | no | Key Message size |
 | `font_size_question` | `--font-size-question` | `18px` | no | Question size |
-| `font_size_small` | `--font-size-small` | `16px` | no | Tables and compact text |
+| `font_size_small` | `--font-size-small` | `16px` | no | Tables, footer, captions |
 | `font_weight_title` | `--font-weight-title` | `700` | no | Titles and labels |
 | `font_weight_body` | `--font-weight-body` | `400` | no | Body weight |
 | `line_height` | `--line-height` | `1.45` | no | Body line height |
-| `page_padding` | `--page-padding` | `48px` | no | Inset inside the slide |
+| `page_padding` | `--page-padding` | `48px` | no | Default inset; fills omitted sides |
+| `page_padding_top` | `--page-padding-top` | `48px` | no | Top inset |
+| `page_padding_right` | `--page-padding-right` | `48px` | no | Right inset |
+| `page_padding_bottom` | `--page-padding-bottom` | `48px` | no | Bottom inset |
+| `page_padding_left` | `--page-padding-left` | `48px` | no | Left inset |
 | `gap` | `--gap` | `16px` | no | Flex gaps |
-| `card_radius` | `--card-radius` | `8px` | no | Column / flow corner radius |
+| `card_radius` | `--card-radius` | `8px` | no | Column / flow corner radius (`0` / `none` ok) |
 | `card_padding` | `--card-padding` | `16px` | no | Inner padding for boxes |
 | `key_message_radius` | `--key-message-radius` | `8px` | no | Key Message radius |
 | `question_radius` | `--question-radius` | `8px` | no | Question radius |
-| `border_width` | `--border-width` | `1px` | no | Default border width |
+| `border_width` | `--border-width` | `1px` | no | Default border width (`0` / `none` ok) |
 | `flow_node_min_width` | `--flow-node-min-width` | `120px` | no | Minimum flow node width |
 | `flow_node_padding` | `--flow-node-padding` | `12px` | no | Flow node padding |
+| `label_question` | `--label-question` | from `lang` | no | Question label string |
+| `label_key_message` | `--label-key-message` | from `lang` | no | Key Message label string |
+
+When `label_*` tokens are omitted, defaults follow the slides `lang` (`ja` → 議論の問い / キーメッセージ; otherwise Question / Key Message). See [INPUT_FORMAT.md](INPUT_FORMAT.md).
 
 ## Optional CSS fence
 
 ```css
-.slide h1 {
-  letter-spacing: 0.02em;
+.slide::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  right: 0;
+  height: 6px;
+  background: var(--color-top-bar);
+}
+
+.flow-node[data-kind="doc"] {
+  background: var(--color-highlight-bg);
+  border-color: var(--color-highlight);
 }
 ```
 
-Rules from every `css` fence in the style file are appended after the generated `:root` block. `--css file.css` on the CLI appends still later.
+Rules from every `css` fence in the style file are appended after the generated `:root` block. `--css file.css` on the CLI appends still later. Prefer [HOOKS.md](HOOKS.md) selectors over slide-index hacks.
 
 ## Slide Markdown conventions
 
 | Construct | Syntax | Check rule |
 | --- | --- | --- |
 | Slide break | a line that is exactly `---` | no empty slide from a trailing `---` |
-| Title | exactly one `# Heading` per slide | missing / extra H1 fail |
+| Title | exactly one `# Heading` per slide; optional `{#id .class}` | missing / extra H1 fail |
 | Key Message | at most one `**Key Message:** …` line | extras fail |
 | Question box | `::: question` … `:::` | non-empty; known kinds only |
-| Flow | `::: flow` with `A -> B` … `:::` | ≥2 nodes; no empty node |
-| Columns | `::: columns` split by `+++` … `:::` | ≥2 non-empty columns; `+++` only inside |
+| Source | `Source:` / `出典:` line or `::: source` | empty source block fails |
+| Flow | `::: flow` / `::: flow wide` with arrows, lanes, links | ≥2 nodes; known options/kinds |
+| Columns | `::: columns` / `plain` / `panel`, split by `+++` | ≥2 non-empty columns |
+| Hard break | trailing `\` | also: newlines inside question/source |
 | Table / lists | normal Markdown | consistent table columns; list indent sanity |
 | Code fence | ` ``` ` … ` ``` ` | must close |
 | HTML | not used by default | fails unless `--allow-html` |
