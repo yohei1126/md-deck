@@ -132,15 +132,30 @@ callout: pdf : Ready to ship [pos=below]
 | Node id | `Name {#id}` (stable `data-node` / link target; works with duplicate titles and `\n` breaks) |
 | Caption (second line) | `Name \| caption` |
 | Badge | `Name {badge}` (must not start with `#`) |
-| Chips inside the node | `Name [[chip1, chip2, chip3]]` |
+| Chips inside the node | `Name [[chip1, chip2]]` (split on `,` only; write `\,` for a literal comma; `/` stays inside the chip). A chips-only node `[[a, b]]` is allowed |
 | Line break in node / label / badge | `\n` or a trailing `\` |
 | Lane | `lane: Label` starts a lane |
-| Cross-lane link | `link: From => To : optional label [route=down]` (also `->` / `..>`; routes: `auto`, `up`, `down`, `left`, `right`) |
-| Callout | `callout: NodeId : text [pos=below]` (`above` / `below` / `left` / `right`) |
-| Stacked column | `A -> { Upper / Lower } -> B` |
+| Cross-lane link | `link: From => To : optional label [route=between]` (also `->` / `..>`; routes below) |
+| Callout | `callout: NodeId : text [pos=below]` (`above` / `below` / `below-left` / `below-right` / `left` / `right`) |
+| Stacked column | `A -> { Upper / Lower } -> B` (edges attach to the stack mid-box; write a separate edge to each member to fan out) |
 | Parallel edges | Repeat the same pair on separate lines; strokes offset and labels separate |
 
-Existing `A -> B -> C` chains and one-node-per-line lists keep working. Cross-lane links draw as orthogonal (right-angled) paths that route around nodes; `route=` picks the corridor when the default is ambiguous.
+`A -> B -> C` on one line still chains. Nodes on separate lines stay unconnected until you write an arrow or a `link:` line.
+
+### Link routes and anchors
+
+Cross-lane links draw as orthogonal paths. Routing treats nodes, badges, callouts, and edge labels as obstacles, only in the rows or columns the path crosses. When several clear paths exist, the renderer picks a crossing-free one deterministically.
+
+| `route=` | Leaves source | Enters target | Corridor |
+| --- | --- | --- | --- |
+| `between` | bottom | top | Gap between the two rows (preferred for lane-to-lane) |
+| `down` | bottom | top (gap) or bottom (around) | Prefers the between-lane gap; may detour below if the gap is blocked |
+| `up` | top | bottom (gap) or top (around) | Prefers the between-lane gap above |
+| `left` | left | left | Left of both boxes |
+| `right` | right | right | Right of both boxes |
+| `auto` | chosen | chosen | Scores gap, side, and around candidates; avoids node hits and arrow crossings |
+
+Multi-line edge labels sit entirely above or below their stroke (anchored by the label box) and widen the gap between same-row nodes when needed.
 
 ## Columns and nesting
 

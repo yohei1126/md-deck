@@ -77,6 +77,8 @@ Label tokens become both HTML label text (when set) and quoted CSS variables for
 | `page_padding_right` | `--page-padding-right` | `48px` | no | Right inset |
 | `page_padding_bottom` | `--page-padding-bottom` | `48px` | no | Bottom inset |
 | `page_padding_left` | `--page-padding-left` | `48px` | no | Left inset |
+| `footer_inset_bottom` | `--footer-inset-bottom` | `0.6em` | no | Distance from the slide bottom to `.slide-footer` |
+| `footer_inset_right` | `--footer-inset-right` | `0px` | no | Extra inset added inside the right page padding for the footer |
 | `gap` | `--gap` | `16px` | no | Flex gaps |
 | `card_radius` | `--card-radius` | `8px` | no | Column / flow corner radius (`0` / `none` ok) |
 | `card_padding` | `--card-padding` | `16px` | no | Inner padding for boxes |

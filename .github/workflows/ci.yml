@@ -25,14 +25,14 @@ jobs:
       - name: Sync project
         run: uv sync --frozen --group dev
 
+      - name: Install Chromium
+        run: uv run playwright install --with-deps chromium
+
       - name: Unit tests
         run: uv run pytest -q
 
       - name: Check examples/sample.md
         run: uv run md-deck check examples/sample.md
-
-      - name: Install Chromium
-        run: uv run playwright install --with-deps chromium
 
       - name: Build examples/sample.md
         run: |

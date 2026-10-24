@@ -50,6 +50,8 @@ page_padding_top: 48
 page_padding_right: 48
 page_padding_bottom: 48
 page_padding_left: 48
+footer_inset_bottom: 0.6em
+footer_inset_right: 0
 gap: 16
 card_radius: 8
 card_padding: 16

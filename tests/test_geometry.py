@@ -1,0 +1,356 @@
+"""Playwright geometry regressions for flow routing and shrink-to-fit."""
+
+from __future__ import annotations
+
+from pathlib import Path
+
+import pytest
+
+from md_deck.build import build_html, render_pdf
+from md_deck.flow import parse_flow_body
+from md_deck.slides import parse_deck
+from md_deck.style import load_style_file, tokens_to_css
+
+FIX = Path(__file__).parent / "fixtures" / "geometry"
+
+# Shared JS: sample orthogonal path segments vs node boxes (layout space).
+HIT_JS = r"""
+({ slideIndex, fromKey, toKey, avoidKeys }) => {
+  const slide = document.querySelectorAll('.slide')[slideIndex];
+  const flow = slide.querySelector('.flow');
+  const scale = Number(slide.dataset.scale || '1') || 1;
+  const flowRect = flow.getBoundingClientRect();
+  const path = flow.querySelector(
+    `svg.flow-svg path.flow-arrow[data-from="${fromKey}"][data-to="${toKey}"]`
+  );
+  if (!path) return { ok: false, reason: 'missing-path' };
+  const d = path.getAttribute('d') || '';
+  const pts = [];
+  const re = /([ML])\s*([-\d.]+)\s+([-\d.]+)/g;
+  let m;
+  while ((m = re.exec(d))) {
+    pts.push({ x: parseFloat(m[2]), y: parseFloat(m[3]) });
+  }
+  function box(el) {
+    const r = el.getBoundingClientRect();
+    return {
+      left: (r.left - flowRect.left) / scale,
+      right: (r.right - flowRect.left) / scale,
+      top: (r.top - flowRect.top) / scale,
+      bottom: (r.bottom - flowRect.top) / scale,
+    };
+  }
+  const avoid = new Set(avoidKeys || []);
+  const nodes = Array.from(flow.querySelectorAll('.flow-node'))
+    .filter((el) => avoid.has(el.getAttribute('data-node')))
+    .map((el) => ({ key: el.getAttribute('data-node'), box: box(el) }));
+  const pad = 3;
+  function segHits(p, q, b) {
+    const minX = Math.min(p.x, q.x), maxX = Math.max(p.x, q.x);
+    const minY = Math.min(p.y, q.y), maxY = Math.max(p.y, q.y);
+    const bl = b.left + pad, br = b.right - pad, bt = b.top + pad, bb = b.bottom - pad;
+    if (maxX < bl || minX > br || maxY < bt || minY > bb) return false;
+    if (Math.abs(p.x - q.x) < 0.75) return p.x >= bl && p.x <= br;
+    if (Math.abs(p.y - q.y) < 0.75) return p.y >= bt && p.y <= bb;
+    return true;
+  }
+  const hits = [];
+  for (let i = 1; i < pts.length; i++) {
+    for (const n of nodes) {
+      if (segHits(pts[i - 1], pts[i], n.box)) hits.push(n.key);
+    }
+  }
+  return { ok: hits.length === 0, hits: [...new Set(hits)], pts };
+}
+"""
+
+
+@pytest.fixture(scope="module")
+def geometry_page(tmp_path_factory):
+    out_dir = tmp_path_factory.mktemp("geometry")
+    pdf = out_dir / "g.pdf"
+    html_path = out_dir / "g.html"
+    text = (FIX / "slides.md").read_text(encoding="utf-8")
+    tokens, style_extra = load_style_file(FIX / "deck_style.md")
+    theme_css = tokens_to_css(tokens, style_extra)
+    meta, slides = parse_deck(text, style_tokens=tokens)
+    html = build_html(
+        slides,
+        theme_css,
+        [],
+        str(meta.get("title") or "geometry"),
+        lang=str(meta.get("lang") or "en"),
+        page_number_placement=str(tokens.get("page_number_placement") or "bottom-right"),
+    )
+    html_path.write_text(html, encoding="utf-8")
+    render_pdf(html, pdf, png_dir=None, fail_on_overflow=False)
+    from playwright.sync_api import sync_playwright
+
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True)
+        page = browser.new_page(
+            viewport={"width": 1280, "height": 720},
+            device_scale_factor=1,
+        )
+        page.goto(html_path.resolve().as_uri(), wait_until="networkidle")
+        page.wait_for_function("() => window.__mdDeckReady === true")
+        yield page
+        browser.close()
+
+
+def test_parse_separate_lines_and_chips():
+    """Parse coverage matching tests/fixtures/geometry/slides.md shapes."""
+    d = parse_flow_body(
+        "lane: Top\nP {#p}\nQ {#q}\nR {#r}\nlane: Bottom\nTarget {#t}\n"
+        "link: p => t\nlink: q => t\nlink: r => t\n"
+    )
+    assert d.lanes[0].edges == []
+    assert len(d.links) == 3
+
+    chips = parse_flow_body("A -> [[x, y]] -> B\nN [[a/b, c]] -> M\n")
+    assert chips.errors == []
+    chip_node = next(n for n in chips.nodes.values() if n.chips == ["x", "y"])
+    assert chip_node.title == ""
+    n_node = chips.nodes["N"]
+    assert n_node.chips == ["a/b", "c"]
+
+
+def test_vertical_down_route_avoids_nodes(geometry_page):
+    result = geometry_page.evaluate(
+        HIT_JS,
+        {
+            "slideIndex": 0,
+            "fromKey": "a3",
+            "toKey": "b1",
+            "avoidKeys": ["A1", "A2", "B2", "B3"],
+        },
+    )
+    assert "B3" not in result.get("hits", []), result
+    assert not result.get("hits"), result
+
+
+def test_fan_in_auto_avoids_nodes_and_no_chain(geometry_page):
+    # No in-lane chain edges between P/Q/R.
+    chained = geometry_page.evaluate(
+        """() => {
+          const slide = document.querySelectorAll('.slide')[1];
+          const edges = Array.from(slide.querySelectorAll('.flow-edge:not(.flow-edge-cross)'));
+          return edges.map((e) => [e.dataset.from, e.dataset.to]);
+        }"""
+    )
+    assert chained == []
+
+    meta = geometry_page.evaluate(
+        """() => {
+          const slide = document.querySelectorAll('.slide')[1];
+          const flow = slide.querySelector('.flow');
+          const scale = Number(slide.dataset.scale || '1') || 1;
+          const fr = flow.getBoundingClientRect();
+          const t = flow.querySelector('.flow-node[data-node="t"]').getBoundingClientRect();
+          const top = (t.top - fr.top) / scale;
+          const paths = {};
+          flow.querySelectorAll('path.flow-link').forEach((p) => {
+            paths[p.dataset.from] = p.getAttribute('d');
+          });
+          return { top, paths, flowW: flow.clientWidth };
+        }"""
+    )
+
+    for src in ("p", "q", "r"):
+        result = geometry_page.evaluate(
+            HIT_JS,
+            {
+                "slideIndex": 1,
+                "fromKey": src,
+                "toKey": "t",
+                "avoidKeys": ["p", "q", "r", "t"],
+            },
+        )
+        foreign = [k for k in result.get("hits", []) if k not in {src, "t"}]
+        assert not foreign, (src, result)
+        xs = [p["x"] for p in result.get("pts", [])]
+        assert xs and min(xs) >= -1, (src, result)
+        assert max(xs) <= meta["flowW"] + 1, (src, result)
+        # Enter the target from the top (last point near target top centre).
+        end = result["pts"][-1]
+        assert abs(end["y"] - meta["top"]) < 2.5, (src, end, meta["top"])
+
+
+def test_multiline_label_box_clears_arrow(geometry_page):
+    result = geometry_page.evaluate(
+        """() => {
+          const slide = document.querySelectorAll('.slide')[2];
+          const flow = slide.querySelector('.flow');
+          const scale = Number(slide.dataset.scale || '1') || 1;
+          const flowRect = flow.getBoundingClientRect();
+          const path = flow.querySelector('path.flow-arrow[data-from="s"][data-to="t"]:not(.flow-arrow-dashed)');
+          const label = flow.querySelector('text.flow-label[data-from="s"][data-to="t"]');
+          if (!path || !label) return { ok: false, reason: 'missing' };
+          const pb = path.getBBox();
+          const lb = label.getBBox();
+          // Label box should sit entirely above or below the stroke midline.
+          const midY = pb.y + pb.height / 2;
+          const above = lb.y + lb.height <= midY - 2;
+          const below = lb.y >= midY + 2;
+          const s = flow.querySelector('.flow-node[data-node="s"]');
+          const t = flow.querySelector('.flow-node[data-node="t"]');
+          const sr = s.getBoundingClientRect();
+          const tr = t.getBoundingClientRect();
+          const gap = (tr.left - sr.right) / scale;
+          return { ok: above || below, above, below, gap, labelW: lb.width };
+        }"""
+    )
+    assert result["ok"], result
+    assert result["gap"] >= result["labelW"] - 1, result
+
+
+def test_stack_edges_attach_midbox(geometry_page):
+    result = geometry_page.evaluate(
+        """() => {
+          const slide = document.querySelectorAll('.slide')[3];
+          const flow = slide.querySelector('.flow');
+          const scale = Number(slide.dataset.scale || '1') || 1;
+          const flowRect = flow.getBoundingClientRect();
+          const stack = flow.querySelector('.flow-stack');
+          const sb = stack.getBoundingClientRect();
+          const stackBox = {
+            left: (sb.left - flowRect.left) / scale,
+            right: (sb.right - flowRect.left) / scale,
+            top: (sb.top - flowRect.top) / scale,
+            bottom: (sb.bottom - flowRect.top) / scale,
+            cy: ((sb.top + sb.bottom) / 2 - flowRect.top) / scale,
+            cx: ((sb.left + sb.right) / 2 - flowRect.left) / scale,
+          };
+          function endPoint(d, which) {
+            const pts = [];
+            const re = /([ML])\\s*([-\\d.]+)\\s+([-\\d.]+)/g;
+            let m;
+            while ((m = re.exec(d))) pts.push({ x: +m[2], y: +m[3] });
+            return which === 'start' ? pts[0] : pts[pts.length - 1];
+          }
+          const inPath = flow.querySelector('path.flow-arrow[data-from="L"][data-to="Up"]');
+          const outPath = flow.querySelector('path.flow-arrow[data-from="Up"][data-to="R"]');
+          const inEnd = endPoint(inPath.getAttribute('d'), 'end');
+          const outStart = endPoint(outPath.getAttribute('d'), 'start');
+          return {
+            stackCy: stackBox.cy,
+            inEnd,
+            outStart,
+            inNearMid: Math.abs(inEnd.y - stackBox.cy) < stackBox.bottom - stackBox.top,
+            // Attachment should be near vertical mid of the stack, not the top node only.
+            inDyFromMid: Math.abs(inEnd.y - stackBox.cy),
+            outDyFromMid: Math.abs(outStart.y - stackBox.cy),
+            halfH: (stackBox.bottom - stackBox.top) / 2,
+          };
+        }"""
+    )
+    assert result["inDyFromMid"] <= result["halfH"] * 0.35, result
+    assert result["outDyFromMid"] <= result["halfH"] * 0.35, result
+
+
+def test_callout_arrow_points_at_node_and_hooks(geometry_page):
+    result = geometry_page.evaluate(
+        """() => {
+          const slide = document.querySelectorAll('.slide')[2];
+          const flow = slide.querySelector('.flow');
+          const scale = Number(slide.dataset.scale || '1') || 1;
+          const flowRect = flow.getBoundingClientRect();
+          const path = flow.querySelector('path.flow-callout-arrow');
+          const node = flow.querySelector('.flow-node[data-node="t"]');
+          const callout = flow.querySelector('div.flow-callout');
+          if (!path || !node || !callout) return { ok: false };
+          const d = path.getAttribute('d') || '';
+          const pts = [];
+          const re = /([ML])\\s*([-\\d.]+)\\s+([-\\d.]+)/g;
+          let m;
+          while ((m = re.exec(d))) pts.push({ x: +m[2], y: +m[3] });
+          const end = pts[pts.length - 1];
+          const nb = node.getBoundingClientRect();
+          const nodeBottom = {
+            x: ((nb.left + nb.right) / 2 - flowRect.left) / scale,
+            y: (nb.bottom - flowRect.top) / scale,
+          };
+          const cb = callout.getBoundingClientRect();
+          const calloutBox = {
+            left: (cb.left - flowRect.left) / scale,
+            right: (cb.right - flowRect.left) / scale,
+            top: (cb.top - flowRect.top) / scale,
+            bottom: (cb.bottom - flowRect.top) / scale,
+          };
+          const slideRect = flow.closest('.slide').getBoundingClientRect();
+          const cbPage = callout.getBoundingClientRect();
+          return {
+            hasFlowLink: path.classList.contains('flow-link'),
+            hasFlowCallout: path.classList.contains('flow-callout'),
+            endNearNode: Math.hypot(end.x - nodeBottom.x, end.y - nodeBottom.y) < 8,
+            // Horizontal clamp keeps notes on-slide; vertical may extend the flow box.
+            clamped: calloutBox.left >= -1
+              && calloutBox.right <= flow.clientWidth + 1
+              && cbPage.left >= slideRect.left - 1
+              && cbPage.right <= slideRect.right + 1,
+          };
+        }"""
+    )
+    assert result["hasFlowLink"]
+    assert result["hasFlowCallout"]
+    assert result["endNearNode"], result
+    assert result["clamped"], result
+
+
+def test_single_lane_dom_wrappers(geometry_page):
+    result = geometry_page.evaluate(
+        """() => {
+          const slide = document.querySelectorAll('.slide')[3];
+          const flow = slide.querySelector('.flow');
+          return {
+            lanes: !!flow.querySelector('.flow-lanes'),
+            lane: !!flow.querySelector('.lane'),
+            row: !!flow.querySelector('.flow-row'),
+          };
+        }"""
+    )
+    assert result == {"lanes": True, "lane": True, "row": True}
+
+
+def test_chips_only_renders(geometry_page):
+    result = geometry_page.evaluate(
+        """() => {
+          const slide = document.querySelectorAll('.slide')[4];
+          const chips = Array.from(slide.querySelectorAll('.flow-chip')).map((c) => c.textContent);
+          return chips;
+        }"""
+    )
+    assert "x" in result and "y" in result
+    assert "a/b" in result and "c" in result
+    assert result.count("a") == 0 or "a/b" in result
+
+
+def test_shrink_honours_last_margin(geometry_page):
+    result = geometry_page.evaluate(
+        """() => {
+          const slide = document.querySelectorAll('.slide')[5];
+          const inner = slide.querySelector('.slide-inner');
+          const content = slide.querySelector('.slide-content');
+          const q = content.querySelector('.question');
+          const style = getComputedStyle(q);
+          const mb = parseFloat(style.marginBottom) || 0;
+          const bottom = q.offsetTop + q.offsetHeight + mb;
+          return {
+            overflow: slide.dataset.overflow || null,
+            bottom,
+            innerH: inner.clientHeight,
+            fits: bottom <= inner.clientHeight + 0.5,
+            marginBottom: mb,
+          };
+        }"""
+    )
+    assert result["marginBottom"] >= 39
+    assert result["fits"], result
+    assert result["overflow"] is None
+
+
+def test_footer_inset_token_emitted():
+    tokens, extra = load_style_file(FIX / "deck_style.md")
+    css = tokens_to_css(tokens, extra)
+    assert "--footer-inset-bottom:" in css
+    assert "--footer-inset-right:" in css

@@ -63,24 +63,26 @@ becomes `<section class="slide path-diagram" id="routing" data-index="…">`.
 | --- | --- | --- |
 | `.flow` | Flow root | `::: flow` |
 | `.flow.flow-wide` | same | `::: flow wide` |
-| `.flow-lanes` | Lane stack | Multi-lane, labelled lane, or stacked columns |
-| `.lane` | One lane | `lane: Label` (or the implicit single lane) |
+| `.flow-lanes` | Lane stack | Always present (single-lane flows included) |
+| `.lane` | One lane | `lane: Label` or the implicit single lane |
 | `.lane[data-lane]` | same | 0-based lane index |
 | `.lane-label` | Lane title | Text after `lane:` |
-| `.flow-row` | Node row inside a lane | Multi-lane / stack layouts |
+| `.flow-row` | Node row inside a lane | Always present inside each `.lane` |
 | `.flow-stack` | Vertical stack | `{ A / B }` in a chain |
 | `.flow-node` | Node box | Each node |
-| `.flow-node[data-node]` | same | Node key (`{#id}` when set, else title) |
+| `.flow-node[data-node]` | same | Node key (`{#id}` when set, else title; chips-only nodes use `[[a, b]]`) |
 | `.flow-node[data-id]` | same | Present when `Name {#id}` was set |
 | `.flow-node[data-kind]` | same | `actor`, `system`, `doc`, `muted`, or `highlight` |
 | `.flow-node-actor` (etc.) | same | Class mirror of `data-kind` |
-| `.flow-node-title` | Title span | Primary label |
+| `.flow-node-title` | Title span | Primary label (omitted for chips-only nodes) |
 | `.flow-node-caption` | Caption span | `Name \| caption` |
 | `.flow-node-badge` | Badge span | `Name {badge}` |
-| `.flow-chips` / `.flow-chip` | Chip tags | `Name [[chip1, chip2]]` |
-| `.flow-callout` | Note box | `callout: NodeId : text [pos=below]` |
-| `.flow-callout[data-anchor]` / `[data-pos]` | same | Anchor key and position |
+| `.flow-chips` / `.flow-chip` | Chip tags | `Name [[chip1, chip2]]` or chips-only `[[a, b]]` |
+| `div.flow-callout` | Note box | `callout: NodeId : text [pos=below]` |
+| `div.flow-callout[data-anchor]` / `[data-pos]` | same | Anchor key and position (`below-left` / `below-right` included) |
+| `path.flow-callout` | Callout connector (SVG) | Same hook name on the dashed connector path |
 | `.flow-edge` | Edge descriptor | Hidden; read by `deck.js` |
+| `.flow-edge[data-from-attach]` / `[data-to-attach]` | same | `stack` when the chain endpoint was a `{ A / B }` column |
 | `.flow-edge-cross` | Cross-lane edge | From `link: A => B : label` |
 | `.flow-svg` | SVG overlay | Drawn at render time |
 
@@ -92,7 +94,8 @@ Every drawn arrow path and label text carries these hooks. Style CSS may target 
 | --- | --- | --- |
 | `.flow-arrow` | SVG `<path>` | Every arrow |
 | `.flow-arrow-dashed` | SVG `<path>` | Dashed stroke |
-| `.flow-link` | SVG `<path>` | Cross-lane `link:` (and callout connector) |
+| `.flow-link` | SVG `<path>` | Cross-lane `link:` and callout connectors |
+| `.flow-callout-arrow` | SVG `<path>` | Callout connector (also carries `.flow-link` and `.flow-callout`) |
 | `.flow-label` | SVG `<text>` | Arrow label (`.flow-edge-label` kept as an alias) |
 | `[data-from]` / `[data-to]` | path and text | Endpoint node keys |
 | `[data-kind]` | path and text | `solid`, `dashed`, `bidirectional`, or `link` |

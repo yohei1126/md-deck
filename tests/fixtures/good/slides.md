@@ -28,9 +28,9 @@ lane: Upstream
 [actor] Start {#start} | ready {go} -> [system] Middle -[lab\nel]-> [doc] End [[alpha, beta]]
 lane: Downstream
 [muted] Side ..> [highlight] Focus {#focus}
-link: End => focus : handoff [route=down]
+link: End => focus : handoff [route=between]
 link: start ..> Focus : alt
-callout: focus : Check here [pos=below]
+callout: focus : Check here [pos=below-right]
 :::
 
 ---

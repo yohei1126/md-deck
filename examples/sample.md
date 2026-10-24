@@ -44,15 +44,13 @@ The empty corner cell marks the first column as row headers (`th[scope=row]`).
 
 ::: flow wide
 lane: Pipeline
-[actor] Author {#author} | writes -> [doc] Spec {#spec} {md} -[review\npass]-> [system] Builder [[lint, render]]
+[actor] Author {#author} | writes -> [doc] Spec {#spec} {md} -[review]-> [system] Builder [[lint, render]]
 lane: Style
 [muted] Tokens {#tokens} ..> [highlight] PDF {#pdf}
-link: spec => tokens : bind [route=down]
+link: spec => tokens : bind [route=between]
 link: author ..> pdf : emit
 callout: pdf : Ship it [pos=below]
 :::
-
-Arrow forms: `A -> B`, `A -[label]-> B`, `A ..> B`, `A -.[label].-> B`, and `A <-> B`. Node markers: `[actor]`, `[system]`, `[doc]`, `[muted]`, `[highlight]`. Caption with `Name | caption`; badge with `Name {badge}`; id with `Name {#id}`; chips with `Name [[a, b]]`. Cross-lane links: `link: From => To : label [route=down]`.
 
 ---
 
