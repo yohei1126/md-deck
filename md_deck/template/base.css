@@ -376,8 +376,8 @@ th[scope="row"] {
 }
 
 .slide-footer .source .label {
-  font-weight: 600;
-  margin-inline-end: 0.15em;
+  font-weight: var(--source-label-weight, 600);
+  margin-inline-end: var(--source-label-gap, 0.15em);
 }
 
 /* Page number placement is independent of the source footer. */

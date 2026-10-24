@@ -13,7 +13,8 @@ from md_deck.style import load_style_file, tokens_to_css
 
 FIX = Path(__file__).parent / "fixtures" / "geometry"
 
-# Shared JS: sample orthogonal path segments vs node boxes (layout space).
+# Shared JS: path segments vs node boxes (layout space).
+# pad expands the box so segments that cross OR run along a border count as hits.
 HIT_JS = r"""
 ({ slideIndex, fromKey, toKey, avoidKeys }) => {
   const slide = document.querySelectorAll('.slide')[slideIndex];
@@ -45,14 +46,26 @@ HIT_JS = r"""
     .filter((el) => avoid.has(el.getAttribute('data-node')))
     .map((el) => ({ key: el.getAttribute('data-node'), box: box(el) }));
   const pad = 3;
+  function lineHitsRect(p, q, r) {
+    let t0 = 0, t1 = 1;
+    const dx = q.x - p.x, dy = q.y - p.y;
+    const clips = [[-dx, p.x - r.left], [dx, r.right - p.x], [-dy, p.y - r.top], [dy, r.bottom - p.y]];
+    for (const [a, b] of clips) {
+      if (Math.abs(a) < 1e-9) { if (b < 0) return false; continue; }
+      const t = b / a;
+      if (a < 0) { if (t > t1) return false; if (t > t0) t0 = t; }
+      else { if (t < t0) return false; if (t < t1) t1 = t; }
+    }
+    return t1 >= t0;
+  }
   function segHits(p, q, b) {
     const minX = Math.min(p.x, q.x), maxX = Math.max(p.x, q.x);
     const minY = Math.min(p.y, q.y), maxY = Math.max(p.y, q.y);
-    const bl = b.left + pad, br = b.right - pad, bt = b.top + pad, bb = b.bottom - pad;
+    const bl = b.left - pad, br = b.right + pad, bt = b.top - pad, bb = b.bottom + pad;
     if (maxX < bl || minX > br || maxY < bt || minY > bb) return false;
     if (Math.abs(p.x - q.x) < 0.75) return p.x >= bl && p.x <= br;
     if (Math.abs(p.y - q.y) < 0.75) return p.y >= bt && p.y <= bb;
-    return true;
+    return lineHitsRect(p, q, { left: bl, right: br, top: bt, bottom: bb });
   }
   const hits = [];
   for (let i = 1; i < pts.length; i++) {
@@ -656,3 +669,135 @@ def test_negative_footer_inset_accepted_and_emitted():
     tokens, extra = load_style_file(FIX / "deck_style_footer.md")
     css = tokens_to_css(tokens, extra)
     assert "--footer-inset-right: -20px;" in css
+
+
+def test_straight_same_row_skips_intermediate_borders(geometry_page):
+    result = geometry_page.evaluate(
+        HIT_JS,
+        {
+            "slideIndex": 13,
+            "fromKey": "a14",
+            "toKey": "d14",
+            "avoidKeys": ["b14", "c14"],
+        },
+    )
+    assert result.get("ok"), result
+    pts = result.get("pts") or []
+    assert len(pts) >= 3, pts  # must bend; not a border-hugging chord
+
+
+def test_straight_fan_in_same_row_avoids_borders_and_diverges(geometry_page):
+    mid_ys = []
+    for src, avoid in (
+        ("x15", ["y15", "z15"]),
+        ("y15", ["x15", "z15"]),
+        ("z15", ["x15", "y15"]),
+    ):
+        hit = geometry_page.evaluate(
+            HIT_JS,
+            {
+                "slideIndex": 14,
+                "fromKey": src,
+                "toKey": "t15",
+                "avoidKeys": avoid,
+            },
+        )
+        assert hit.get("ok"), (src, hit)
+        pts = hit.get("pts") or []
+        assert pts, src
+        # Collect horizontal trunk y when present (U-shaped detour).
+        for i in range(1, len(pts)):
+            if abs(pts[i]["y"] - pts[i - 1]["y"]) < 0.75 and abs(
+                pts[i]["x"] - pts[i - 1]["x"]
+            ) >= 8:
+                mid_ys.append(round(pts[i]["y"], 1))
+                break
+    # Fan-in edges that detour must not collapse onto one shared trunk.
+    if len(mid_ys) >= 2:
+        assert len(set(mid_ys)) >= 2 or max(mid_ys) - min(mid_ys) >= 6, mid_ys
+
+
+def test_callout_above_side_left_avoids_own_box(geometry_page):
+    result = geometry_page.evaluate(
+        """() => {
+          const slide = document.querySelectorAll('.slide')[15];
+          const flow = slide.querySelector('.flow');
+          const scale = Number(slide.dataset.scale || '1') || 1;
+          const fr = flow.getBoundingClientRect();
+          const callout = flow.querySelector('div.flow-callout');
+          const path = flow.querySelector('path.flow-callout-arrow');
+          const node = flow.querySelector('.flow-node[data-node="a16"]');
+          if (!callout || !path || !node) return { ok: false };
+          const pts = [];
+          const re = /([ML])\\s*([-\\d.]+)\\s+([-\\d.]+)/g;
+          let m;
+          const d = path.getAttribute('d') || '';
+          while ((m = re.exec(d))) pts.push({ x: +m[2], y: +m[3] });
+          const cb = callout.getBoundingClientRect();
+          const box = {
+            left: (cb.left - fr.left) / scale,
+            right: (cb.right - fr.left) / scale,
+            top: (cb.top - fr.top) / scale,
+            bottom: (cb.bottom - fr.top) / scale,
+            cx: ((cb.left + cb.right) / 2 - fr.left) / scale,
+            cy: ((cb.top + cb.bottom) / 2 - fr.top) / scale,
+          };
+          const inset = 2;
+          const inner = {
+            left: box.left + inset,
+            right: box.right - inset,
+            top: box.top + inset,
+            bottom: box.bottom - inset,
+          };
+          function segHits(p, q, b) {
+            const minX = Math.min(p.x, q.x), maxX = Math.max(p.x, q.x);
+            const minY = Math.min(p.y, q.y), maxY = Math.max(p.y, q.y);
+            if (maxX < b.left || minX > b.right || maxY < b.top || minY > b.bottom) {
+              return false;
+            }
+            if (Math.abs(p.x - q.x) < 0.75) return p.x >= b.left && p.x <= b.right;
+            if (Math.abs(p.y - q.y) < 0.75) return p.y >= b.top && p.y <= b.bottom;
+            return true;
+          }
+          let through = false;
+          for (let i = 1; i < pts.length; i++) {
+            if (segHits(pts[i - 1], pts[i], inner)) through = true;
+          }
+          const nb = node.getBoundingClientRect();
+          const nodeTop = {
+            x: ((nb.left + nb.right) / 2 - fr.left) / scale,
+            y: (nb.top - fr.top) / scale,
+          };
+          const start = pts[0];
+          const end = pts[pts.length - 1];
+          const leftExit =
+            Math.abs(start.x - box.left) < 3 && Math.abs(start.y - box.cy) < 8;
+          const bottomExit =
+            Math.abs(start.y - box.bottom) < 3 && Math.abs(start.x - box.cx) < 8;
+          return {
+            ok: true,
+            through,
+            leftExit,
+            bottomExit,
+            endNearTop: Math.hypot(end.x - nodeTop.x, end.y - nodeTop.y) < 8,
+            pts,
+          };
+        }"""
+    )
+    assert result["ok"]
+    assert not result["through"], result
+    assert result["leftExit"] or result["bottomExit"], result
+    assert result["endNearTop"], result
+
+
+def test_source_label_style_tokens_emitted():
+    tokens, extra = load_style_file(FIX / "deck_style.md")
+    css = tokens_to_css(
+        {**tokens, "source_label_weight": 400, "source_label_gap": 0},
+        extra,
+    )
+    assert "--source-label-weight: 400;" in css
+    assert "--source-label-gap: 0px;" in css
+    default_css = tokens_to_css(tokens, extra)
+    assert "--source-label-weight: 600;" in default_css
+    assert "--source-label-gap: 0.15em;" in default_css

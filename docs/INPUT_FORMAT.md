@@ -148,7 +148,9 @@ callout: pdf : Ready to ship [pos=below]
 
 Cross-lane links and same-row edges that would pass through other nodes draw as orthogonal paths by default. Routing treats nodes, badges, callouts, and edge labels as obstacles, only in the rows or columns the path crosses. When several clear paths exist, the renderer picks a crossing-free one deterministically. Several edges that leave or enter the same node side use distinct ports spaced by `flow_port_gap` (default 12px) so arrowheads do not stack and trunks stay separate.
 
-Opt into straight (diagonal) strokes with `shape=straight` on a `link:` or chain destination, `::: flow straight`, or the style token `flow_edge_shape: straight`. Straight edges still use the same distributed ports, so fan-in into one target spreads as a fan of diagonals. Orthogonal remains the default.
+Opt into straight (diagonal) strokes with `shape=straight` on a `link:` or chain destination, `::: flow straight`, or the style token `flow_edge_shape: straight`. Straight edges still use the same distributed ports, so fan-in into one target spreads as a fan of diagonals. When a straight segment would cross or run along another node’s border, the renderer falls back to an obstacle-avoiding orthogonal route (including a bend above or below a same-row chain) so trunks stay clear and distinct. Orthogonal remains the default.
+
+Callout connectors with `side=` leave that side of the note box. If a simple L would run back through the callout itself (for example `pos=above side=left` when the note is centred over its anchor), the path steps outside the box, or falls back to the facing side (`bottom` for `above`, `top` for `below`).
 
 | `route=` | Leaves source | Enters target | Corridor |
 | --- | --- | --- | --- |

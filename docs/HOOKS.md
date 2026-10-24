@@ -38,7 +38,7 @@ becomes `<section class="slide path-diagram" id="routing" data-index="…">`.
 | `.column` | One column | Split by `+++` |
 | `.column-head` | First heading in a column | First `h2`–`h6` in that column |
 | `.source` | Footer source | `Source:` / `出典:` line or `::: source` |
-| `.source .label` | Source prefix | Text from `label_source` or `lang` default (omitted when `label_source` is empty) |
+| `.source .label` | Source prefix | Text from `label_source` or `lang` default (omitted when `label_source` is empty). Weight / gap from `--source-label-weight` / `--source-label-gap` |
 | `.page-number` | Footer page mark | Auto `n / total` |
 | `.page-number[data-placement]` | same | `bottom-right` (default), `bottom-left`, or `bottom-center` from `page_number_placement` |
 | `.slide-footer` | Footer wrapper | Layout only; source stays left, page number placement is separate |

@@ -27,7 +27,7 @@ Optional tokens use the plain defaults in the table below when omitted. Unknown 
 
 ## Token schema
 
-Bare numbers for lengths become `px`, except `line_height`, `font_weight_title`, and `font_weight_body`, which stay unitless. Strings are emitted as written (so you can pass `"1.5rem"` or a font stack). Colours must be valid CSS colour strings (`#rgb`, `#rrggbb`, `rgb()`, `hsl()`, or a named colour).
+Bare numbers for lengths become `px`, except `line_height`, `font_weight_title`, `font_weight_body`, and `source_label_weight`, which stay unitless. Strings are emitted as written (so you can pass `"1.5rem"` or a font stack). Colours must be valid CSS colour strings (`#rgb`, `#rrggbb`, `rgb()`, `hsl()`, or a named colour).
 
 For radii, borders, and paddings in `ZERO_OR_NONE` scope, `0` and `none` are allowed (for example `card_radius: 0`, `border_width: none`).
 
@@ -93,6 +93,8 @@ Label tokens become both HTML label text (when set) and quoted CSS variables for
 | `label_question` | `--label-question` | from `lang` | no | Question label string |
 | `label_key_message` | `--label-key-message` | from `lang` | no | Key Message label string |
 | `label_source` | `--label-source` | from `lang` | no | Footer source prefix (`Source:` / `出典：`). Empty string hides it |
+| `source_label_weight` | `--source-label-weight` | `600` | no | Font weight for `.source .label` |
+| `source_label_gap` | `--source-label-gap` | `0.15em` | no | Gap after `.source .label` (`margin-inline-end`; `0` removes it) |
 | `question_label_placement` | `--question-label-placement` | `inline` | no | `inline` (label in first paragraph) or `block` |
 | `page_number_placement` | `--page-number-placement` | `bottom-right` | no | `bottom-right`, `bottom-left`, or `bottom-center` (independent of `.source`) |
 

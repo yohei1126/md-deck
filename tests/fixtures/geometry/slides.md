@@ -178,3 +178,35 @@ Target {#t13}
 link: p13 => t13 [route=between shape=straight]
 link: q13 => t13 [route=between]
 :::
+
+---
+
+# 14 Straight skip same-row intermediates
+
+::: flow wide
+A {#a14} -> B {#b14} -> C {#c14} -> D {#d14}
+{#a14} -> {#d14} [shape=straight]
+:::
+
+---
+
+# 15 Straight fan-in same row
+
+::: flow straight
+Alpha {#x15}
+Beta {#y15}
+Gamma {#z15}
+Target {#t15}
+{#x15} -> {#t15}
+{#y15} -> {#t15}
+{#z15} -> {#t15}
+:::
+
+---
+
+# 16 Callout above side=left
+
+::: flow wide
+Left -> Anchor {#a16} -> Right
+callout: a16 : above note [pos=above side=left]
+:::

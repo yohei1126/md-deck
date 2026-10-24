@@ -46,6 +46,8 @@
     "font_size_table": { "$ref": "#/$defs/size" },
     "font_weight_title": { "$ref": "#/$defs/fontWeight" },
     "font_weight_body": { "$ref": "#/$defs/fontWeight" },
+    "source_label_weight": { "$ref": "#/$defs/fontWeight" },
+    "source_label_gap": { "$ref": "#/$defs/sizeOrNone" },
     "line_height": { "$ref": "#/$defs/lineHeight" },
     "page_padding": { "$ref": "#/$defs/sizeOrNone" },
     "page_padding_top": { "$ref": "#/$defs/sizeOrNone" },
