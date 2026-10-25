@@ -489,3 +489,21 @@ def test_lane_label_keeps_text_before_align():
 def test_unknown_lane_align_is_an_error():
     diagram = parse_flow_body("lane: Field [align=middle]\nA -> B\n")
     assert any("unknown lane align" in e for e in diagram.errors)
+
+
+def test_spread_figures_and_key_message_emphasis():
+    spread = render_slide_markdown(
+        "# T\n\n::: flow spread\nlane: Upper\nA -> B\nlane: Lower\nC -> D\n:::\n"
+    )
+    assert "flow-spread" in spread.html
+    plain = render_slide_markdown("# T\n\n::: flow\nlane: Upper\nA -> B\n:::\n")
+    assert "flow-spread" not in plain.html
+    figures = render_slide_markdown(
+        "# T\n\n::: columns figures\n## 12\n\nOne line\n\n+++\n\n## 4\n\nOne line\n:::\n"
+    )
+    assert 'class="columns figures"' in figures.html
+    assert "column-head" in figures.html
+    message = render_slide_markdown("# T\n\n**Key Message:** **Ship** the draft\n")
+    assert 'class="key-message"' in message.html
+    assert "<strong>Ship</strong>" in message.html
+    assert "--font-size-flow-body: 18px;" in tokens_to_css({})

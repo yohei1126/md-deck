@@ -44,6 +44,7 @@ TOKEN_SPEC: dict[str, tuple[str, Any]] = {
     "font_size_key_message": ("--font-size-key-message", "20px"),
     "font_size_question": ("--font-size-question", "18px"),
     "font_size_small": ("--font-size-small", "16px"),
+    "font_size_flow_body": ("--font-size-flow-body", "18px"),
     "font_size_table": ("--font-size-table", "16px"),
     "font_weight_title": ("--font-weight-title", "700"),
     "font_weight_body": ("--font-weight-body", "400"),

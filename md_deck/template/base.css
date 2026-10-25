@@ -151,6 +151,7 @@ body {
   background: var(--color-key-message-bg);
   color: var(--color-key-message-text);
   font-size: var(--font-size-key-message);
+  font-weight: var(--font-weight-title);
 }
 
 .key-message .label {
@@ -219,6 +220,16 @@ body {
 
 .column-head {
   margin: 0;
+  /* Browser h2 is about 1.5em and wraps a short card title. Stay near body. */
+  font-size: 1.1em;
+  line-height: 1.25;
+}
+
+/* A big-number row. The heading is the figure; the paragraph is the caption.
+   Same card hooks as any other ::: columns block. */
+.columns.figures .column-head {
+  font-size: 2.4em;
+  line-height: 1.05;
 }
 
 /* Keep a real indent inside column cards. A deck rule `ul { padding: 0 }`
@@ -241,11 +252,14 @@ body {
   margin-top: 0;
 }
 
-/* A short paragraph in a stretched card sits in the leftover height
-   instead of leaving the lower half empty. */
+/* Paragraphs stay under the heading. Lists still share a tall card. */
 .column > p {
-  margin-top: auto;
-  margin-bottom: auto;
+  margin-top: 0;
+  margin-bottom: 0;
+}
+
+.column > * + p {
+  margin-top: 0.35em;
 }
 
 .flow {
@@ -351,6 +365,24 @@ body {
   width: fit-content;
   max-width: 100%;
   align-self: center;
+}
+
+/* ::: flow spread: opt in when a multi-lane map should use the content
+   width. The default above stays a centred, shrink-wrapped group. */
+.flow.flow-spread:not(:has(.flow-stack)) > .flow-lanes {
+  width: 100%;
+  max-width: 100%;
+  align-self: stretch;
+}
+
+.flow.flow-spread .flow-row {
+  flex-wrap: nowrap;
+  width: 100%;
+}
+
+.flow.flow-spread .flow-row > .flow-node:not(:only-child) {
+  flex: 1 1 var(--flow-node-min-width);
+  max-width: var(--flow-node-max-width);
 }
 
 .flow-row {
@@ -543,8 +575,8 @@ body {
 
 .flow-node-caption {
   display: block;
-  font-size: var(--font-size-small);
-  color: var(--color-muted);
+  font-size: var(--font-size-flow-body);
+  color: var(--color-text);
   font-weight: var(--font-weight-body);
 }
 

@@ -73,6 +73,66 @@ Pinned line
 - Beta
 - Gamma
 :::
+
+---
+
+# Map
+
+::: flow
+lane: Upper
+A -> B
+lane: Lower
+C -> D
+:::
+
+---
+
+# Map spread
+
+::: flow spread
+lane: Upper
+A -> B
+lane: Lower
+C -> D
+:::
+
+---
+
+# Copy
+
+::: columns
+## Short head
+
+One sentence under the heading.
+
++++
+
+## Other head
+
+Second sentence.
+:::
+
+---
+
+# Point
+
+**Key Message:** **Ship** the draft
+
+---
+
+# Figures
+
+::: columns figures
+## 12
+
+One line
+
++++
+
+## 4
+
+One line
+:::
 """
 
 STYLE = """---
@@ -371,3 +431,79 @@ def test_column_list_spreads_through_a_tall_card(layout_pages):
     assert result["firstFromTop"] > 48, result
     assert result["lastFromBottom"] < result["cardH"] * 0.4, result
     assert result["lastInLowerHalf"] is True, result
+
+
+def test_spread_lane_map_spans_the_content_width(layout_pages):
+    page, _crushed = layout_pages
+    result = page.evaluate(
+        """() => {
+          const slides = document.querySelectorAll('.slide');
+          function measure(slide) {
+            const content = slide.querySelector('.slide-content');
+            const lanes = slide.querySelector('.flow-lanes');
+            const node = slide.querySelector('.flow-node');
+            const cr = content.getBoundingClientRect();
+            const lr = lanes.getBoundingClientRect();
+            const nr = node.getBoundingClientRect();
+            return {
+              lanesW: lr.width,
+              contentW: cr.width,
+              nodeW: nr.width,
+              nodeH: nr.height,
+              mid: (lr.left + lr.right) / 2 - cr.left,
+            };
+          }
+          return { plain: measure(slides[5]), spread: measure(slides[6]) };
+        }"""
+    )
+    plain, spread = result["plain"], result["spread"]
+    assert plain["lanesW"] < plain["contentW"] * 0.55, result
+    assert abs(plain["mid"] - plain["contentW"] / 2) < 40, result
+    assert spread["lanesW"] > spread["contentW"] * 0.85, result
+    assert spread["nodeW"] > plain["nodeW"] * 1.5, result
+    assert spread["nodeH"] < 200, result
+
+
+def test_card_paragraph_sits_under_the_heading(layout_pages):
+    page, _crushed = layout_pages
+    result = page.evaluate(
+        """() => {
+          const slide = document.querySelectorAll('.slide')[7];
+          const card = slide.querySelector('.column');
+          const head = card.querySelector('.column-head');
+          const para = card.querySelector('p');
+          const cardBox = card.getBoundingClientRect();
+          const hr = head.getBoundingClientRect();
+          const pr = para.getBoundingClientRect();
+          return {
+            cardH: cardBox.height,
+            gap: pr.top - hr.bottom,
+            headPx: parseFloat(getComputedStyle(head).fontSize),
+            bodyPx: parseFloat(getComputedStyle(card).fontSize),
+          };
+        }"""
+    )
+    assert result["cardH"] > 280, result
+    assert result["gap"] < 24, result
+    assert abs(result["headPx"] - result["bodyPx"] * 1.1) < 2, result
+
+
+def test_key_message_and_figure_are_bold_and_large(layout_pages):
+    page, _crushed = layout_pages
+    result = page.evaluate(
+        """() => {
+          const point = document.querySelectorAll('.slide')[8];
+          const figures = document.querySelectorAll('.slide')[9];
+          const message = point.querySelector('.key-message');
+          const head = figures.querySelector('.column-head');
+          return {
+            weight: getComputedStyle(message).fontWeight,
+            strong: message.querySelector('strong') !== null,
+            figurePx: parseFloat(getComputedStyle(head).fontSize),
+            bodyPx: parseFloat(getComputedStyle(figures).fontSize),
+          };
+        }"""
+    )
+    assert result["weight"] in {"700", "bold"}, result
+    assert result["strong"] is True, result
+    assert abs(result["figurePx"] - result["bodyPx"] * 2.4) < 2, result

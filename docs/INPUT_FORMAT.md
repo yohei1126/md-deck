@@ -144,6 +144,8 @@ callout: pdf : Ready to ship [pos=below]
 | Straight edges (flow) | `::: flow straight` (may combine with `wide`) sets the default shape for every edge in that flow |
 | Step index | `::: flow steps` (may combine with `wide`) numbers each node with a muted counter |
 | Fill leftover height | `::: flow fill` and `::: columns fill` (may combine with the other options) stretch those boxes to the height left on the slide |
+| Lane map width | `::: flow spread` makes a plain multi-lane flow use the content width. The default stays a centred, shrink-wrapped group. `lane: … [align=end]` still moves one shorter lane |
+| Big numbers | `::: columns figures` uses the same cards. The column heading is the figure (about 2.4em); the paragraph under it is the caption |
 
 `A -> B -> C` on one line still chains. Nodes on separate lines stay unconnected until you write an arrow or a `link:` line. A bare `{#id}` in a chain refers to the existing node with that id (any lane); redefining `Name {#id}` when the id is already taken is still an error.
 
@@ -153,11 +155,15 @@ A deck style must not set `.flow-row { justify-content: space-between }` — or 
 
 A row that contains a `.flow-stack` keeps at least 72px between the stack and the neighbouring node so a fork trunk and its arrowheads fit. The boxes inside the stack are separated by `flow_stack_gap` (default `32px`). Separate edges into each stack member share that trunk. `A -> { A / B }` is still one arrow into the middle of the stack.
 
-A node caption (`Name | caption`) is one block of text. `\n` breaks it into lines. Short bullets inside a flow node are not a syntax yet; use chips (`[[a, b]]`) or a `::: columns` card. Bullets in flow nodes are a follow-up.
+A node caption (`Name | caption`, hook `.flow-node-caption`) is one block of text. `\n` breaks it into lines. It uses `font_size_flow_body` (default `18px`) and the body text colour, including when the box is tall. Badges and chips stay on `font_size_small`. Short bullets inside a flow node are not a syntax yet; use chips (`[[a, b]]`) or a `::: columns` card. Bullets in flow nodes are a follow-up.
+
+A column heading (`.column-head`) is about `1.1em` of the body size so a short title stays on one line. A paragraph in a card sits under that heading. A list in a tall card is still spaced through the card. `::: columns figures` is the same card row with a large heading for a plain figure (class `.columns.figures`).
+
+`**Key Message:**` is bold. `**emphasis**` inside the sentence is still inline Markdown.
 
 ### Lane layout
 
-A plain (not `wide`) flow with lanes is as wide as its widest lane and is centred on the slide as one group. Lanes share the group's left edge, so boxes in the same position line up across lanes; a lane label sits on that edge above its first box. `lane: … [align=end]` (or `center`) moves one shorter lane, for example a single box that should sit under the last box of the lane above. A flow with a `{ A / B }` stack keeps the full row. Neighbouring boxes in a row keep at least 44px between them so a chain arrow has a shaft, not only a head. A lane joined to the lane above by a `link:` gets extra space above it for the vertical stroke and its label. Outside fill mode, lanes and rows do not shrink below their boxes; a diagram that is too tall makes the slide scale down instead of overlapping the next lane.
+A plain (not `wide`) flow with lanes is as wide as its widest lane and is centred on the slide as one group. Lanes share the group's left edge, so boxes in the same position line up across lanes; a lane label sits on that edge above its first box. `lane: … [align=end]` (or `center`) moves one shorter lane, for example a single box that should sit under the last box of the lane above. `::: flow spread` (class `.flow-spread`) opts that group out of the shrink-wrap: the lanes span the content width and boxes in a row share it. The default stays centred and content-wide. A flow with a `{ A / B }` stack keeps the full row. Neighbouring boxes in a row keep at least 44px between them so a chain arrow has a shaft, not only a head. A lane joined to the lane above by a `link:` gets extra space above it for the vertical stroke and its label. Outside fill mode, lanes and rows do not shrink below their boxes; a diagram that is too tall makes the slide scale down instead of overlapping the next lane.
 
 ### Link routes and anchors
 

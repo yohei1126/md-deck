@@ -70,7 +70,8 @@ Label tokens become both HTML label text (when set) and quoted CSS variables for
 | `font_size_title` | `--font-size-title` | `36px` | no | Title size |
 | `font_size_key_message` | `--font-size-key-message` | `20px` | no | Key Message size |
 | `font_size_question` | `--font-size-question` | `18px` | no | Question size |
-| `font_size_small` | `--font-size-small` | `16px` | no | Footer, captions, chips |
+| `font_size_small` | `--font-size-small` | `16px` | no | Footer, badges, chips |
+| `font_size_flow_body` | `--font-size-flow-body` | `18px` | no | Flow-node caption (`.flow-node-caption`). Body colour, not muted |
 | `font_size_table` | `--font-size-table` | `font_size_small` | no | Table body size (falls back to `font_size_small` when omitted) |
 | `font_weight_title` | `--font-weight-title` | `700` | no | Titles and labels |
 | `font_weight_body` | `--font-weight-body` | `400` | no | Body weight |

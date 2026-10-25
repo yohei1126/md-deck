@@ -28,8 +28,8 @@ ALLOWED_NESTING = frozenset({("columns", "flow")})
 BLOCK_OPTIONS: dict[str, frozenset[str]] = {
     "question": frozenset(),
     "source": frozenset(),
-    "flow": frozenset({"wide", "straight", "steps", "fill"}),
-    "columns": frozenset({"plain", "panel", "fill"}),
+    "flow": frozenset({"wide", "straight", "steps", "fill", "spread"}),
+    "columns": frozenset({"plain", "panel", "fill", "figures"}),
 }
 
 DEFAULT_LABELS = {

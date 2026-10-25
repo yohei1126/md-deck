@@ -39,7 +39,7 @@ md-deck はレンダリングだけを担当し、見た目のテーマは同梱
 - 追加色: `color_top_bar`, `color_accent_2`, `color_highlight`, `color_highlight_bg`, `color_gray`, `color_muted`
 - ページ: `page_width`, `page_height`, `page_padding`, `page_padding_*`, `footer_inset_bottom`, `footer_inset_right`（負の値可）, `gap`
 - その他の色: Key Message / Question / card / flow / table 向け
-- タイポ: 各 `font_size_*`（表専用の `font_size_table` を含む）, `font_weight_*`, `line_height`
+- タイポ: 各 `font_size_*`（表の `font_size_table`、フロー本文の `font_size_flow_body` 既定 `18px` を含む）, `font_weight_*`, `line_height`
 - 形: `card_radius`, `key_message_radius`, `question_radius`, `border_width`, `card_padding`（`0` / `none` 可）
 - フロー: `flow_node_min_width`（既定 `120px`）, `flow_node_max_width`（既定 `none`。幅の上限なしで行を分け合う。`240px` のように長さを書くと中央に余白が残る）, `flow_node_min_height`（既定 `96px`。箱の床）, `flow_preferred_height`（既定 `60%`。`::: flow wide` でスタックがない一段がスライド内容領域のこの割合まで伸びる。`none` で中身の高さ。`220px` のように長さを書くとその高さまで）, `flow_fill_height`（既定 `none`。`fill` で余った高さまで伸ばし、`flow_preferred_height` の上限を外す）, `flow_stack_gap`（既定 `32px`。分岐スタックの箱のあいだ）, `flow_node_padding`, `flow_callout_gap`, `flow_port_gap`, `flow_edge_shape`（`orthogonal` / `straight`）
 - カラム: `column_min_height`（既定 `160px`。`0` / `none` で中身の高さ）
