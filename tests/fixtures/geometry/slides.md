@@ -565,3 +565,16 @@ lane: This lane label is wider than one box
 Five {#ne} -> Six {#nf} -> Seven {#ng} -> Eight {#nh}
 link: na => ne : drop [route=down]
 :::
+
+---
+
+# Around trunk stays in the node span
+
+::: flow spread
+lane: Upper
+Alpha {#wa} -> Bravo {#wb} -> Charlie {#wc} -> Delta {#wd}
+lane: Lower
+Echo {#we} -> Foxtrot {#wf} -> Golf {#wg} -> Hotel {#wh}
+link: wa => wc : under [route=down]
+link: wd => wb : over [route=up]
+:::

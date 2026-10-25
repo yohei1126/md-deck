@@ -1164,8 +1164,12 @@ def test_same_row_fan_out_trunks_nested_not_collinear(geometry_page):
     assert min(result["finals"]) >= 18, result
 
 
-def test_second_dashed_edge_does_not_cross_the_first(geometry_page):
-    """A later dashed link can share a lane map without crossing the earlier one."""
+def test_second_dashed_edge_stays_in_the_node_span(geometry_page):
+    """A same-row around trunk stays between its ports.
+
+    A cross-lane vertical through that span may meet the trunk. The trunk
+    still must not run out to the flow edge to get around it.
+    """
     result = geometry_page.evaluate(
         r"""() => {
           const slide = Array.from(document.querySelectorAll('.slide')).find((s) =>
@@ -1212,11 +1216,43 @@ def test_second_dashed_edge_does_not_cross_the_first(geometry_page):
           const back = ptsOf('l4', 'l2');
           const direct = ptsOf('u3', 'l3');
           if (!back || !direct) return { ok: false, reason: 'missing-path', back, direct };
-          const n = crosses(back, direct);
-          return { ok: n === 0, crossings: n, back, direct };
+          const scale = Number(slide.dataset.scale || '1') || 1;
+          const fr = flow.getBoundingClientRect();
+          function box(key) {
+            const r = flow.querySelector(`.flow-node[data-node="${key}"]`).getBoundingClientRect();
+            return {
+              left: (r.left - fr.left) / scale,
+              right: (r.right - fr.left) / scale,
+              top: (r.top - fr.top) / scale,
+              bottom: (r.bottom - fr.top) / scale,
+            };
+          }
+          const l2 = box('l2');
+          const l4 = box('l4');
+          const l3 = box('l3');
+          const xs = back.map((p) => p.x);
+          const end = back[back.length - 1];
+          const prev = back[back.length - 2];
+          const directEnd = direct[direct.length - 1];
+          return {
+            ok: true,
+            crossings: crosses(back, direct),
+            minX: Math.min(...xs),
+            maxX: Math.max(...xs),
+            flowW: flow.clientWidth,
+            l2, l4, l3,
+            end, prev, directEnd,
+          };
         }"""
     )
     assert result.get("ok"), result
+    # Between the two ports: inside the endpoint boxes, not the flow edge.
+    assert result["minX"] >= result["l2"]["left"] - 2, result
+    assert result["maxX"] <= result["l4"]["right"] + 2, result
+    assert result["flowW"] - result["maxX"] > 40, result
+    assert abs(result["end"]["y"] - result["l2"]["top"]) <= 2.5, result
+    assert result["prev"]["y"] < result["l2"]["top"] - 12, result
+    assert abs(result["directEnd"]["y"] - result["l3"]["top"]) <= 2.5, result
 
 
 def test_vertical_gap_label_is_accent_and_off_the_stroke(geometry_page):
@@ -1425,6 +1461,89 @@ def test_same_row_around_lands_on_the_detour_side(geometry_page):
     # A lower row still takes the arrow on its top edge.
     assert abs(cross["end"]["y"] - cross["box"]["top"]) <= 2.5, cross
     assert cross["prev"]["y"] < cross["box"]["top"] - 8, cross
+
+
+def test_around_trunk_stays_inside_the_endpoint_span(geometry_page):
+    """A same-row around trunk folds between the two nodes.
+
+    Another box further along the row, and a lane underneath, must not pull
+    the horizontal out to the flow edge or down past that lane.
+    """
+    result = geometry_page.evaluate(
+        r"""() => {
+          const slide = Array.from(document.querySelectorAll('.slide')).find((s) =>
+            (s.querySelector('h1') || {}).textContent.includes('Around trunk stays')
+          );
+          if (!slide) return { ok: false, reason: 'missing-slide' };
+          const flow = slide.querySelector('.flow');
+          const scale = Number(slide.dataset.scale || '1') || 1;
+          const fr = flow.getBoundingClientRect();
+          function ptsOf(fromKey, toKey) {
+            const path = flow.querySelector(
+              `path.flow-arrow[data-from="${fromKey}"][data-to="${toKey}"]`
+            );
+            if (!path) return null;
+            const pts = [];
+            const re = /([ML])\s*([-\d.]+)\s+([-\d.]+)/g;
+            let m;
+            const d = path.getAttribute('d') || '';
+            while ((m = re.exec(d))) pts.push({ x: +m[2], y: +m[3] });
+            return pts;
+          }
+          function box(key) {
+            const el = flow.querySelector(`.flow-node[data-node="${key}"]`);
+            const r = el.getBoundingClientRect();
+            return {
+              left: (r.left - fr.left) / scale,
+              right: (r.right - fr.left) / scale,
+              top: (r.top - fr.top) / scale,
+              bottom: (r.bottom - fr.top) / scale,
+            };
+          }
+          const down = ptsOf('wa', 'wc');
+          const up = ptsOf('wd', 'wb');
+          if (!down || !up) return { ok: false, reason: 'missing-path' };
+          function span(pts) {
+            return {
+              minX: Math.min(...pts.map((p) => p.x)),
+              maxX: Math.max(...pts.map((p) => p.x)),
+              minY: Math.min(...pts.map((p) => p.y)),
+              maxY: Math.max(...pts.map((p) => p.y)),
+              end: pts[pts.length - 1],
+              prev: pts[pts.length - 2],
+            };
+          }
+          return {
+            ok: true,
+            flowW: flow.clientWidth,
+            down: span(down),
+            up: span(up),
+            wa: box('wa'),
+            wb: box('wb'),
+            wc: box('wc'),
+            wd: box('wd'),
+            we: box('we'),
+          };
+        }"""
+    )
+    assert result.get("ok"), result
+    down = result["down"]
+    up = result["up"]
+    # Down trunk stays inside Alpha–Charlie, above the lower lane.
+    assert down["minX"] >= result["wa"]["left"] - 2, result
+    assert down["maxX"] <= result["wc"]["right"] + 2, result
+    assert down["maxX"] < result["wd"]["left"] - 8, result
+    assert result["flowW"] - down["maxX"] > 80, result
+    assert down["maxY"] < result["we"]["top"] - 4, result
+    assert abs(down["end"]["y"] - result["wc"]["bottom"]) <= 2.5, result
+    assert down["prev"]["y"] > result["wc"]["bottom"] + 12, result
+    # Up trunk stays inside Bravo–Delta, not on the flow's right edge.
+    assert up["minX"] >= result["wb"]["left"] - 2, result
+    assert up["maxX"] <= result["wd"]["right"] + 2, result
+    assert result["flowW"] - up["maxX"] > 40, result
+    assert up["minY"] < result["wd"]["top"] - 8, result
+    assert abs(up["end"]["y"] - result["wb"]["top"]) <= 2.5, result
+    assert up["prev"]["y"] < result["wb"]["top"] - 12, result
 
 
 def _lane_label_clear_of_vertical(geometry_page, title, from_key, to_key):

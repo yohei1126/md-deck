@@ -182,7 +182,7 @@ Opt into straight (diagonal) strokes with `shape=straight` on a `link:` or chain
 
 Callout connectors with `side=` leave that side of the note box. If a simple L would run back through the callout itself (for example `pos=above side=left` when the note is centred over its anchor), the path steps outside the box, or falls back to the facing side (`bottom` for `above`, `top` for `below`). Facing and outside stubs keep a final segment long enough for the arrowhead.
 
-A same-row `route=down` or `route=up` is an around path: it leaves and enters on the detour side (`down` the bottom edge, `up` the top edge) so the arrowhead stays outside the target. When other boxes sit on that side, the trunk steps past them through a side gutter instead of closing the lane gap. A target on another row still uses the facing edge.
+A same-row `route=down` or `route=up` is an around path: it leaves and enters on the detour side (`down` the bottom edge, `up` the top edge) so the arrowhead stays outside the target. The horizontal trunk stays between those two ports, just outside this row, including just outside a box that sits between them on the row. It does not run out to the flow edge. A target on another row still uses the facing edge.
 
 | `route=` | Leaves source | Enters target | Corridor |
 | --- | --- | --- | --- |
