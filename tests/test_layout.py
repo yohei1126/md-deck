@@ -133,6 +133,21 @@ One line
 
 One line
 :::
+
+---
+
+# Spread align
+
+::: flow spread
+lane: Intake
+Alpha {#a1} -> Bravo {#a2} -> Charlie {#a3} -> Delta {#a4} -> Echo {#a5} -> Foxtrot {#a6}
+lane: Partner
+One {#b1} -> Two {#b2} -> Three {#b3} -> Four {#b4} -> Five {#b5} -> Six {#b6}
+lane: [align=end]
+Evidence {#ev}
+link: ev ..> b6 : does not arrive [route=up]
+link: a6 ..> ev : notice only on the edge [route=down]
+:::
 """
 
 STYLE = """---
@@ -353,6 +368,23 @@ def test_wide_steps_are_centred_with_even_gaps(layout_pages):
     assert result["groupRatio"] >= 0.8, result
     assert result["stepClass"] is True, result
     assert result["indexes"] == ["counter(flow-step)"] * 3, result
+    tops = page.evaluate(
+        """() => {
+          const slide = document.querySelectorAll('.slide')[2];
+          return Array.from(slide.querySelectorAll('.flow-node')).map((el) => {
+            const box = el.getBoundingClientRect();
+            const title = el.querySelector('.flow-node-title').getBoundingClientRect();
+            return {
+              titleFromTop: title.top - box.top,
+              titleFromBottom: box.bottom - title.bottom,
+              height: box.height,
+            };
+          });
+        }"""
+    )
+    for node in tops:
+        assert node["titleFromTop"] < 36, tops
+        assert node["titleFromBottom"] > node["height"] * 0.4, tops
     place = page.evaluate(
         """() => {
           const slide = document.querySelectorAll('.slide')[2];
@@ -403,7 +435,7 @@ def test_question_stays_at_the_bottom_with_space_split(layout_pages):
     assert abs(result["underHeading"] - result["between"]) < 64, result
 
 
-def test_column_list_spreads_through_a_tall_card(layout_pages):
+def test_column_list_stays_under_the_heading(layout_pages):
     page, _crushed = layout_pages
     result = page.evaluate(
         """() => {
@@ -411,26 +443,31 @@ def test_column_list_spreads_through_a_tall_card(layout_pages):
           const content = slide.querySelector('.slide-content');
           const title = slide.querySelector('h1');
           const card = slide.querySelector('.column');
+          const head = card.querySelector('.column-head');
           const items = Array.from(card.querySelectorAll('li'));
           const cr = content.getBoundingClientRect();
           const tr = title.getBoundingClientRect();
           const cardBox = card.getBoundingClientRect();
+          const headBox = head.getBoundingClientRect();
           const first = items[0].getBoundingClientRect();
           const last = items[items.length - 1].getBoundingClientRect();
           return {
             titleGap: tr.top - cr.top,
             cardH: cardBox.height,
-            firstFromTop: first.top - cardBox.top,
+            headGap: first.top - headBox.bottom,
+            itemGap: items[1].getBoundingClientRect().top - first.bottom,
             lastFromBottom: cardBox.bottom - last.bottom,
-            lastInLowerHalf: last.top > cardBox.top + cardBox.height * 0.45,
+            lineHeight: parseFloat(getComputedStyle(items[0]).lineHeight),
+            fontSize: parseFloat(getComputedStyle(items[0]).fontSize),
           };
         }"""
     )
     assert result["titleGap"] < 20, result
     assert result["cardH"] > 280, result
-    assert result["firstFromTop"] > 48, result
-    assert result["lastFromBottom"] < result["cardH"] * 0.4, result
-    assert result["lastInLowerHalf"] is True, result
+    assert result["headGap"] < 28, result
+    assert result["itemGap"] < 36, result
+    assert result["lastFromBottom"] > result["cardH"] * 0.35, result
+    assert result["lineHeight"] < result["fontSize"] * 1.7, result
 
 
 def test_spread_lane_map_spans_the_content_width(layout_pages):
@@ -507,3 +544,98 @@ def test_key_message_and_figure_are_bold_and_large(layout_pages):
     assert result["weight"] in {"700", "bold"}, result
     assert result["strong"] is True, result
     assert abs(result["figurePx"] - result["bodyPx"] * 2.4) < 2, result
+    place = page.evaluate(
+        """() => {
+          const figures = document.querySelectorAll('.slide')[9];
+          const card = figures.querySelector('.column');
+          const head = card.querySelector('.column-head');
+          const para = card.querySelector('p');
+          const cardBox = card.getBoundingClientRect();
+          const hr = head.getBoundingClientRect();
+          const pr = para.getBoundingClientRect();
+          return {
+            cardH: cardBox.height,
+            groupMid: (hr.top + pr.bottom) / 2,
+            cardMid: (cardBox.top + cardBox.bottom) / 2,
+            align: getComputedStyle(card).textAlign,
+          };
+        }"""
+    )
+    assert abs(place["groupMid"] - place["cardMid"]) < 36, place
+    assert place["align"] == "center", place
+
+
+def test_spread_with_align_end_keeps_nodes_and_labels_inside(layout_pages):
+    page, _crushed = layout_pages
+    result = page.evaluate(
+        """() => {
+          const slide = document.querySelectorAll('.slide')[10];
+          const sr = slide.getBoundingClientRect();
+          const content = slide.querySelector('.slide-content').getBoundingClientRect();
+          const lanes = slide.querySelector('.flow-lanes').getBoundingClientRect();
+          const nodes = Array.from(slide.querySelectorAll('.flow-node')).map((el) => {
+            const r = el.getBoundingClientRect();
+            return {
+              id: el.dataset.node,
+              left: r.left,
+              right: r.right,
+              top: r.top,
+              bottom: r.bottom,
+              width: r.width,
+            };
+          });
+          const labels = Array.from(slide.querySelectorAll('text.flow-label')).map((el) => {
+            const r = el.getBoundingClientRect();
+            return {
+              text: el.textContent,
+              left: r.left,
+              right: r.right,
+              top: r.top,
+              bottom: r.bottom,
+            };
+          });
+          function hits(label) {
+            return nodes.some((node) => {
+              const w = Math.min(label.right, node.right) - Math.max(label.left, node.left);
+              const h = Math.min(label.bottom, node.bottom) - Math.max(label.top, node.top);
+              return w > 2 && h > 2;
+            });
+          }
+          const byId = Object.fromEntries(nodes.map((node) => [node.id, node]));
+          return {
+            contentRight: content.right,
+            contentLeft: content.left,
+            slideRight: sr.right,
+            slideLeft: sr.left,
+            lanesW: lanes.width,
+            contentW: content.width,
+            nodes: nodes.map((node) => ({
+              id: node.id,
+              pastContent: node.right - content.right,
+              beforeContent: content.left - node.left,
+              width: node.width,
+            })),
+            labels: labels.map((label) => ({
+              text: label.text,
+              pastSlide: label.right - sr.right,
+              beforeSlide: sr.left - label.left,
+              hitsNode: hits(label),
+            })),
+            endAlign: byId.ev && byId.b6
+              ? { evRight: byId.ev.right, b6Right: byId.b6.right, evLeft: byId.ev.left, b6Left: byId.b6.left }
+              : null,
+          };
+        }"""
+    )
+    assert result["lanesW"] > result["contentW"] * 0.85, result
+    assert result["endAlign"] is not None, result
+    assert abs(result["endAlign"]["evRight"] - result["endAlign"]["b6Right"]) < 8, result
+    assert result["endAlign"]["evLeft"] > result["endAlign"]["b6Left"] + 20, result
+    for node in result["nodes"]:
+        assert node["pastContent"] <= 1, node
+        assert node["beforeContent"] <= 1, node
+    assert len(result["labels"]) >= 2, result
+    for label in result["labels"]:
+        assert label["pastSlide"] <= -4, label
+        assert label["beforeSlide"] <= -4, label
+        assert label["hitsNode"] is False, label

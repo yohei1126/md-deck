@@ -159,7 +159,8 @@ THEMES: dict[str, dict[str, str]] = {
         "color_question_border": "#F7581D",
         "color_card_bg": "#E3EAF2",
         "color_card_border": "#073365",
-        "color_flow_node_bg": "#F4F0EC",
+        # Lighter than the ground (#EDE8E4) so a node reads as a box, still warm.
+        "color_flow_node_bg": "#FFF8F3",
         "color_flow_node_border": "#073365",
         "color_flow_arrow": "#073365",
         "color_table_header_bg": "#E3EAF2",

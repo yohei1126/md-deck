@@ -989,7 +989,230 @@
     }
   }
 
-  function drawPolyline(svg, pts, edge, labelNudge, labelObstacles) {
+  function labelBoxOf(text) {
+    const b = text.getBBox();
+    return {
+      left: b.x,
+      right: b.x + b.width,
+      top: b.y,
+      bottom: b.y + b.height,
+      width: b.width,
+      height: b.height,
+      cx: b.x + b.width / 2,
+      cy: b.y + b.height / 2,
+    };
+  }
+
+  function flowNodeBoxes(flow) {
+    if (!flow) return [];
+    const origin = flow.getBoundingClientRect();
+    const scale = slideScale(flow);
+    return Array.from(flow.querySelectorAll(".flow-node")).map((el) =>
+      relBox(el, origin, scale)
+    );
+  }
+
+  function labelOverlapArea(a, b) {
+    const w = Math.min(a.right, b.right) - Math.max(a.left, b.left);
+    const h = Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top);
+    if (w <= 1 || h <= 1) return 0;
+    return w * h;
+  }
+
+  // The SVG sits under the nodes, so a label painted inside a box disappears.
+  // A label past the flow is clipped by the slide. Pick the side of the stroke
+  // that stays in the flow and off the boxes. Same-row labels still prefer
+  // above the shaft.
+  function pointBlocked(x, y, nodes) {
+    return nodes.some(
+      (node) =>
+        x >= node.left - 3 &&
+        x <= node.right + 3 &&
+        y >= node.top - 3 &&
+        y <= node.bottom + 3
+    );
+  }
+
+  // Path-length midpoint can land inside a box the stroke crosses, which hides
+  // the label under that box. Prefer the longest run that stays in open space.
+  function openLabelPoint(pts, nodes) {
+    let best = null;
+    for (let i = 1; i < pts.length; i += 1) {
+      const p = pts[i - 1];
+      const q = pts[i];
+      const len = Math.hypot(q.x - p.x, q.y - p.y);
+      if (len < 8) continue;
+      const steps = Math.max(2, Math.ceil(len / 8));
+      let run = null;
+      const runs = [];
+      for (let s = 0; s <= steps; s += 1) {
+        const t = s / steps;
+        const x = p.x + (q.x - p.x) * t;
+        const y = p.y + (q.y - p.y) * t;
+        if (!pointBlocked(x, y, nodes)) {
+          if (!run) run = { start: t, end: t };
+          else run.end = t;
+        } else if (run) {
+          runs.push(run);
+          run = null;
+        }
+      }
+      if (run) runs.push(run);
+      const vertical = Math.abs(q.x - p.x) < EPS && Math.abs(q.y - p.y) >= EPS;
+      runs.forEach((span) => {
+        const along = (span.end - span.start) * len;
+        if (along < 14) return;
+        const t = (span.start + span.end) / 2;
+        const candidate = {
+          x: p.x + (q.x - p.x) * t,
+          y: p.y + (q.y - p.y) * t,
+          along,
+          vertical,
+        };
+        if (!best || candidate.along > best.along) best = candidate;
+      });
+    }
+    return best;
+  }
+
+  function mountEdgeLabel(svg, pts, edge, lines, labelNudge, flow) {
+    const nodes = flowNodeBoxes(flow);
+    const open = openLabelPoint(pts, nodes);
+    const mid = open || midpoint(pts);
+    const verticalMid = open ? open.vertical : midSegmentIsVertical(pts);
+    const size = measureLabelSize(svg, lines);
+    const flowW = (flow && flow.clientWidth) || svg.clientWidth || size.width;
+    const flowH = (flow && flow.clientHeight) || svg.clientHeight || size.height;
+    const pad = 8;
+    const nudge = (labelNudge || 0) * 0.15;
+    const half = size.width / 2;
+    const xMid = clamp(mid.x, pad + half, Math.max(pad + half, flowW - pad - half));
+    const verticalDy = `${0.35 - ((lines.length - 1) * 1.15) / 2}em`;
+
+    // Do not slide a beside-the-line label back across the stroke to make it
+    // fit. A side that cannot hold the text loses on the overflow score, and
+    // the other side is used instead.
+    const candidates = [];
+    if (verticalMid) {
+      candidates.push({
+        name: "right",
+        anchor: "start",
+        x: mid.x + LABEL_GAP,
+        y: mid.y,
+        dy: verticalDy,
+        prefer: 0,
+        beside: true,
+      });
+      candidates.push({
+        name: "left",
+        anchor: "end",
+        x: mid.x - LABEL_GAP,
+        y: mid.y,
+        dy: verticalDy,
+        prefer: 4,
+        beside: true,
+      });
+    } else {
+      const placeAbove = edge.pairCount <= 1 || edge.pairIndex < edge.pairCount / 2;
+      candidates.push({
+        name: "above",
+        anchor: "middle",
+        x: xMid,
+        y: mid.y - LABEL_GAP + nudge,
+        dy: `${-(lines.length - 1) * 1.15}em`,
+        prefer: placeAbove ? 0 : 12,
+        side: "above",
+      });
+      candidates.push({
+        name: "below",
+        anchor: "middle",
+        x: xMid,
+        y: mid.y + LABEL_GAP + 8 + nudge,
+        dy: "0.9em",
+        prefer: placeAbove ? 12 : 0,
+        side: "below",
+      });
+      candidates.push({
+        name: "right",
+        anchor: "start",
+        x: mid.x + LABEL_GAP,
+        y: mid.y,
+        dy: verticalDy,
+        prefer: 36,
+        beside: true,
+      });
+      candidates.push({
+        name: "left",
+        anchor: "end",
+        x: mid.x - LABEL_GAP,
+        y: mid.y,
+        dy: verticalDy,
+        prefer: 36,
+        beside: true,
+      });
+    }
+
+    function paint(c) {
+      const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+      text.setAttribute("x", String(c.x));
+      text.setAttribute("y", String(c.y));
+      text.setAttribute("text-anchor", c.anchor);
+      text.classList.add("flow-label", "flow-edge-label");
+      applyEdgeHooks(text, edge);
+      lines.forEach((line, i) => {
+        const tspan = document.createElementNS("http://www.w3.org/2000/svg", "tspan");
+        tspan.setAttribute("x", String(c.x));
+        tspan.setAttribute("dy", i === 0 ? c.dy : "1.15em");
+        tspan.textContent = line;
+        text.appendChild(tspan);
+      });
+      svg.appendChild(text);
+      if (c.side === "above" || c.side === "below") {
+        const bbox = text.getBBox();
+        if (c.side === "above" && bbox.y + bbox.height > mid.y - 6) {
+          const shift = bbox.y + bbox.height - (mid.y - 6);
+          text.setAttribute("y", String(parseFloat(text.getAttribute("y")) - shift));
+        } else if (c.side === "below" && bbox.y < mid.y + 6) {
+          const shift = mid.y + 6 - bbox.y;
+          text.setAttribute("y", String(parseFloat(text.getAttribute("y")) + shift));
+        }
+      }
+      return text;
+    }
+
+    function score(box, beside) {
+      let penalty = 0;
+      if (box.left < pad) penalty += 10000 + (pad - box.left) * 40;
+      if (box.right > flowW - pad) penalty += 10000 + (box.right - (flowW - pad)) * 40;
+      if (box.top < 0) penalty += 400 + -box.top * 10;
+      if (box.bottom > flowH) penalty += 400 + (box.bottom - flowH) * 10;
+      nodes.forEach((node) => {
+        penalty += labelOverlapArea(box, node) * 4;
+      });
+      if (!beside && box.top < mid.y - 1 && box.bottom > mid.y + 1) penalty += 2500;
+      // A beside-the-line label that still covers the stroke x is on the line.
+      if (beside && box.left < mid.x - 1 && box.right > mid.x + 1) penalty += 8000;
+      return penalty;
+    }
+
+    let bestText = null;
+    let bestScore = Infinity;
+    candidates.forEach((c) => {
+      const text = paint(c);
+      const box = labelBoxOf(text);
+      const total = score(box, c.beside) + c.prefer;
+      if (total < bestScore - 1e-6) {
+        if (bestText) svg.removeChild(bestText);
+        bestText = text;
+        bestScore = total;
+      } else {
+        svg.removeChild(text);
+      }
+    });
+    return bestText ? labelBoxOf(bestText) : null;
+  }
+
+  function drawPolyline(svg, pts, edge, labelNudge, labelObstacles, flow) {
     const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
     path.setAttribute("d", pathD(pts));
     path.setAttribute("marker-end", "url(#flow-arrowhead)");
@@ -1002,90 +1225,17 @@
     const lines = labelLines(edge.label);
     if (!lines.length) return null;
 
-    const mid = midpoint(pts);
-    const size = measureLabelSize(svg, lines);
-    const placeAbove =
-      edge.pairCount <= 1 || edge.pairIndex < edge.pairCount / 2;
-    const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
-    text.setAttribute("x", String(mid.x));
-    text.setAttribute("text-anchor", "middle");
-    text.classList.add("flow-label", "flow-edge-label");
-    applyEdgeHooks(text, edge);
-
-    // On a vertical stroke, put the label beside the line (right side),
-    // centred on it, instead of on top of the stroke.
-    if (midSegmentIsVertical(pts)) {
-      text.setAttribute("text-anchor", "start");
-      const x = mid.x + LABEL_GAP;
-      text.setAttribute("x", String(x));
-      text.setAttribute("y", String(mid.y));
-      lines.forEach((line, i) => {
-        const tspan = document.createElementNS("http://www.w3.org/2000/svg", "tspan");
-        tspan.setAttribute("x", String(x));
-        if (i === 0) {
-          tspan.setAttribute("dy", `${0.35 - ((lines.length - 1) * 1.15) / 2}em`);
-        } else {
-          tspan.setAttribute("dy", "1.15em");
-        }
-        tspan.textContent = line;
-        text.appendChild(tspan);
-      });
-    } else if (placeAbove) {
-      text.setAttribute("y", String(mid.y - LABEL_GAP + labelNudge * 0.15));
-      lines.forEach((line, i) => {
-        const tspan = document.createElementNS("http://www.w3.org/2000/svg", "tspan");
-        tspan.setAttribute("x", String(mid.x));
-        if (i === 0) {
-          tspan.setAttribute("dy", `${-(lines.length - 1) * 1.15}em`);
-        } else {
-          tspan.setAttribute("dy", "1.15em");
-        }
-        tspan.textContent = line;
-        text.appendChild(tspan);
-      });
-    } else {
-      text.setAttribute("y", String(mid.y + LABEL_GAP + 8 + labelNudge * 0.15));
-      lines.forEach((line, i) => {
-        const tspan = document.createElementNS("http://www.w3.org/2000/svg", "tspan");
-        tspan.setAttribute("x", String(mid.x));
-        tspan.setAttribute("dy", i === 0 ? "0.9em" : "1.15em");
-        tspan.textContent = line;
-        text.appendChild(tspan);
-      });
-    }
-    svg.appendChild(text);
-
-    // Fine-tune with measured bbox so multi-line text never straddles the stroke.
-    const bbox = text.getBBox();
-    const beside = text.getAttribute("text-anchor") === "start";
-    if (beside) {
-      // Beside a vertical stroke: no vertical nudge.
-    } else if (placeAbove && bbox.bottom > mid.y - 6) {
-      const shift = bbox.bottom - (mid.y - 6);
-      text.setAttribute("y", String(parseFloat(text.getAttribute("y")) - shift));
-    } else if (!placeAbove && bbox.top < mid.y + 6) {
-      const shift = mid.y + 6 - bbox.top;
-      text.setAttribute("y", String(parseFloat(text.getAttribute("y")) + shift));
-    }
-    const finalBox = text.getBBox();
+    const finalBox = mountEdgeLabel(svg, pts, edge, lines, labelNudge, flow);
+    if (!finalBox) return null;
     if (labelObstacles) {
       labelObstacles.push({
         key: `label:${edge.from}->${edge.to}:${edge.pairIndex}`,
         kind: "label",
-        box: {
-          left: finalBox.x,
-          right: finalBox.x + finalBox.width,
-          top: finalBox.y,
-          bottom: finalBox.y + finalBox.height,
-          width: finalBox.width,
-          height: finalBox.height,
-          cx: finalBox.x + finalBox.width / 2,
-          cy: finalBox.y + finalBox.height / 2,
-        },
+        box: finalBox,
         skip: false,
       });
     }
-    return size;
+    return { width: finalBox.width, height: finalBox.height };
   }
 
   function edgeKind(el, cross) {
@@ -2065,7 +2215,8 @@
         shifted.pts,
         { ...plan.edge, shape },
         shifted.labelNudge,
-        labelObstacles
+        labelObstacles,
+        flow
       );
       drawn.push(shifted.pts);
       if (plan.edge.bidirectional) {
@@ -2075,7 +2226,8 @@
           back,
           { ...plan.edge, shape, label: null, bidirectional: false },
           0,
-          null
+          null,
+          flow
         );
       }
     });

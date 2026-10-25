@@ -435,6 +435,7 @@ def test_dark_blue_theme_fills_omitted_colours_and_yields_to_explicit():
     assert "--color-highlight: #F7581D;" in css
     assert "--color-question-border: #F7581D;" in css
     assert "--color-card-bg: #E3EAF2;" in css
+    assert "--color-flow-node-bg: #FFF8F3;" in css
     assert "--theme:" not in css
     errors = validate_style_tokens(
         {"theme": "dark-blue", "font_family": "sans-serif", "font_size_body": 22},
