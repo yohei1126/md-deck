@@ -1023,7 +1023,9 @@
   // A label past the flow is clipped by the slide. A vertical stroke keeps the
   // label beside the line, on the side that has room. A horizontal stroke keeps
   // the label above or below the line — never centred on the shaft — and prefers
-  // the side that misses other links and the arrowhead.
+  // the side that misses other links. On a short same-row shaft the arrowhead
+  // sits on that shaft, so the label stays at mid-shaft instead of sliding
+  // into the source box to dodge the head.
   function segmentHitsBox(p, q, box, pad) {
     const left = box.left - pad;
     const right = box.right + pad;
@@ -1143,6 +1145,19 @@
     const nudge = (labelNudge || 0) * 0.15;
     const half = size.width / 2;
     const verticalDy = `${0.35 - ((lines.length - 1) * 1.15) / 2}em`;
+    // Same-row chain: the head is the end of this horizontal shaft. Its box is
+    // padded off the line, so a centred label that already clears the stroke
+    // still "hits" it. Sliding toward x0 then tucks the first glyphs under the
+    // source box. Keep mid-shaft in that case.
+    const end = pts.length >= 2 ? pts[pts.length - 1] : null;
+    const beforeEnd = pts.length >= 2 ? pts[pts.length - 2] : null;
+    const headOnShaft =
+      !verticalMid &&
+      end &&
+      beforeEnd &&
+      Math.abs(end.y - beforeEnd.y) < EPS &&
+      Math.abs(end.x - beforeEnd.x) > 8 &&
+      Math.abs(end.y - mid.y) < 2;
 
     // Do not slide a beside-the-line label back across the stroke to make it
     // fit. A side that cannot hold the text loses on the overflow score, and
@@ -1250,8 +1265,18 @@
       if (box.top < 0) penalty += 400 + -box.top * 10;
       if (box.bottom > flowH) penalty += 400 + (box.bottom - flowH) * 10;
       nodes.forEach((node) => {
-        // A one-pixel kiss of the border is still in the gap. Only count text
-        // that actually runs into the box.
+        if (!c.beside) {
+          const area = labelOverlapArea(box, node);
+          if (area <= 0) return;
+          const overlapH =
+            Math.min(box.bottom, node.bottom) - Math.max(box.top, node.top);
+          // A hairline kiss of a box in the next lane stays cheap. Text that
+          // actually enters an endpoint box (even by a pixel of width) does not.
+          if (overlapH > 3) penalty += 6000 + area * 4;
+          else penalty += area * 4;
+          return;
+        }
+        // Vertical labels: ignore a one-pixel kiss of the border.
         const inner = {
           left: node.left + 3,
           right: node.right - 3,
@@ -1266,7 +1291,7 @@
       // A beside-the-line label that still covers the stroke x is on the line.
       if (c.beside && box.left < mid.x - 1 && box.right > mid.x + 1) penalty += 8000;
       const head = arrowheadBox(pts);
-      if (head && labelOverlapArea(box, head) > 0) penalty += 4500;
+      if (!headOnShaft && head && labelOverlapArea(box, head) > 0) penalty += 4500;
       (otherPaths || []).forEach((other) => {
         if (pathHitsBox(other, box, 1)) penalty += 7000;
       });

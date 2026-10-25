@@ -174,6 +174,14 @@ Hotel {#h}
 link: e => h : solid note [route=between]
 link: f ..> h : dashed note across [route=between]
 :::
+
+---
+
+# Short labels
+
+::: flow
+One {#o} -.[no match].-> Two {#t} -[red copy]-> Three {#r}
+:::
 """
 
 STYLE = """---
@@ -796,3 +804,89 @@ def test_between_route_labels_clear_horizontal_strokes(layout_pages):
                 w = min(a["right"], b["right"]) - max(a["left"], b["left"])
                 h = min(a["bottom"], b["bottom"]) - max(a["top"], b["top"])
                 assert w <= 2 or h <= 2, slide
+
+
+def test_short_horizontal_labels_stay_clear_of_endpoint_boxes(layout_pages):
+    """Same-row labels stay at mid-shaft, outside both endpoint boxes.
+
+    A short chain (the route-map / parties row) must not slide the label
+    onto the source box to dodge the arrowhead.
+    """
+    page, _crushed = layout_pages
+    result = page.evaluate(
+        """() => {
+          const slide = document.querySelectorAll('.slide')[13];
+          const flow = slide.querySelector('.flow');
+          const origin = flow.getBoundingClientRect();
+          const scale = Number(slide.dataset.scale || '1') || 1;
+          function rel(el) {
+            const r = el.getBoundingClientRect();
+            return {
+              left: (r.left - origin.left) / scale,
+              right: (r.right - origin.left) / scale,
+              top: (r.top - origin.top) / scale,
+              bottom: (r.bottom - origin.top) / scale,
+            };
+          }
+          function pointsOf(d) {
+            const pts = [];
+            const re = /([ML])\\s*([-\\d.]+)\\s+([-\\d.]+)/g;
+            let m;
+            while ((m = re.exec(d))) pts.push({ x: +m[2], y: +m[3] });
+            return pts;
+          }
+          function hits(a, b) {
+            const w = Math.min(a.right, b.right) - Math.max(a.left, b.left);
+            const h = Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top);
+            return w > 0.5 && h > 0.5;
+          }
+          return Array.from(flow.querySelectorAll('text.flow-edge-label')).map((label) => {
+            const lb = label.getBBox();
+            const box = {
+              left: lb.x,
+              right: lb.x + lb.width,
+              top: lb.y,
+              bottom: lb.y + lb.height,
+              cx: lb.x + lb.width / 2,
+            };
+            const path = flow.querySelector(
+              `path.flow-arrow[data-from="${label.dataset.from}"][data-to="${label.dataset.to}"]`
+            );
+            const pts = pointsOf(path.getAttribute('d'));
+            let shaft = null;
+            for (let i = 1; i < pts.length; i += 1) {
+              const dx = Math.abs(pts[i].x - pts[i - 1].x);
+              const dy = Math.abs(pts[i].y - pts[i - 1].y);
+              if (dy > 0.75 || dx < 8) continue;
+              if (!shaft || dx > shaft.len) {
+                shaft = {
+                  y: (pts[i - 1].y + pts[i].y) / 2,
+                  len: dx,
+                  mid: (pts[i - 1].x + pts[i].x) / 2,
+                };
+              }
+            }
+            const src = rel(flow.querySelector(`.flow-node[data-node="${label.dataset.from}"]`));
+            const dst = rel(flow.querySelector(`.flow-node[data-node="${label.dataset.to}"]`));
+            return {
+              text: label.textContent,
+              box,
+              shaft,
+              hitsSrc: hits(box, src),
+              hitsDst: hits(box, dst),
+              above: shaft ? box.bottom <= shaft.y - 4 : false,
+              below: shaft ? box.top >= shaft.y + 4 : false,
+              offCenter: shaft ? Math.abs(box.cx - shaft.mid) : null,
+            };
+          });
+        }"""
+    )
+    assert len(result) == 2, result
+    for row in result:
+        assert row["shaft"] is not None, row
+        assert row["shaft"]["len"] < 160, row
+        assert row["box"]["right"] - row["box"]["left"] > 40, row
+        assert row["above"] or row["below"], row
+        assert row["hitsSrc"] is False, row
+        assert row["hitsDst"] is False, row
+        assert row["offCenter"] < 8, row
