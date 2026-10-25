@@ -9,6 +9,8 @@ md-deck turns one Markdown file into a clean 16:9 PDF slide deck. Same source by
 
 This repository’s `examples/` folder holds sample slides and a plain sample style so you can try the generator. Those files are examples only. Real decks, styles, and generated PDFs are managed in the repos that call md-deck (or its GitHub Action). md-deck does not ship a default theme; a style file is required.
 
+Maintainers and coding agents should start with [AGENTS.md](AGENTS.md).
+
 ## Install
 
 Uses [uv](https://docs.astral.sh/uv/). From a clone:
