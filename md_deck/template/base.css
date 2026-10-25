@@ -173,10 +173,18 @@ body {
 .column {
   flex: 1 1 0;
   min-width: 0;
+  min-height: var(--column-min-height);
   padding: var(--card-padding);
   border: var(--border-width) solid var(--color-card-border);
   border-radius: var(--card-radius);
   background: var(--color-card-bg);
+}
+
+/* fill: take the leftover height of the slide. The class is the hook;
+   deck CSS loaded later can still override it. */
+.columns.fill {
+  flex: 1 1 auto;
+  align-items: stretch;
 }
 
 /* plain: no card chrome (style file may still colour headings) */
@@ -194,31 +202,56 @@ body {
 .flow {
   position: relative;
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
+  flex: 1 1 auto;
+  flex-direction: column;
+  flex-wrap: nowrap;
+  align-items: stretch;
+  justify-content: flex-start;
   gap: calc(var(--gap) * 1.5);
   padding: var(--card-padding) 0;
+  min-height: 0;
   overflow: visible;
 }
 
 .flow.flow-wide {
   flex-wrap: nowrap;
   width: 100%;
-  justify-content: center;
+  justify-content: flex-start;
+}
+
+/* A callout sits outside its node. Stretching that node to the bottom of the
+   slide would push the note off the page, so these diagrams stay content-sized
+   (the min-height and max-width tokens still apply). */
+.flow:has(.flow-callout) {
+  flex: 0 1 auto;
+}
+
+.flow:has(.flow-callout) .flow-lanes,
+.flow:has(.flow-callout) .lane,
+.flow:has(.flow-callout) .flow-row {
+  flex: 0 1 auto;
+}
+
+.flow:has(.flow-callout) .flow-row {
+  align-items: center;
 }
 
 .flow-lanes {
   display: flex;
+  flex: 1 1 auto;
   flex-direction: column;
   gap: var(--gap);
   width: 100%;
+  min-height: 0;
 }
 
 .lane {
   display: flex;
+  flex: 1 1 auto;
   flex-direction: column;
   gap: calc(var(--gap) * 0.5);
   width: 100%;
+  min-height: 0;
 }
 
 .lane-label {
@@ -229,27 +262,33 @@ body {
 .flow-row {
   position: relative;
   display: flex;
+  flex: 1 1 auto;
   flex-wrap: wrap;
-  align-items: center;
+  align-items: stretch;
   gap: calc(var(--gap) * 1.5);
   width: 100%;
+  min-height: 0;
 }
 
-/* wide = one row, centred as a group, even gaps. Not stretched to the edges.
-   A deck that wants the old ruler can set justify-content: space-between. */
+/* wide = one row, centred as a group, even gaps.
+   Boxes grow up to --flow-node-max-width so a short row is not a cluster of chips.
+   Do not set justify-content: space-between on .flow-row: it overrides this
+   centring and pins the end boxes to the edges. */
 .flow.flow-wide .flow-row {
   flex-wrap: nowrap;
   justify-content: center;
   column-gap: max(72px, calc(var(--gap) * 4));
 }
 
-.flow.flow-wide .flow-row > .flow-node,
+.flow.flow-wide .flow-row > .flow-node:not(:only-child),
 .flow.flow-wide .flow-row > .flow-stack {
-  flex: 0 0 auto;
+  flex: 1 1 var(--flow-node-min-width);
+  max-width: var(--flow-node-max-width);
 }
 
 /* Room for a fork trunk and arrowheads between a node and a stack.
-   flex-grow stays off so a deck rule cannot eat the gap. */
+   column-gap keeps the trunk; deck.js also enforces the gap if CSS removes it.
+   The same max-width cap grows the pair without stretching it edge to edge. */
 .flow-row:has(> .flow-stack) {
   justify-content: center;
   flex-wrap: nowrap;
@@ -258,7 +297,14 @@ body {
 
 .flow-row:has(> .flow-stack) > .flow-node,
 .flow-row:has(> .flow-stack) > .flow-stack {
-  flex: 0 0 auto;
+  flex: 1 1 var(--flow-node-min-width);
+  max-width: var(--flow-node-max-width);
+}
+
+.flow-stack > .flow-node {
+  flex: 1 1 auto;
+  width: 100%;
+  max-width: none;
 }
 
 .flow.flow-wide .flow-row:has(> .flow-stack) {
@@ -283,10 +329,27 @@ body {
   margin-bottom: 0.1em;
 }
 
+/* fill: explicit hook for the leftover-height stretch above.
+   A later deck rule on .flow can shrink the diagram; .flow.flow-fill wins
+   over a plain .flow rule because it is more specific. Width still follows
+   the wide / stack caps. */
+.flow.flow-fill {
+  flex: 1 1 auto;
+  align-items: stretch;
+}
+
+.flow.flow-fill .flow-lanes,
+.flow.flow-fill .lane,
+.flow.flow-fill .flow-row {
+  flex: 1 1 auto;
+  align-items: stretch;
+}
+
 .flow-node {
   position: relative;
   z-index: 1;
   min-width: var(--flow-node-min-width);
+  min-height: var(--flow-node-min-height);
   padding: var(--flow-node-padding);
   border: var(--border-width) solid var(--color-flow-node-border);
   border-radius: var(--card-radius);

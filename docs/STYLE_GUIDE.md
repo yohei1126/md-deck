@@ -85,7 +85,10 @@ Label tokens become both HTML label text (when set) and quoted CSS variables for
 | `key_message_radius` | `--key-message-radius` | `8px` | no | Key Message radius |
 | `question_radius` | `--question-radius` | `8px` | no | Question radius |
 | `border_width` | `--border-width` | `1px` | no | Default border width (`0` / `none` ok) |
-| `flow_node_min_width` | `--flow-node-min-width` | `120px` | no | Minimum flow node width |
+| `flow_node_min_width` | `--flow-node-min-width` | `120px` | no | Minimum flow node width (`0` / `none` ok) |
+| `flow_node_max_width` | `--flow-node-max-width` | `240px` | no | Cap for boxes in a wide row or beside a stack. `none` removes the cap so those boxes share the row. A small value (the minimum width) keeps them content-sized |
+| `flow_node_min_height` | `--flow-node-min-height` | `148px` | no | Minimum flow node height (`0` / `none` sizes to the label) |
+| `column_min_height` | `--column-min-height` | `160px` | no | Minimum column card height (`0` / `none` sizes to the copy) |
 | `flow_node_padding` | `--flow-node-padding` | `12px` | no | Flow node padding |
 | `flow_callout_gap` | `--flow-callout-gap` | `12px` | no | Gap between a callout box and its anchor node |
 | `flow_port_gap` | `--flow-port-gap` | `12px` | no | Spacing between fan-in / fan-out edge ports on one node side |
@@ -130,8 +133,8 @@ Rules from every `css` fence in the style file are appended after the generated 
 | Key Message | at most one `**Key Message:** …` line | extras fail |
 | Question box | `::: question` … `:::` | non-empty; known kinds only |
 | Source | `Source:` / `出典:` line or `::: source` | empty source block fails |
-| Flow | `::: flow` / `wide` / `straight` / `steps` with arrows, lanes, links, callouts, stacks, chips, `{#id}`, `shape=` | ≥2 nodes; known options/kinds/routes/shapes |
-| Columns | `::: columns` / `plain` / `panel`, split by `+++`; may nest one `::: flow` | ≥2 non-empty columns; other nesting forbidden |
+| Flow | `::: flow` / `wide` / `straight` / `steps` / `fill` with arrows, lanes, links, callouts, stacks, chips, `{#id}`, `shape=` | ≥2 nodes; known options/kinds/routes/shapes |
+| Columns | `::: columns` / `plain` / `panel` / `fill`, split by `+++`; may nest one `::: flow` | ≥2 non-empty columns; other nesting forbidden |
 | Hard break | trailing `\`; `\n` in flow labels/badges/titles and in an H1 | also: newlines inside question/source |
 | Table / lists | normal Markdown; empty corner → row headers | consistent columns; list class without forced `<p>` |
 | Code fence | ` ``` ` … ` ``` ` | must close |
@@ -152,8 +155,9 @@ Cover titles (the first slide, or an H1 with `{.cover}`):
 - Do not leave a wrap in the middle of a phrase. Put `\n` in the H1 at a phrase boundary (`# First phrase\nSecond phrase`).
 - When a title uses more than one line, keep the lines similar in length.
 - `md-deck check` enforces that rule for cover titles. A later line that starts with a loose particle is a warning and does not fail the build. `text-wrap: balance` evens a Latin title that still wraps once on its own.
-- The cover slide is centred. `subtitle` and `date` from front matter render under the title. A short CSS example for a larger title is in [VISUAL_POLICY.md](VISUAL_POLICY.md).
-- `::: flow wide` centres the row. `::: flow steps` adds a muted index. A fork into a stack keeps a gap for the trunk.
+- The cover slide is centred. `subtitle` and `date` from front matter render under the title. An optional frame and a larger title are deck CSS, not a built-in chrome; the snippet is in [VISUAL_POLICY.md](VISUAL_POLICY.md).
+- `::: flow wide` centres the row and grows each box up to `flow_node_max_width`. The flow uses the leftover slide height unless it contains a callout. `steps` adds a muted index. `fill` re-asserts that stretch. A fork into a stack keeps a gap for the trunk.
+- A deck rule `.flow-row { justify-content: space-between }` cancels that centring. Remove it when using these defaults.
 - Confirm the cover in a PNG: `md-deck build slides.md -o out.pdf --png out/png`.
 
 `{.no-cover}` on the first H1 opts that slide out of the cover check. See [VISUAL_POLICY.md](VISUAL_POLICY.md) for the thresholds.

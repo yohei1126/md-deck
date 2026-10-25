@@ -59,6 +59,9 @@ key_message_radius: 8
 question_radius: 8
 border_width: 1
 flow_node_min_width: 120
+flow_node_max_width: 240
+flow_node_min_height: 148
+column_min_height: 160
 flow_node_padding: 12
 
 # Optional; when omitted, defaults follow slides lang (en/ja).
@@ -111,4 +114,22 @@ Tokens drive CSS variables. Omit a token and the generator fills a plain default
   background: var(--color-highlight-bg);
   border-color: var(--color-highlight);
 }
+
+/* Optional cover frame. Not applied: md-deck does not ship a frame or a brand band.
+   Uncomment in a deck style when a quiet border and a larger title are wanted.
+   Keep colours on the tokens above; do not paste a product palette here.
+
+.slide[data-cover="true"] .slide-content {
+  border: var(--border-width) solid var(--color-border);
+  padding: 48px 64px;
+}
+
+.slide[data-cover="true"] .title {
+  font-size: 48px;
+}
+
+.slide[data-cover="true"] .cover-meta {
+  margin-top: 0.35em;
+}
+*/
 ```

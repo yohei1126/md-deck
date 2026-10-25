@@ -201,6 +201,8 @@ def test_wide_steps_are_centred_with_even_gaps(layout_pages):
             return {
               left: (r.left - flowRect.left) / scale,
               right: (r.right - flowRect.left) / scale,
+              width: r.width / scale,
+              height: r.height / scale,
               index: getComputedStyle(title, '::before').content,
             };
           });
@@ -209,11 +211,15 @@ def test_wide_steps_are_centred_with_even_gaps(layout_pages):
             nodes[2].left - nodes[1].right,
           ];
           const mid = (nodes[0].left + nodes[2].right) / 2;
+          const group = nodes[2].right - nodes[0].left;
           return {
             gaps,
             mid,
             flowW: flow.clientWidth,
             inset: nodes[0].left,
+            widths: nodes.map((n) => n.width),
+            heights: nodes.map((n) => n.height),
+            groupRatio: group / slide.getBoundingClientRect().width,
             indexes: nodes.map((n) => n.index),
             stepClass: flow.classList.contains('flow-steps'),
           };
@@ -223,5 +229,10 @@ def test_wide_steps_are_centred_with_even_gaps(layout_pages):
     assert 60 <= result["gaps"][0] <= 140, result
     assert abs(result["mid"] - result["flowW"] / 2) < 40, result
     assert result["inset"] > 80, result
+    for width in result["widths"]:
+        assert 200 <= width <= 260, result
+    for height in result["heights"]:
+        assert height >= 140, result
+    assert 0.55 <= result["groupRatio"] <= 0.8, result
     assert result["stepClass"] is True, result
     assert result["indexes"] == ["counter(flow-step)"] * 3, result

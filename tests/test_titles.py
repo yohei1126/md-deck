@@ -137,6 +137,11 @@ def test_cover_meta_and_step_class():
     steps = render_slide_markdown("# T\n\n::: flow wide steps\nA -> B -> C\n:::\n")
     assert "flow-steps" in steps.html
     assert "flow-wide" in steps.html
+    filled = render_slide_markdown(
+        "# T\n\n::: flow wide fill\nA -> B\n:::\n\n::: columns fill\nLeft\n\n+++\n\nRight\n:::\n"
+    )
+    assert "flow-fill" in filled.html
+    assert "columns fill" in filled.html
 
 
 def test_cjk_cover_with_balanced_break_passes(tmp_path: Path):

@@ -38,7 +38,8 @@ When writing or editing slides that use md-deck:
 - One idea per slide. A node label is a name, not a sentence.
 - Compare with `::: columns` (`panel` when the box should show, `plain` when it should not). Do not fake a comparison with an arrow.
 - Branch with one box and one arrow per outcome. Do not write "A or B" inside a single node. `Start -> { A / B }` draws one arrow into the stack; fan into each member with a separate edge (see [docs/DIAGRAMS.md](docs/DIAGRAMS.md)).
-- Put three steps in one `::: flow wide` row of short labels. The row is centred with even gaps. `steps` adds a muted index. A one-line conclusion over three cards is `::: columns` split into three parts (see [docs/DIAGRAMS.md](docs/DIAGRAMS.md)).
+- Put three steps in one `::: flow wide` row of short labels. The row is centred with even gaps, and each box grows up to `flow_node_max_width` (default `240px`). The flow uses the leftover slide height unless it has a callout. `steps` adds a muted index. `fill` re-asserts that stretch against a deck rule of `.flow { flex: none }`. A one-line conclusion over three cards is `::: columns` split into three parts (see [docs/DIAGRAMS.md](docs/DIAGRAMS.md)).
+- Do not set `.flow-row { justify-content: space-between }` in a deck style. It cancels the centred row. Remove that rule when adopting these defaults. Frames, accent bands, and brand colours stay in the deck style, not in base CSS.
 - A branch into a stack uses a shared trunk and at least 72px of gap. Do not leave the arrowheads in the corners.
 - Cover slides (`data-cover`) are centred. Front matter `subtitle` and `date` render under the title. A content slide that is first needs `{.no-cover}`.
 - Keep colours inside the style tokens. Base CSS does not paint node kinds; a deck style may tint `muted` / `highlight` quietly.
@@ -53,7 +54,7 @@ The cover is the first slide, or any H1 with class `cover`. `{.no-cover}` opts t
 - Do not break a cover title mid-phrase. ATX headings are one line; a trailing `\` does not continue them. Write `\n` at a phrase boundary: `# First phrase\nSecond phrase`.
 - Prefer balanced lines. `md-deck check` rejects an empty segment, more than three lines, a line that is only a function word or a Japanese particle, a line that starts or ends on the wrong side of a bracket, and a pair whose shorter display width is under about half the longer one (a wide character counts as two).
 - A Japanese cover that would wrap on its own must include `\n`. A title that would wrap past two lines must include `\n` in any language. A Latin cover that wraps once is evened with `text-wrap: balance` on `.title`.
-- Front matter `title` is the PDF document title. `subtitle`, `author`, and `audience` are not drawn.
+- Front matter `title` is the PDF document title. `subtitle` and `date` render as `.cover-meta`. `author` and `audience` are not drawn. A frame or a larger cover title is optional deck CSS (see [docs/VISUAL_POLICY.md](docs/VISUAL_POLICY.md)), not a built-in chrome.
 - After `md-deck check`, render PNG and look at every `data-cover="true"` slide: `md-deck build slides.md -o out.pdf --png out/png`. The width estimate is not a layout engine. Thresholds are in [docs/VISUAL_POLICY.md](docs/VISUAL_POLICY.md).
 
 ## Agent constraints

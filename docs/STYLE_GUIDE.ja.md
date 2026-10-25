@@ -39,7 +39,8 @@ md-deck はレンダリングだけを担当し、見た目のテーマは同梱
 - その他の色: Key Message / Question / card / flow / table 向け
 - タイポ: 各 `font_size_*`（表専用の `font_size_table` を含む）, `font_weight_*`, `line_height`
 - 形: `card_radius`, `key_message_radius`, `question_radius`, `border_width`, `card_padding`（`0` / `none` 可）
-- フロー: `flow_node_min_width`, `flow_node_padding`, `flow_callout_gap`, `flow_port_gap`, `flow_edge_shape`（`orthogonal` / `straight`）
+- フロー: `flow_node_min_width`（既定 `120px`）, `flow_node_max_width`（既定 `240px`。`none` で幅の上限なし）, `flow_node_min_height`（既定 `148px`）, `flow_node_padding`, `flow_callout_gap`, `flow_port_gap`, `flow_edge_shape`（`orthogonal` / `straight`）
+- カラム: `column_min_height`（既定 `160px`。`0` / `none` で中身の高さ）
 - ラベル: `label_question`, `label_key_message`, `label_source`（省略時は `lang` から既定。`ja` なら「議論の問い」「キーメッセージ」「出典：」。`label_source: ""` で接頭辞を隠す）, `source_label_weight`（既定 `600`）, `source_label_gap`（既定 `0.15em`）
 - 配置: `question_label_placement`（`inline` / `block`）、`page_number_placement`（`bottom-right` / `bottom-left` / `bottom-center`。出典フッターとは別）
 
@@ -62,8 +63,8 @@ md-deck はレンダリングだけを担当し、見た目のテーマは同梱
 | Key Message | 各スライド最大 1 行の `**Key Message:** ...` | 複数はエラー |
 | 問いボックス | `::: question` … `:::` | 空禁止 |
 | 出典 | `Source:` / `出典:` 行、または `::: source` | 空の source ブロックはエラー |
-| フロー | `::: flow` / `wide` / `straight` / `steps`。矢印・lane・link・callout・stack・chips・`{#id}`・`shape=` | ノード 2 つ以上。未知オプション／種類／route／shape はエラー |
-| カラム | `::: columns` / `plain` / `panel` を `+++` で分割。中に `::: flow` を 1 段だけネスト可 | 非空カラム 2 つ以上。それ以外のネストは不可 |
+| フロー | `::: flow` / `wide` / `straight` / `steps` / `fill`。矢印・lane・link・callout・stack・chips・`{#id}`・`shape=` | ノード 2 つ以上。未知オプション／種類／route／shape はエラー |
+| カラム | `::: columns` / `plain` / `panel` / `fill` を `+++` で分割。中に `::: flow` を 1 段だけネスト可 | 非空カラム 2 つ以上。それ以外のネストは不可 |
 | 改行 | 行末 `\`。フローのラベル／バッジ／タイトル、および H1 は `\n` 可。question/source 内は単一改行も改行扱い | |
 | 表・リスト | 通常の Markdown。表の左上セルが空なら行見出し（`th[scope=row]`） | 列数一致、インデント。リスト項目の class は単純項目では `<p>` 化しない |
 | コードフェンス | 閉じること | 未閉じはエラー |
@@ -82,8 +83,9 @@ md-deck はレンダリングだけを担当し、見た目のテーマは同梱
 - 1枚につき言いたいことは1つ。箱の中は文ではなく名前にする
 - 比較は矢印ではなく `::: columns`（枠が要るときは `panel`、枠を消すときは `plain`）
 - 分岐は1つの箱に「AまたはB」と書かず、結果ごとに箱と矢印を分ける
-- 手順は `::: flow wide` の短い箱を横一列にする。行は中央に揃い、等間隔になる。`steps` を足すと各箱に小さな番号が付く
-- 表紙（`data-cover="true"`）は中央揃え。フロントマターの `subtitle` と `date` がタイトルの下に出る
+- 手順は `::: flow wide` の短い箱を横一列にする。行は中央に揃い、等間隔で、箱は `flow_node_max_width` まで広がり、フローは余った高さまで伸びる（callout があるフローは伸びない）。`steps` で小さな番号。`fill` はその伸びを明示する
+- スタイル側の `.flow-row { justify-content: space-between }` は、この中央揃えを上書きして両端に寄せる。新しい既定を使うときはその指定を外す
+- 表紙（`data-cover="true"`）は中央揃え。フロントマターの `subtitle` と `date` がタイトルの下に出る。枠や大きなタイトルはデッキ側 CSS の任意指定で、生成器の既定にはしない
 
 ## 表紙タイトルの改行
 

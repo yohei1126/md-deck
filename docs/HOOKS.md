@@ -36,7 +36,7 @@ becomes `<section class="slide path-diagram" id="routing" data-index="…">`.
 | `.question.question-label-block` | same | When `question_label_placement: block` |
 | `.question .label` | Label span | Text from `label_question` or `lang` default |
 | `.columns` | Column row | `::: columns` |
-| `.columns.plain` / `.columns.panel` | same | Block options |
+| `.columns.plain` / `.columns.panel` / `.columns.fill` | same | Block options. `fill` asks the row to use leftover slide height |
 | `.column` | One column | Split by `+++` |
 | `.column-head` | First heading in a column | First `h2`–`h6` in that column |
 | `.source` | Footer source | `Source:` / `出典:` line or `::: source` |
@@ -64,10 +64,11 @@ becomes `<section class="slide path-diagram" id="routing" data-index="…">`.
 
 | Hook | Element | Source |
 | --- | --- | --- |
-| `.flow` | Flow root | `::: flow` |
-| `.flow.flow-wide` | same | `::: flow wide` (one centred row, even gaps) |
+| `.flow` | Flow root | `::: flow`. Grows into leftover slide height unless the flow contains a `.flow-callout` |
+| `.flow.flow-wide` | same | `::: flow wide` (one centred row, even gaps, boxes grow up to `--flow-node-max-width`) |
 | `.flow.flow-steps` | same | `::: flow steps` (muted step index on `.flow-node-title::before`) |
 | `.flow.flow-straight` | same | `::: flow straight` (default edge shape) |
+| `.flow.flow-fill` | same | `::: flow fill` (re-asserts the leftover-height stretch; beats a plain `.flow { flex: none }` rule) |
 | `.flow-lanes` | Lane stack | Always present (single-lane flows included) |
 | `.lane` | One lane | `lane: Label` or the implicit single lane |
 | `.lane[data-lane]` | same | 0-based lane index |

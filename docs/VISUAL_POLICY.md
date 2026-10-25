@@ -31,8 +31,8 @@ Stable classes are [HOOKS.md](HOOKS.md). Arrow path geometry is not stable; the 
 
 | Piece | Today |
 | --- | --- |
-| Horizontal steps | `A -> B -> C`. `::: flow wide` keeps one centred row with even gaps. `steps` adds a muted index. Stretch-to-edges is deck CSS (`justify-content: space-between`) |
-| Two-up compare | `::: columns` / `panel` / `plain`, split with `+++`. A column may contain one nested `::: flow` |
+| Horizontal steps | `A -> B -> C`. `::: flow wide` keeps one centred row with even gaps. Boxes grow up to `flow_node_max_width` and are at least `flow_node_min_height`. `steps` adds a muted index. `fill` stretches them to the leftover height. `flow_node_max_width: none` shares the row |
+| Two-up compare | `::: columns` / `panel` / `plain` / `fill`, split with `+++`. Cards have a `column_min_height` floor and already stretch with the row. A column may contain one nested `::: flow` |
 | Branch | A `{ A / B }` stack plus a separate edge into each member. Those edges share a trunk and keep at least 72px before the stack so arrowheads do not sit in the corners. Same-row fan-out (no stack) is still routed as nested trunks |
 | Lanes and cross-links | `lane:` and `link:` with `route=` (`between`, `down`, `up`, `left`, `right`, `auto`) |
 | Edge shapes | Orthogonal (default) or straight. Dashed, labelled, and bidirectional arrows |
@@ -44,17 +44,39 @@ Stable classes are [HOOKS.md](HOOKS.md). Arrow path geometry is not stable; the 
 
 The cover is still a normal slide plus a quiet title-slide layout: the block is centred, the title is centred, and front matter `subtitle` and `date` (when set) sit on one muted line under the H1 (`.cover-meta`). `author` and `audience` are validated and are not drawn. Front matter `title` remains the PDF document title (`<title>`). A further line in the slide body is an ordinary paragraph, also centred.
 
-To tune the cover without adding decoration, append this in the deck style's `css` fence:
+md-deck does not ship a cover frame, an accent band, or a brand palette. Those are deck-style choices. A reusable, token-only frame and a larger title — still no product colours — look like this in the deck style's `css` fence. Leave it out when the plain centred cover is enough. The same comment lives in [`examples/deck_style.md`](../examples/deck_style.md) and is not applied to the sample build.
 
 ```css
+.slide[data-cover="true"] .slide-content {
+  border: var(--border-width) solid var(--color-border);
+  padding: 48px 64px;
+}
+
 .slide[data-cover="true"] .title {
-  font-size: 44px;
+  font-size: 48px;
 }
 
 .slide[data-cover="true"] .cover-meta {
-  margin-top: 0.25em;
+  margin-top: 0.35em;
 }
 ```
+
+## Box size
+
+Flow and column boxes used to shrink to their labels and sit in empty space. The defaults now give them a floor and, on a wide row or beside a stack, a width cap:
+
+| Token | Default | Role |
+| --- | --- | --- |
+| `flow_node_min_width` | `120px` | Floor so a short label does not collapse the box |
+| `flow_node_max_width` | `240px` | Ceiling on a wide row and on a stack row. Three boxes plus the gaps land near two thirds of a 1280×720 slide and stay centred. `none` lets them share the row |
+| `flow_node_min_height` | `148px` | Floor on every flow node. `0` or `none` sizes to the label |
+| `column_min_height` | `160px` | Floor on every column card |
+
+A flow also grows into the height left under the title, and the boxes stretch with it. Width on a wide row or a stack row still stops at `flow_node_max_width`, so a three-box row stays centred near two thirds of the slide instead of becoming an edge-to-edge ruler. A flow that contains a callout does not stretch: the note is drawn outside the node, and stretching that node to the bottom of the slide would push the note off the page. `::: flow fill` is the explicit hook (class `.flow-fill`). It is more specific than a plain `.flow` rule, so it keeps the stretch when a deck style has set `.flow { flex: none }` or `align-items: center`. `::: columns fill` is the same hook for column cards, which already stretch with the row.
+
+A rule such as `.flow-row { justify-content: space-between }` in a deck style cancels the centred row from this generator. Authors who adopt the defaults should remove that declaration. It is not the way to enlarge the boxes.
+
+A caption on a flow node stays one text block (`Name | caption`, with `\n` for extra lines). Chips (`[[a, b]]`) are the inline tags. A short bullet list inside a flow node is not supported yet; that remains a follow-up. Use a column card when the text is a list.
 
 ## What it cannot draw
 
@@ -68,7 +90,8 @@ These are the current ceilings. They are properties of this generator, not of HT
 - Raw HTML or SVG in the slides file (`--allow-html` is off by default), so a NotebookLM-style drawing cannot be pasted in.
 - Author-placed arrow coordinates. `deck.js` chooses a crossing-free orthogonal route. Exact `d` attributes are not an API.
 - Nested blocks other than one `::: flow` inside `::: columns`.
-- A built-in icon set, gradient, or shadow. A deck style file could add them. This policy says not to.
+- A built-in icon set, gradient, shadow, cover frame, or brand band. A deck style file could add them. This policy says not to ship them from the generator. A token-only cover frame is an optional snippet, not a default.
+- A bullet list inside a flow node. The caption is text (`Name | caption`, `\n` for lines) and chips are `[[a, b]]`. A list belongs in a column. Bullets in flow nodes are a follow-up.
 
 ## Bottleneck
 
@@ -92,7 +115,7 @@ Why not the other defaults:
 
 Phased:
 
-1. **Now.** Document the limits, the policy, and the three recipes, including before/after. Check cover titles. Balance automatic title wraps with CSS.
+1. **Now.** Document the limits, the policy, and the three recipes, including before/after. Check cover titles. Balance automatic title wraps with CSS. Size diagram boxes with tokens (`flow_node_max_width`, `flow_node_min_height`, `column_min_height`) and leftover-height stretch (`fill` re-asserts it). Do not bake a deck's frame or palette into those defaults.
 2. **Next, in the skill repo.** Teach the copy budget and the pre-release PNG review in `yohei1126/agent-skills` `md-deck/SKILL.md`. md-deck will still not fail a merely dense slide. Overflow past 80% remains the generator gate.
 3. **Later, only if a recipe fails in a real deck.** Add a small generator feature on this same pipeline (junction, step number, a columns option). Do not open a second diagram language.
 4. **Escape hatch.** Keep relative images for non-diagram figures.

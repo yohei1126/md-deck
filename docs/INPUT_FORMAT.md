@@ -143,10 +143,17 @@ callout: pdf : Ready to ship [pos=below]
 | Parallel edges | Repeat the same pair on separate lines; strokes offset and labels separate |
 | Straight edges (flow) | `::: flow straight` (may combine with `wide`) sets the default shape for every edge in that flow |
 | Step index | `::: flow steps` (may combine with `wide`) numbers each node with a muted counter |
+| Fill leftover height | `::: flow fill` and `::: columns fill` (may combine with the other options) stretch those boxes to the height left on the slide |
 
 `A -> B -> C` on one line still chains. Nodes on separate lines stay unconnected until you write an arrow or a `link:` line. A bare `{#id}` in a chain refers to the existing node with that id (any lane); redefining `Name {#id}` when the id is already taken is still an error.
 
-`::: flow wide` keeps the nodes on one row and centres that group with even gaps (a short procedure, not a ruler stretched to the page edges). To stretch a wide row, set `justify-content: space-between` on `.flow.flow-wide .flow-row` in the deck style. A row that contains a `.flow-stack` keeps at least 72px between the stack and the neighbouring node so a fork trunk and its arrowheads fit. Separate edges into each stack member share that trunk. `A -> { A / B }` is still one arrow into the middle of the stack.
+`::: flow wide` keeps the nodes on one row and centres that group with even gaps. Each box grows toward the free space, up to `flow_node_max_width` (default `240px`), and is at least `flow_node_min_height` (default `148px`). The flow itself uses the height left under the title, so the boxes get taller instead of sitting as a thin band. A three-box row then occupies roughly two thirds of the slide width and most of the free height. Set `flow_node_max_width` to `none` when the boxes should share the whole row, or set it down to `flow_node_min_width` to keep them content-sized. A flow that contains a `callout:` does not take that extra height, so the note stays on the slide. `::: flow fill` repeats the stretch on purpose: the `.flow-fill` class beats a deck rule of `.flow { flex: none }`. `::: columns fill` is the matching hook for column cards, which already stretch and have a `column_min_height` floor (default `160px`).
+
+A deck style rule `.flow-row { justify-content: space-between }` — or the same declaration on `.flow.flow-wide .flow-row` — overrides this centring and pins the first and last box to the edges. Remove that rule when adopting these defaults. Do not add it to make the boxes larger; use the tokens or `fill`.
+
+A row that contains a `.flow-stack` keeps at least 72px between the stack and the neighbouring node so a fork trunk and its arrowheads fit. Separate edges into each stack member share that trunk. `A -> { A / B }` is still one arrow into the middle of the stack. Those boxes use the same width cap.
+
+A node caption (`Name | caption`) is one block of text. `\n` breaks it into lines. Short bullets inside a flow node are not a syntax yet; use chips (`[[a, b]]`) or a `::: columns` card. Bullets in flow nodes are a follow-up.
 
 ### Link routes and anchors
 

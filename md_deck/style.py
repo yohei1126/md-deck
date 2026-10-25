@@ -66,6 +66,9 @@ TOKEN_SPEC: dict[str, tuple[str, Any]] = {
     "question_radius": ("--question-radius", "8px"),
     "border_width": ("--border-width", "1px"),
     "flow_node_min_width": ("--flow-node-min-width", "120px"),
+    "flow_node_max_width": ("--flow-node-max-width", "240px"),
+    "flow_node_min_height": ("--flow-node-min-height", "148px"),
+    "column_min_height": ("--column-min-height", "160px"),
     "flow_node_padding": ("--flow-node-padding", "12px"),
     "label_question": ("--label-question", "Question"),
     "label_key_message": ("--label-key-message", "Key Message"),
@@ -94,6 +97,9 @@ ZERO_OR_NONE_TOKENS = frozenset(
         "flow_port_gap",
         "flow_node_padding",
         "flow_node_min_width",
+        "flow_node_max_width",
+        "flow_node_min_height",
+        "column_min_height",
         "source_label_gap",
     }
 )

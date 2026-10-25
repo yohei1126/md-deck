@@ -370,6 +370,9 @@ def test_tokens_allow_zero_and_none():
         "footer_inset_right": 8,
         "flow_callout_gap": 16,
         "flow_port_gap": 12,
+        "flow_node_max_width": "none",
+        "flow_node_min_height": 0,
+        "column_min_height": 0,
     })
     assert "--card-radius: 0px;" in css
     assert "--border-width: none;" in css
@@ -381,6 +384,9 @@ def test_tokens_allow_zero_and_none():
     assert "--footer-inset-right: 8px;" in css
     assert "--flow-callout-gap: 16px;" in css
     assert "--flow-port-gap: 12px;" in css
+    assert "--flow-node-max-width: none;" in css
+    assert "--flow-node-min-height: 0px;" in css
+    assert "--column-min-height: 0px;" in css
 
 
 def test_footer_inset_allows_negative():
