@@ -14,10 +14,13 @@ from jsonschema import Draft202012Validator
 
 from md_deck.errors import CheckError, sort_errors
 from md_deck.flow import KNOWN_NODE_KINDS, collect_flow_nodes, parse_flow_body
+from md_deck.titles import TitleMeasure, heading_title_messages, title_measure_from_tokens
 from md_deck.slides import ALLOWED_NESTING, BLOCK_OPTIONS
 from md_deck.style import (
     EDGE_SHAPE_TOKENS,
     EDGE_SHAPES,
+    FILL_HEIGHT_TOKENS,
+    FILL_HEIGHT_VALUES,
     FRONT_MATTER_RE,
     LABEL_TOKENS,
     OPTIONAL_EMPTY_LABEL_TOKENS,
@@ -25,6 +28,8 @@ from md_deck.style import (
     PLACEMENT_TOKENS,
     QUESTION_LABEL_PLACEMENTS,
     SIGNED_SIZE_TOKENS,
+    THEME_NAMES,
+    THEMES,
     TOKEN_SPEC,
     ZERO_OR_NONE_TOKENS,
 )
@@ -325,8 +330,15 @@ def validate_style_tokens(tokens: Any, path: str, fm_line: int) -> list[CheckErr
     for key in unknown:
         errors.append(CheckError(path, fm_line, f"unknown style token: {key}"))
 
+    theme_name = ""
+    raw_theme = tokens.get("theme")
+    if isinstance(raw_theme, str):
+        theme_name = raw_theme.strip().lower()
+    supplied = set(tokens)
+    if theme_name in THEMES:
+        supplied |= set(THEMES[theme_name])
     for key in sorted(REQUIRED_STYLE_TOKENS):
-        if key not in tokens:
+        if key not in supplied:
             errors.append(
                 CheckError(path, fm_line, f"missing required style token: {key}")
             )
@@ -380,6 +392,27 @@ def validate_style_tokens(tokens: Any, path: str, fm_line: int) -> list[CheckErr
                 errors.append(
                     CheckError(path, fm_line, f"token {key}: must be a non-empty string")
                 )
+        elif key == "theme":
+            if not isinstance(value, str) or value.strip().lower() not in THEME_NAMES:
+                errors.append(
+                    CheckError(
+                        path,
+                        fm_line,
+                        "token theme: expected "
+                        + ", ".join(sorted(THEME_NAMES))
+                        + f", got {value!r}",
+                    )
+                )
+        elif key in FILL_HEIGHT_TOKENS:
+            text = str(value).strip().lower()
+            if text not in FILL_HEIGHT_VALUES:
+                errors.append(
+                    CheckError(
+                        path,
+                        fm_line,
+                        f"token {key}: expected {', '.join(sorted(FILL_HEIGHT_VALUES))}, got {value!r}",
+                    )
+                )
         elif key in EDGE_SHAPE_TOKENS:
             text = str(value).strip().lower()
             if text not in EDGE_SHAPES:
@@ -423,6 +456,7 @@ def validate_style_tokens(tokens: Any, path: str, fm_line: int) -> list[CheckErr
                     "flow_node_padding",
                     "flow_callout_gap",
                     "flow_port_gap",
+                    "flow_stack_gap",
                     "source_label_gap",
                 }
             ):
@@ -498,10 +532,12 @@ def validate_slide_body(
     path: str,
     *,
     allow_html: bool,
+    title_measure: TitleMeasure | None = None,
 ) -> list[CheckError]:
     errors: list[CheckError] = []
     lines = slide.text.splitlines()
     base = slide.start_line
+    measure = title_measure or title_measure_from_tokens({})
 
     # Track fenced code (``` / ~~~) and ::: blocks (stack for allowed nesting).
     code_fence: str | None = None
@@ -510,6 +546,7 @@ def validate_slide_body(
     block_stack: list[tuple[str, int, list[str], frozenset[str]]] = []
 
     h1_lines: list[int] = []
+    h1_raw: list[tuple[int, str]] = []
     key_message_lines: list[int] = []
     heading_levels: list[tuple[int, int]] = []  # (line, level)
 
@@ -676,6 +713,7 @@ def validate_slide_body(
             heading_levels.append((lineno, level))
             if level == 1:
                 h1_lines.append(lineno)
+                h1_raw.append((lineno, line))
 
         if not allow_html and HTML_TAG_RE.search(line):
             # Allow backticks inline code containing tags
@@ -782,6 +820,11 @@ def validate_slide_body(
                 )
             )
         prev_level = level
+
+    if h1_raw:
+        lineno, raw = h1_raw[0]
+        for message, warning in heading_title_messages(raw, slide.index, measure):
+            errors.append(CheckError(path, lineno, message, warning=warning))
 
     errors.extend(_pymarkdown_slide(path, slide))
     return errors
@@ -1089,9 +1132,6 @@ def check_deck(
     if not slides and not any("empty" in e.message for e in split_errors):
         errors.append(CheckError(path, body_start, "no slides found"))
 
-    for slide in slides:
-        errors.extend(validate_slide_body(slide, path, allow_html=allow_html))
-
     errors.extend(validate_assets(text, path, slides_path.parent, body_start))
 
     resolved_style, style_resolve_errors = resolve_style_for_check(
@@ -1099,6 +1139,7 @@ def check_deck(
     )
     errors.extend(style_resolve_errors)
 
+    style_tokens: dict[str, Any] = {}
     if resolved_style is not None:
         style_text = resolved_style.read_text(encoding="utf-8")
         style_loaded, style_fm_line, _, _, style_yaml_errors = _yaml_front_matter(
@@ -1114,6 +1155,19 @@ def check_deck(
             errors.extend(
                 validate_style_tokens(style_loaded, style_path_str, style_fm_line)
             )
+            if isinstance(style_loaded, dict):
+                style_tokens = style_loaded
+
+    measure = title_measure_from_tokens(style_tokens)
+    for slide in slides:
+        errors.extend(
+            validate_slide_body(
+                slide,
+                path,
+                allow_html=allow_html,
+                title_measure=measure,
+            )
+        )
 
     return sort_errors(errors)
 

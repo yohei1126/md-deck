@@ -92,11 +92,29 @@ def _file_digest(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def _run_check(source: Path, style: Path | None, allow_html: bool) -> int:
-    errors = check_deck(source, style, allow_html=allow_html)
+def _split_check(errors: list) -> tuple[list, list]:
+    hard = [e for e in errors if not e.warning]
+    warn = [e for e in errors if e.warning]
+    return hard, warn
+
+
+def _print_check(errors: list) -> tuple[list, list]:
+    hard, warn = _split_check(errors)
     if errors:
         print(format_errors(errors))
-        print(f"{len(errors)} error(s)", flush=True)
+    if hard and warn:
+        print(f"{len(hard)} error(s), {len(warn)} warning(s)", flush=True)
+    elif hard:
+        print(f"{len(hard)} error(s)", flush=True)
+    elif warn:
+        print(f"{len(warn)} warning(s)", flush=True)
+    return hard, warn
+
+
+def _run_check(source: Path, style: Path | None, allow_html: bool) -> int:
+    errors = check_deck(source, style, allow_html=allow_html)
+    hard, _warn = _print_check(errors)
+    if hard:
         return 1
     print(f"OK: {source}")
     return 0
@@ -104,12 +122,9 @@ def _run_check(source: Path, style: Path | None, allow_html: bool) -> int:
 
 def _run_build(args: argparse.Namespace) -> int:
     errors = check_deck(args.source, args.style, allow_html=args.allow_html)
-    if errors:
-        print(format_errors(errors))
-        print(
-            f"{len(errors)} error(s); refusing to build",
-            flush=True,
-        )
+    hard, _warn = _print_check(errors)
+    if hard:
+        print("refusing to build", flush=True)
         return 1
 
     build_deck(

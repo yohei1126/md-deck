@@ -5,7 +5,8 @@ from __future__ import annotations
 from md_deck.build import build_html
 from md_deck.flow import parse_flow_body, parse_node_text, render_flow_html
 from md_deck.slides import apply_hard_breaks, parse_deck, render_slide_markdown, resolve_labels
-from md_deck.style import tokens_to_css
+from md_deck.style import load_style_file, tokens_to_css
+from md_deck.validate import validate_style_tokens
 
 
 def test_labelled_and_dashed_arrows():
@@ -370,6 +371,9 @@ def test_tokens_allow_zero_and_none():
         "footer_inset_right": 8,
         "flow_callout_gap": 16,
         "flow_port_gap": 12,
+        "flow_node_max_width": "none",
+        "flow_node_min_height": 0,
+        "column_min_height": 0,
     })
     assert "--card-radius: 0px;" in css
     assert "--border-width: none;" in css
@@ -381,6 +385,19 @@ def test_tokens_allow_zero_and_none():
     assert "--footer-inset-right: 8px;" in css
     assert "--flow-callout-gap: 16px;" in css
     assert "--flow-port-gap: 12px;" in css
+    assert "--flow-node-max-width: none;" in css
+    assert "--flow-node-min-height: 0px;" in css
+    assert "--column-min-height: 0px;" in css
+    assert "--flow-fill-height: 1;" in tokens_to_css({"flow_fill_height": "fill"})
+    assert "--flow-fill-height: 0;" in tokens_to_css({})
+    assert "--flow-preferred-height: 60%;" in tokens_to_css({})
+    assert "--flow-preferred-grow: 1;" in tokens_to_css({})
+    assert "--flow-preferred-height: none;" in tokens_to_css({"flow_preferred_height": "none"})
+    assert "--flow-preferred-grow: 0;" in tokens_to_css({"flow_preferred_height": "none"})
+    filled = tokens_to_css({"flow_fill_height": "fill", "flow_preferred_height": "40%"})
+    assert "--flow-fill-height: 1;" in filled
+    assert "--flow-preferred-height: none;" in filled
+    assert "--flow-preferred-grow: 1;" in filled
 
 
 def test_footer_inset_allows_negative():
@@ -395,3 +412,98 @@ def test_footer_inset_allows_negative():
     })
     assert "--footer-inset-right: -20px;" in css
     assert "--footer-inset-bottom: -4px;" in css
+
+
+def test_plain_theme_stays_black_on_white():
+    css = tokens_to_css({})
+    assert "--color-background: #ffffff;" in css
+    assert "--color-text: #000000;" in css
+    assert "--color-title: #000000;" in css
+    assert "--theme:" not in css
+    plain = tokens_to_css({"theme": "plain"})
+    assert "--color-background: #ffffff;" in plain
+    assert "--color-flow-arrow: #000000;" in plain
+
+
+def test_dark_blue_theme_fills_omitted_colours_and_yields_to_explicit():
+    css = tokens_to_css({"theme": "dark-blue", "color_title": "#112233"})
+    assert "--color-background: #EDE8E4;" in css
+    assert "--color-text: #333333;" in css
+    assert "--color-title: #112233;" in css
+    assert "--color-flow-node-border: #073365;" in css
+    assert "--color-flow-arrow: #073365;" in css
+    assert "--color-highlight: #F7581D;" in css
+    assert "--color-question-border: #F7581D;" in css
+    assert "--color-card-bg: #E3EAF2;" in css
+    assert "--theme:" not in css
+    errors = validate_style_tokens(
+        {"theme": "dark-blue", "font_family": "sans-serif", "font_size_body": 22},
+        "style.md",
+        1,
+    )
+    assert errors == []
+    bad = validate_style_tokens(
+        {"theme": "navy", "font_family": "sans-serif", "font_size_body": 22,
+         "color_background": "#fff", "color_text": "#000", "color_title": "#000"},
+        "style.md",
+        1,
+    )
+    assert any("theme" in e.message for e in bad)
+
+
+def test_dark_blue_example_file_uses_the_theme():
+    from pathlib import Path
+
+    tokens, _extra = load_style_file(Path("examples/deck_style_dark_blue.md"))
+    assert tokens["theme"] == "dark-blue"
+    assert "color_background" not in tokens
+    css = tokens_to_css(tokens)
+    assert "--color-background: #EDE8E4;" in css
+    plain, _ = load_style_file(Path("examples/deck_style.md"))
+    assert "theme" not in plain
+    assert tokens_to_css(plain).count("--color-background: #ffffff;") == 1
+
+
+def test_lane_align_option_and_blank_label():
+    diagram = parse_flow_body(
+        "lane: Upper\n"
+        "A -> B -> C\n"
+        "lane: [align=end]\n"
+        "D {#d}\n"
+        "link: d ..> C [route=up]\n"
+    )
+    assert diagram.lanes[1].label is None
+    assert diagram.lanes[1].align == "end"
+    assert not diagram.errors
+    html = render_flow_html(diagram)
+    assert 'data-lane="1" data-align="end" data-linked-above="true"' in html
+    assert html.count("lane-label") == 1
+
+
+def test_lane_label_keeps_text_before_align():
+    diagram = parse_flow_body("lane: Field [align=center]\nA -> B\n")
+    assert diagram.lanes[0].label == "Field"
+    assert diagram.lanes[0].align == "center"
+
+
+def test_unknown_lane_align_is_an_error():
+    diagram = parse_flow_body("lane: Field [align=middle]\nA -> B\n")
+    assert any("unknown lane align" in e for e in diagram.errors)
+
+
+def test_spread_figures_and_key_message_emphasis():
+    spread = render_slide_markdown(
+        "# T\n\n::: flow spread\nlane: Upper\nA -> B\nlane: Lower\nC -> D\n:::\n"
+    )
+    assert "flow-spread" in spread.html
+    plain = render_slide_markdown("# T\n\n::: flow\nlane: Upper\nA -> B\n:::\n")
+    assert "flow-spread" not in plain.html
+    figures = render_slide_markdown(
+        "# T\n\n::: columns figures\n## 12\n\nOne line\n\n+++\n\n## 4\n\nOne line\n:::\n"
+    )
+    assert 'class="columns figures"' in figures.html
+    assert "column-head" in figures.html
+    message = render_slide_markdown("# T\n\n**Key Message:** **Ship** the draft\n")
+    assert 'class="key-message"' in message.html
+    assert "<strong>Ship</strong>" in message.html
+    assert "--font-size-flow-body: 18px;" in tokens_to_css({})

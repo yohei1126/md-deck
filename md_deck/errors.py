@@ -10,9 +10,11 @@ class CheckError:
     path: str
     line: int
     message: str
+    warning: bool = False
 
     def format(self) -> str:
-        return f"{self.path}:{self.line}: {self.message}"
+        kind = "warning: " if self.warning else ""
+        return f"{self.path}:{self.line}: {kind}{self.message}"
 
 
 def sort_errors(errors: list[CheckError]) -> list[CheckError]:

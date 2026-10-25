@@ -5,11 +5,21 @@
   "type": "object",
   "additionalProperties": false,
   "required": [
-    "color_background",
-    "color_text",
-    "color_title",
     "font_family",
     "font_size_body"
+  ],
+  "allOf": [
+    {
+      "if": {
+        "not": {
+          "properties": { "theme": { "const": "dark-blue" } },
+          "required": ["theme"]
+        }
+      },
+      "then": {
+        "required": ["color_background", "color_text", "color_title"]
+      }
+    }
   ],
   "properties": {
     "page_width": { "$ref": "#/$defs/size" },
@@ -43,6 +53,7 @@
     "font_size_key_message": { "$ref": "#/$defs/size" },
     "font_size_question": { "$ref": "#/$defs/size" },
     "font_size_small": { "$ref": "#/$defs/size" },
+    "font_size_flow_body": { "$ref": "#/$defs/size" },
     "font_size_table": { "$ref": "#/$defs/size" },
     "font_weight_title": { "$ref": "#/$defs/fontWeight" },
     "font_weight_body": { "$ref": "#/$defs/fontWeight" },
@@ -69,6 +80,19 @@
     "question_radius": { "$ref": "#/$defs/sizeOrNone" },
     "border_width": { "$ref": "#/$defs/sizeOrNone" },
     "flow_node_min_width": { "$ref": "#/$defs/sizeOrNone" },
+    "flow_node_max_width": { "$ref": "#/$defs/sizeOrNone" },
+    "flow_node_min_height": { "$ref": "#/$defs/sizeOrNone" },
+    "flow_stack_gap": { "$ref": "#/$defs/sizeOrNone" },
+    "flow_fill_height": {
+      "type": "string",
+      "enum": ["none", "fill"],
+      "description": "none (default) sizes flow boxes to their content. fill stretches them to the leftover slide height."
+    },
+    "flow_preferred_height": {
+      "$ref": "#/$defs/sizeOrNone",
+      "description": "A wide flow row with no stack grows toward this share of the slide content box (default 60%). none keeps content height. flow_fill_height: fill ignores the cap."
+    },
+    "column_min_height": { "$ref": "#/$defs/sizeOrNone" },
     "flow_node_padding": { "$ref": "#/$defs/sizeOrNone" },
     "label_question": { "type": "string", "minLength": 1 },
     "label_key_message": { "type": "string", "minLength": 1 },
@@ -83,6 +107,11 @@
     "page_number_placement": {
       "type": "string",
       "enum": ["bottom-right", "bottom-left", "bottom-center"]
+    },
+    "theme": {
+      "type": "string",
+      "enum": ["plain", "dark-blue"],
+      "description": "Named colour palette. plain keeps black on white. dark-blue fills omitted colour tokens (off-white ground, not pure white); an explicit colour token overrides that role."
     }
   },
   "$defs": {

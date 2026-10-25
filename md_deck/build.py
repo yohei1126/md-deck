@@ -8,6 +8,7 @@ from pathlib import Path
 
 from md_deck.slides import SlideRender, parse_deck
 from md_deck.style import load_style_file, resolve_style_path, tokens_to_css
+from md_deck.titles import is_cover_slide
 
 PACKAGE_DIR = Path(__file__).resolve().parent
 TEMPLATE_DIR = PACKAGE_DIR / "template"
@@ -27,6 +28,8 @@ def build_html(
     title: str,
     lang: str = "en",
     page_number_placement: str = "bottom-right",
+    subtitle: str = "",
+    date: str = "",
 ) -> str:
     base_css = _read_template("base.css")
     deck_js = _read_template("deck.js")
@@ -48,6 +51,11 @@ def build_html(
         class_attr = " ".join(classes)
         # Prefer author id from heading attrs; else stable slide-N.
         slide_id = slide.slide_id or f"slide-{index}"
+        cover = is_cover_slide(index, slide.slide_classes)
+        cover_attr = ' data-cover="true"' if cover else ""
+        body_html = slide.html
+        if cover:
+            body_html = _inject_cover_meta(body_html, subtitle, date)
         source = ""
         if slide.source_html:
             source = f'<div class="source">{slide.source_html}</div>'
@@ -60,8 +68,8 @@ def build_html(
         )
         slide_blocks.append(
             f'<section class="{class_attr}" id="{_escape(slide_id)}" '
-            f'data-index="{index}" data-slide="{index}">'
-            f'<div class="slide-inner"><div class="slide-content">{slide.html}</div></div>'
+            f'data-index="{index}" data-slide="{index}"{cover_attr}>'
+            f'<div class="slide-inner"><div class="slide-content">{body_html}</div></div>'
             f"{footer}"
             f"</section>"
         )
@@ -92,6 +100,26 @@ def build_html(
 </body>
 </html>
 """
+
+
+def _inject_cover_meta(html: str, subtitle: str, date: str) -> str:
+    """Quiet subtitle / date line under the cover H1. Omitted when both are empty."""
+    parts: list[str] = []
+    sub = (subtitle or "").strip()
+    day = (date or "").strip()
+    if sub:
+        parts.append(f'<span class="cover-sub">{_escape(sub)}</span>')
+    if day:
+        parts.append(f'<span class="cover-date">{_escape(day)}</span>')
+    if not parts:
+        return html
+    meta = '<p class="cover-meta">' + " · ".join(parts) + "</p>"
+    lower = html.lower()
+    end_h1 = lower.find("</h1>")
+    if end_h1 == -1:
+        return meta + html
+    at = end_h1 + len("</h1>")
+    return html[:at] + meta + html[at:]
 
 
 def _escape(text: str) -> str:
@@ -225,6 +253,8 @@ def build_deck(
         title,
         lang=lang,
         page_number_placement=page_placement,
+        subtitle=str(meta.get("subtitle") or ""),
+        date=str(meta.get("date") or ""),
     )
     if keep_html is not None:
         keep_html.parent.mkdir(parents=True, exist_ok=True)

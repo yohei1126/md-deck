@@ -1,6 +1,8 @@
 ---
 # Plain demonstration style: black text on white, one font, no brand colours.
-# Real decks replace this file in their own repo. md-deck does not ship a theme.
+# Real decks replace this file in their own repo.
+# Opt-in palette: theme: dark-blue in examples/deck_style_dark_blue.md.
+# This file stays plain so sample builds do not pick up that palette.
 
 page_width: 1280
 page_height: 720
@@ -59,6 +61,13 @@ key_message_radius: 8
 question_radius: 8
 border_width: 1
 flow_node_min_width: 120
+flow_node_max_width: none
+flow_node_min_height: 96
+# Wide rows with no stack grow toward this share of the slide. none keeps content height.
+flow_preferred_height: 60%
+# flow_fill_height: none   # fill stretches flow boxes to leftover slide height and ignores the cap above
+flow_stack_gap: 32
+column_min_height: 160
 flow_node_padding: 12
 
 # Optional; when omitted, defaults follow slides lang (en/ja).
@@ -85,13 +94,7 @@ Deck repositories keep their own style Markdown (front matter tokens plus human-
 
 Style CSS should target the stable hooks in [HOOKS.md](../docs/HOOKS.md) (for example `.flow-node[data-kind="doc"]`), not `#slide-N … :nth-child()` selectors.
 
-## English note
-
-Tokens drive CSS variables. Omit a token and the generator fills a plain default listed in `docs/STYLE_GUIDE.md`. There is no built-in brand palette inside md-deck.
-
-## 日本語メモ
-
-このファイルは形式の見本です。色やフォントの本番指定は、各デッキ用リポジトリのスタイル Markdown に置きます。md-deck 本体にはデザインやブランド色は含まれません。見た目のフックは [HOOKS.md](../docs/HOOKS.md) を参照してください。
+This file is the plain black-on-white sample. Sample builds stay on it. Tokens drive CSS variables. Omit a token and the generator fills a plain default listed in `docs/STYLE_GUIDE.md`. `theme: dark-blue` is an opt-in palette in [`deck_style_dark_blue.md`](deck_style_dark_blue.md). This file does not set it.
 
 ```css
 /* Optional extra rules. Example: slightly tighter lists in this sample. */
@@ -111,4 +114,22 @@ Tokens drive CSS variables. Omit a token and the generator fills a plain default
   background: var(--color-highlight-bg);
   border-color: var(--color-highlight);
 }
+
+/* Optional cover frame. Not applied: md-deck does not ship a frame or a brand band.
+   Uncomment in a deck style when a quiet border and a larger title are wanted.
+   Keep colours on the tokens above; do not paste a product palette here.
+
+.slide[data-cover="true"] .slide-content {
+  border: var(--border-width) solid var(--color-border);
+  padding: 48px 64px;
+}
+
+.slide[data-cover="true"] .title {
+  font-size: 48px;
+}
+
+.slide[data-cover="true"] .cover-meta {
+  margin-top: 0.35em;
+}
+*/
 ```

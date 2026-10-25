@@ -8,6 +8,10 @@
   const EPS = 0.75;
   const DEFAULT_PORT_GAP = 12;
   const DEFAULT_CALLOUT_GAP = 12;
+  const CALLOUT_MIN_SHAFT = 16;
+  // Boxes that overlap by at least this much horizontally get one straight
+  // vertical stroke instead of a Z between their centres.
+  const STRAIGHT_OVERLAP_MIN = 24;
   // Arrowhead marker is 10x7 at strokeWidth units with stroke-width 2 ≈ 18×13 px.
   const ARROWHEAD_LEN = 18;
   const ARROWHEAD_WIDTH = 13;
@@ -847,6 +851,28 @@
     return pts[pts.length - 1];
   }
 
+  function midSegmentIsVertical(pts) {
+    if (pts.length < 2) return false;
+    let total = 0;
+    const segs = [];
+    for (let i = 1; i < pts.length; i += 1) {
+      const len = Math.hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y);
+      segs.push(len);
+      total += len;
+    }
+    let at = total / 2;
+    for (let i = 1; i < pts.length; i += 1) {
+      if (at <= segs[i - 1]) {
+        return (
+          Math.abs(pts[i].x - pts[i - 1].x) < EPS &&
+          Math.abs(pts[i].y - pts[i - 1].y) >= EPS
+        );
+      }
+      at -= segs[i - 1];
+    }
+    return false;
+  }
+
   function parallelOffset(pts, index, count) {
     if (count <= 1) return { pts, labelNudge: 0 };
     const shift = (index - (count - 1) / 2) * PARALLEL_GAP;
@@ -986,8 +1012,25 @@
     text.classList.add("flow-label", "flow-edge-label");
     applyEdgeHooks(text, edge);
 
-    // Anchor by the label box: keep the whole block off the stroke.
-    if (placeAbove) {
+    // On a vertical stroke, put the label beside the line (right side),
+    // centred on it, instead of on top of the stroke.
+    if (midSegmentIsVertical(pts)) {
+      text.setAttribute("text-anchor", "start");
+      const x = mid.x + LABEL_GAP;
+      text.setAttribute("x", String(x));
+      text.setAttribute("y", String(mid.y));
+      lines.forEach((line, i) => {
+        const tspan = document.createElementNS("http://www.w3.org/2000/svg", "tspan");
+        tspan.setAttribute("x", String(x));
+        if (i === 0) {
+          tspan.setAttribute("dy", `${0.35 - ((lines.length - 1) * 1.15) / 2}em`);
+        } else {
+          tspan.setAttribute("dy", "1.15em");
+        }
+        tspan.textContent = line;
+        text.appendChild(tspan);
+      });
+    } else if (placeAbove) {
       text.setAttribute("y", String(mid.y - LABEL_GAP + labelNudge * 0.15));
       lines.forEach((line, i) => {
         const tspan = document.createElementNS("http://www.w3.org/2000/svg", "tspan");
@@ -1014,7 +1057,10 @@
 
     // Fine-tune with measured bbox so multi-line text never straddles the stroke.
     const bbox = text.getBBox();
-    if (placeAbove && bbox.bottom > mid.y - 6) {
+    const beside = text.getAttribute("text-anchor") === "start";
+    if (beside) {
+      // Beside a vertical stroke: no vertical nudge.
+    } else if (placeAbove && bbox.bottom > mid.y - 6) {
       const shift = bbox.bottom - (mid.y - 6);
       text.setAttribute("y", String(parseFloat(text.getAttribute("y")) - shift));
     } else if (!placeAbove && bbox.top < mid.y + 6) {
@@ -1141,9 +1187,11 @@
     const slide = flow.closest(".slide");
     const clampRoot = slide || flow;
     // Above/below facing stubs need room for a full arrowhead on the final segment.
+    // ARROWHEAD_LEN alone leaves no shaft: the connector reads as a lone
+    // triangle. Keep a visible stroke before the head.
     const gap = Math.max(
       cssPxVar(flow, "--flow-callout-gap", DEFAULT_CALLOUT_GAP),
-      ARROWHEAD_LEN
+      ARROWHEAD_LEN + CALLOUT_MIN_SHAFT
     );
 
     function positionOne(el, box) {
@@ -1485,6 +1533,91 @@
     });
   }
 
+  const STACK_FAN_GAP = 72;
+
+  function ensureStackFanGaps(flow) {
+    // Keep a readable gap beside a stack even if deck CSS sets gap: 0 or flex: 1.
+    let changed = false;
+    flow.querySelectorAll(".flow-row").forEach((row) => {
+      const kids = Array.from(row.children).filter(
+        (el) =>
+          el.classList.contains("flow-node") || el.classList.contains("flow-stack")
+      );
+      for (let i = 0; i < kids.length - 1; i += 1) {
+        const a = kids[i];
+        const b = kids[i + 1];
+        if (!a.classList.contains("flow-stack") && !b.classList.contains("flow-stack")) {
+          continue;
+        }
+        const measured = b.getBoundingClientRect().left - a.getBoundingClientRect().right;
+        if (measured + 0.5 < STACK_FAN_GAP) {
+          const current = parseFloat(a.style.marginInlineEnd) || 0;
+          a.style.marginInlineEnd = `${current + (STACK_FAN_GAP - measured)}px`;
+          changed = true;
+        }
+      }
+    });
+    return changed;
+  }
+
+  function forkTrunks(flow, plans) {
+    // Two or more edges from one node into the same stack share a trunk,
+    // then a horizontal run into each box long enough for the arrowhead.
+    const groups = new Map();
+    const stacks = Array.from(flow.querySelectorAll(".flow-stack"));
+    plans.forEach((plan, idx) => {
+      if (plan.edge.shape === "straight") return;
+      if (plan.edge.toAttach === "stack" || plan.edge.fromAttach === "stack") return;
+      const target = nodeByKey(flow, plan.edge.to);
+      const source = nodeByKey(flow, plan.edge.from);
+      if (!target || !source) return;
+      const stack = target.closest(".flow-stack");
+      if (!stack || stack.contains(source)) return;
+      const key = `${plan.edge.from}#${stacks.indexOf(stack)}`;
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(idx);
+    });
+    const paths = new Map();
+    groups.forEach((idxs) => {
+      if (idxs.length < 2) return;
+      const sample = plans[idxs[0]];
+      const targets = idxs.map((i) => plans[i].b);
+      const avgX = targets.reduce((sum, box) => sum + box.cx, 0) / targets.length;
+      const goingRight = sample.a.cx <= avgX;
+      const srcX = goingRight ? sample.a.right : sample.a.left;
+      const edgeX = goingRight
+        ? Math.min(...targets.map((box) => box.left))
+        : Math.max(...targets.map((box) => box.right));
+      const gap = goingRight ? edgeX - srcX : srcX - edgeX;
+      const minLast = ARROWHEAD_LEN + 8;
+      let junction = goingRight
+        ? srcX + Math.max(16, gap - minLast)
+        : srcX - Math.max(16, gap - minLast);
+      if (goingRight) junction = Math.min(junction, edgeX - minLast);
+      else junction = Math.max(junction, edgeX + minLast);
+      const srcY = sample.a.cy;
+      idxs.forEach((idx) => {
+        const box = plans[idx].b;
+        const endX = goingRight ? box.left : box.right;
+        const y = box.cy;
+        const pts =
+          Math.abs(y - srcY) < 0.75
+            ? [
+                { x: srcX, y: srcY },
+                { x: endX, y: srcY },
+              ]
+            : [
+                { x: srcX, y: srcY },
+                { x: junction, y: srcY },
+                { x: junction, y },
+                { x: endX, y },
+              ];
+        paths.set(idx, pts);
+      });
+    });
+    return paths;
+  }
+
   function drawFlow(flow) {
     let svg = flow.querySelector("svg.flow-svg");
     if (!svg) {
@@ -1518,9 +1651,7 @@
     };
 
     const edges = collectEdges(flow);
-    // Widen same-row gaps so multi-line labels fit between nodes.
-    if (ensureLabelGaps(flow, edges, svg, flowBox, scale)) {
-      // Reflow changed geometry; refresh the flow box.
+    function refreshFlowBox() {
       const refreshed = flow.getBoundingClientRect();
       flowBox.left = refreshed.left;
       flowBox.top = refreshed.top;
@@ -1533,6 +1664,14 @@
       layoutBox.bottom = flow.clientHeight;
       layoutBox.width = flow.clientWidth;
       layoutBox.height = flow.clientHeight;
+    }
+    // Widen same-row gaps so multi-line labels fit between nodes.
+    if (ensureLabelGaps(flow, edges, svg, flowBox, scale)) {
+      refreshFlowBox();
+    }
+    // After label margins, keep a fork beside a stack from collapsing.
+    if (ensureStackFanGaps(flow)) {
+      refreshFlowBox();
     }
 
     placeCallouts(flow, flowBox, scale);
@@ -1802,6 +1941,8 @@
       };
     }
 
+    const forkPaths = forkTrunks(flow, plans);
+
     // Pass 2: route between allocated ports (orthogonal by default; straight opt-in).
     plans.forEach((plan, planIdx) => {
       const fromCount =
@@ -1823,17 +1964,43 @@
         toCount,
         toGap
       );
+      // One edge between boxes stacked over each other (bottom -> top or
+      // top -> bottom) whose x-ranges overlap: share one x so the stroke is a
+      // single vertical line instead of a Z through the lane gap.
+      if (
+        fromCount === 1 &&
+        toCount === 1 &&
+        !forkPaths.has(planIdx) &&
+        ((plan.fromSide === "bottom" && plan.toSide === "top") ||
+          (plan.fromSide === "top" && plan.toSide === "bottom"))
+      ) {
+        const lo = Math.max(plan.a.left, plan.b.left);
+        const hi = Math.min(plan.a.right, plan.b.right);
+        if (hi - lo >= STRAIGHT_OVERLAP_MIN) {
+          const pad = Math.min(plan.a.width, plan.b.width) * 0.15;
+          const want = (plan.a.cx + plan.b.cx) / 2;
+          const x = clamp(want, lo + Math.min(pad, (hi - lo) / 2), hi - Math.min(pad, (hi - lo) / 2));
+          const p1 = { x, y: fromPort.point.y };
+          const p2 = { x, y: toPort.point.y };
+          if (pathHitsObstacles([p1, p2], plan.obstacles, HIT_PAD) === 0) {
+            fromPort.point = p1;
+            toPort.point = p2;
+          }
+        }
+      }
       const corridorShift = portSlotOffset(
         toPort.index,
         toPort.count,
         toGap
       );
       const shape = plan.edge.shape === "straight" ? "straight" : "orthogonal";
-      let pts;
+      let pts = forkPaths.has(planIdx) ? forkPaths.get(planIdx) : null;
       const direct = simplify([fromPort.point, toPort.point]);
       const directClear =
         pathHitsObstacles(direct, plan.obstacles, HIT_PAD) === 0;
-      if (shape === "straight" && directClear) {
+      if (pts) {
+        // Fork trunk already includes the arrowhead stub.
+      } else if (shape === "straight" && directClear) {
         // Straight / diagonal only when the segment clears other nodes
         // (including not running along their borders).
         pts = direct;

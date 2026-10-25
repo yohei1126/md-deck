@@ -34,6 +34,12 @@ jobs:
       - name: Check examples/sample.md
         run: uv run md-deck check examples/sample.md
 
+      - name: Check and build diagram pattern examples
+        run: |
+          uv run md-deck check examples/diagram_patterns.md
+          uv run md-deck build examples/diagram_patterns.md \
+            -o out/diagram-patterns.pdf
+
       - name: Build examples/sample.md
         run: |
           mkdir -p out

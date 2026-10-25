@@ -7,7 +7,7 @@ md-deck turns one Markdown file into a clean 16:9 PDF slide deck. Same source by
 - a slides Markdown file
 - a style Markdown file (YAML theme tokens, optional CSS fence, plus human-readable guidance)
 
-This repository’s `examples/` folder holds sample slides and a plain sample style so you can try the generator. Those files are examples only. Real decks, styles, and generated PDFs are managed in the repos that call md-deck (or its GitHub Action). md-deck does not ship a default theme; a style file is required.
+This repository’s `examples/` folder holds sample slides and a plain sample style so you can try the generator. Those files are examples only. Real decks, styles, and generated PDFs are managed in the repos that call md-deck (or its GitHub Action). A style file is required. The default palette is plain black on white. `theme: dark-blue` in that file is an opt-in role palette ([STYLE_GUIDE.md](docs/STYLE_GUIDE.md)).
 
 Maintainers and coding agents should start with [AGENTS.md](AGENTS.md).
 
@@ -67,7 +67,7 @@ Required slides front matter: `title`, `version`, `date` (yyyy-mm-dd), `lang`, `
 
 Required style tokens: `color_background`, `color_text`, `color_title`, `font_family`, `font_size_body`. Other tokens are optional with plain defaults (`0` / `none` allowed on radii and borders; per-side `page_padding_*`; label and accent colour tokens). Schemas: [`schemas/slides.schema.json`](schemas/slides.schema.json), [`schemas/style.schema.json`](schemas/style.schema.json).
 
-Full contract and flow syntax (labelled / dashed / parallel arrows, orthogonal `link:` routes, node ids / chips / stacks / callouts, flow inside columns, sources): [docs/INPUT_FORMAT.md](docs/INPUT_FORMAT.md). Token tables: [docs/STYLE_GUIDE.md](docs/STYLE_GUIDE.md) / [docs/STYLE_GUIDE.ja.md](docs/STYLE_GUIDE.ja.md). Stable CSS hooks (including SVG `.flow-arrow` / `.flow-label`): [docs/HOOKS.md](docs/HOOKS.md).
+Full contract and flow syntax (labelled / dashed / parallel arrows, orthogonal `link:` routes, node ids / chips / stacks / callouts, flow inside columns, sources): [docs/INPUT_FORMAT.md](docs/INPUT_FORMAT.md). Token tables: [docs/STYLE_GUIDE.md](docs/STYLE_GUIDE.md). Stable CSS hooks (including SVG `.flow-arrow` / `.flow-label`): [docs/HOOKS.md](docs/HOOKS.md). Visual policy, what the HTML/CSS path can and cannot draw, and cover-title line breaks: [docs/VISUAL_POLICY.md](docs/VISUAL_POLICY.md). Diagram before/after: [docs/DIAGRAMS.md](docs/DIAGRAMS.md), [examples/diagram_patterns.md](examples/diagram_patterns.md).
 
 Slide conventions in short: slides separated by `---`; exactly one `#` title per slide (optional `{#id .class}`); at most one `**Key Message:**`; `::: question` / `::: flow` / `::: columns` / `::: source` (flow may nest inside columns); trailing `\` for hard breaks; footer page numbers as `n / total` with `page_number_placement`.
 

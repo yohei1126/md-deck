@@ -10,6 +10,7 @@ import markdown as md
 import yaml
 
 from md_deck.flow import parse_flow_body, render_flow_html
+from md_deck.titles import H1_LINE_RE, TITLE_BREAK_SENTINEL, encode_h1_breaks
 
 FRONT_MATTER_RE = re.compile(r"\A---\s*\n(.*?)\n---\s*\n?", re.DOTALL)
 FENCE_LINE_RE = re.compile(r"^(?P<colons>:{3,})\s*(?P<rest>.*)$")
@@ -21,16 +22,14 @@ SOURCE_LINE_RE = re.compile(
     r"^(?:Source|出典)\s*[:：]\s*(?P<body>.+)\s*$",
     re.IGNORECASE | re.MULTILINE,
 )
-H1_LINE_RE = re.compile(r"^#\s+(?P<title>.+?)(?:\s*\{(?P<attrs>[^}]*)\})?\s*$", re.M)
-
 # Only flow may nest inside columns. All other nesting stays forbidden.
 ALLOWED_NESTING = frozenset({("columns", "flow")})
 
 BLOCK_OPTIONS: dict[str, frozenset[str]] = {
     "question": frozenset(),
     "source": frozenset(),
-    "flow": frozenset({"wide", "straight"}),
-    "columns": frozenset({"plain", "panel"}),
+    "flow": frozenset({"wide", "straight", "steps", "fill", "spread"}),
+    "columns": frozenset({"plain", "panel", "fill", "figures"}),
 }
 
 DEFAULT_LABELS = {
@@ -450,6 +449,7 @@ def render_slide_markdown(
 ) -> SlideRender:
     ctx = ctx or RenderContext()
     slide_md, slide_id, slide_classes = _extract_heading_attrs(slide_md)
+    slide_md = encode_h1_breaks(slide_md)
     slide_md, source_from_line = _extract_sources(slide_md)
     text = _render_key_messages(slide_md, ctx)
 
@@ -501,7 +501,7 @@ def render_slide_markdown(
         i += 1
     flush_buf()
 
-    html = _add_title_class("\n".join(chunks))
+    html = _add_title_class("\n".join(chunks)).replace(TITLE_BREAK_SENTINEL, "<br>")
     source_html = None
     if source_parts:
         source_html = "\n".join(source_parts)

@@ -9,8 +9,9 @@ from typing import Any
 import yaml
 
 # Token name -> (css variable, default used only when building docs examples).
-# The generator does not apply a built-in visual theme; these defaults are the
-# plain fallback values when a listed token is omitted from a style file.
+# `plain` (the default) uses the values below. `theme: dark-blue` fills any
+# colour token the file omits; an explicit colour still wins. `theme` itself
+# is not emitted as CSS.
 TOKEN_SPEC: dict[str, tuple[str, Any]] = {
     "page_width": ("--page-width", "1280px"),
     "page_height": ("--page-height", "720px"),
@@ -43,6 +44,7 @@ TOKEN_SPEC: dict[str, tuple[str, Any]] = {
     "font_size_key_message": ("--font-size-key-message", "20px"),
     "font_size_question": ("--font-size-question", "18px"),
     "font_size_small": ("--font-size-small", "16px"),
+    "font_size_flow_body": ("--font-size-flow-body", "18px"),
     "font_size_table": ("--font-size-table", "16px"),
     "font_weight_title": ("--font-weight-title", "700"),
     "font_weight_body": ("--font-weight-body", "400"),
@@ -66,12 +68,23 @@ TOKEN_SPEC: dict[str, tuple[str, Any]] = {
     "question_radius": ("--question-radius", "8px"),
     "border_width": ("--border-width", "1px"),
     "flow_node_min_width": ("--flow-node-min-width", "120px"),
+    "flow_node_max_width": ("--flow-node-max-width", "none"),
+    "flow_node_min_height": ("--flow-node-min-height", "96px"),
+    "flow_stack_gap": ("--flow-stack-gap", "32px"),
+    # CSS flex-grow: 0 keeps boxes content-sized; 1 stretches them to leftover height.
+    "flow_fill_height": ("--flow-fill-height", "0"),
+    # Wide rows with no stack grow toward this share of the slide content box.
+    # none keeps content height. flow_fill_height: fill removes the cap.
+    "flow_preferred_height": ("--flow-preferred-height", "60%"),
+    "column_min_height": ("--column-min-height", "160px"),
     "flow_node_padding": ("--flow-node-padding", "12px"),
     "label_question": ("--label-question", "Question"),
     "label_key_message": ("--label-key-message", "Key Message"),
     "label_source": ("--label-source", "Source:"),
     "question_label_placement": ("--question-label-placement", "inline"),
     "page_number_placement": ("--page-number-placement", "bottom-right"),
+    # Selector only. Skipped when emitting CSS.
+    "theme": ("", "plain"),
 }
 
 # Tokens that may be 0 or the keyword none (radii, borders, paddings).
@@ -94,6 +107,11 @@ ZERO_OR_NONE_TOKENS = frozenset(
         "flow_port_gap",
         "flow_node_padding",
         "flow_node_min_width",
+        "flow_node_max_width",
+        "flow_node_min_height",
+        "flow_preferred_height",
+        "flow_stack_gap",
+        "column_min_height",
         "source_label_gap",
     }
 )
@@ -111,6 +129,43 @@ PAGE_NUMBER_PLACEMENTS = frozenset(
 QUESTION_LABEL_PLACEMENTS = frozenset({"inline", "block"})
 EDGE_SHAPE_TOKENS = frozenset({"flow_edge_shape"})
 EDGE_SHAPES = frozenset({"orthogonal", "straight"})
+FILL_HEIGHT_TOKENS = frozenset({"flow_fill_height"})
+FILL_HEIGHT_ON = frozenset({"fill", "1", "true", "yes"})
+FILL_HEIGHT_VALUES = frozenset({"none", "fill"})
+
+# Named palettes. `plain` leaves every colour on the TOKEN_SPEC default.
+# `dark-blue` is a generic 60/30/10 role set: off-white ground, navy structure,
+# one accent. It is not a product brand. The ground is the sample's sub colour
+# (#EDE8E4), not pure white. See docs/VISUAL_POLICY.md.
+THEME_NAMES = frozenset({"plain", "dark-blue"})
+THEMES: dict[str, dict[str, str]] = {
+    "plain": {},
+    "dark-blue": {
+        "color_background": "#EDE8E4",
+        "color_text": "#333333",
+        "color_muted": "#5C564F",
+        "color_gray": "#5C564F",
+        "color_border": "#C8C0B8",
+        "color_title": "#073365",
+        "color_top_bar": "#073365",
+        "color_accent_2": "#5C564F",
+        "color_highlight": "#F7581D",
+        "color_highlight_bg": "#F8E4DC",
+        "color_key_message_bg": "#E3EAF2",
+        "color_key_message_text": "#073365",
+        "color_key_message_border": "#073365",
+        "color_question_bg": "#F8E4DC",
+        "color_question_text": "#333333",
+        "color_question_border": "#F7581D",
+        "color_card_bg": "#E3EAF2",
+        "color_card_border": "#073365",
+        "color_flow_node_bg": "#F4F0EC",
+        "color_flow_node_border": "#073365",
+        "color_flow_arrow": "#073365",
+        "color_table_header_bg": "#E3EAF2",
+        "color_table_border": "#C8C0B8",
+    },
+}
 
 FRONT_MATTER_RE = re.compile(r"\A---\s*\n(.*?)\n---\s*\n?", re.DOTALL)
 CSS_FENCE_RE = re.compile(r"```css\s*\n(.*?)```", re.DOTALL | re.IGNORECASE)
@@ -127,6 +182,9 @@ def _format_css_value(token: str, value: Any) -> str:
         return f'"{text}"'
     if token in PLACEMENT_TOKENS or token in EDGE_SHAPE_TOKENS:
         return str(value).strip().lower()
+    if token in FILL_HEIGHT_TOKENS:
+        text = str(value).strip().lower()
+        return "1" if text in FILL_HEIGHT_ON else "0"
     if isinstance(value, str) and value.strip().lower() == "none":
         return "none"
     if isinstance(value, (int, float)) and not isinstance(value, bool):
@@ -176,6 +234,40 @@ def _expand_padding_sides(tokens: dict[str, Any]) -> dict[str, Any]:
     return out
 
 
+def _preferred_height_vars(tokens: dict[str, Any]) -> tuple[str, str]:
+    """Return (--flow-preferred-height, --flow-preferred-grow).
+
+    A wide row with no stack grows toward the height. ``none`` / ``0`` keeps the
+    content height. ``flow_fill_height: fill`` removes the cap.
+    """
+    fill_raw = tokens.get("flow_fill_height")
+    if fill_raw is not None and str(fill_raw).strip().lower() in FILL_HEIGHT_ON:
+        return "none", "1"
+    raw = tokens.get("flow_preferred_height")
+    if raw is None:
+        return "60%", "1"
+    if isinstance(raw, str) and raw.strip().lower() in {"none", "0", "0px", "0%", "0em", "0rem"}:
+        return "none", "0"
+    if isinstance(raw, (int, float)) and not isinstance(raw, bool) and float(raw) == 0:
+        return "none", "0"
+    return _format_css_value("flow_node_min_height", raw), "1"
+
+
+def _apply_theme(tokens: dict[str, Any]) -> dict[str, Any]:
+    """Fill omitted colour tokens from `theme`. Explicit tokens stay."""
+    out = dict(tokens)
+    raw = out.get("theme", "plain")
+    name = str(raw).strip().lower() if raw is not None else "plain"
+    if name not in THEMES:
+        raise ValueError(
+            f"Unknown theme {raw!r}. Expected one of: {', '.join(sorted(THEME_NAMES))}."
+        )
+    for key, value in THEMES[name].items():
+        if key not in out:
+            out[key] = value
+    return out
+
+
 def tokens_to_css(tokens: dict[str, Any], extra_css: str = "") -> str:
     """Build a :root rule from tokens, filling omitted tokens with plain defaults."""
     unknown = sorted(set(tokens) - set(TOKEN_SPEC))
@@ -186,7 +278,8 @@ def tokens_to_css(tokens: dict[str, Any], extra_css: str = "") -> str:
             + ". See docs/STYLE_GUIDE.md for the schema."
         )
 
-    expanded = _expand_padding_sides(tokens)
+    expanded = _apply_theme(_expand_padding_sides(tokens))
+    preferred_height, preferred_grow = _preferred_height_vars(expanded)
     # font_size_table falls back to font_size_small when omitted.
     if "font_size_table" not in expanded and "font_size_small" in expanded:
         expanded["font_size_table"] = expanded["font_size_small"]
@@ -194,6 +287,12 @@ def tokens_to_css(tokens: dict[str, Any], extra_css: str = "") -> str:
     lines = [":root {"]
     for name, (css_var, default) in TOKEN_SPEC.items():
         raw = expanded[name] if name in expanded else default
+        if name == "theme":
+            continue
+        if name == "flow_preferred_height":
+            lines.append(f"  {css_var}: {preferred_height};")
+            lines.append(f"  --flow-preferred-grow: {preferred_grow};")
+            continue
         if name in expanded:
             value = _format_css_value(name, raw)
         else:
