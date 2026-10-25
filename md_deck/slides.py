@@ -22,6 +22,11 @@ SOURCE_LINE_RE = re.compile(
     r"^(?:Source|出典)\s*[:：]\s*(?P<body>.+)\s*$",
     re.IGNORECASE | re.MULTILINE,
 )
+# Section label drawn above the slide title. One line, outside fences.
+EYEBROW_LINE_RE = re.compile(
+    r"^[ \t]*eyebrow\s*[:：]\s*(?P<body>.*)\s*$",
+    re.IGNORECASE,
+)
 # Only flow may nest inside columns. All other nesting stays forbidden.
 ALLOWED_NESTING = frozenset({("columns", "flow")})
 
@@ -369,6 +374,47 @@ def _extract_fence_body(lines: list[str], start: int) -> tuple[list[str], int]:
     return body, i
 
 
+def _extract_eyebrow(text: str) -> tuple[str, str | None]:
+    """Remove a top-level ``eyebrow:`` line and return it for the title.
+
+    Lines inside a fence stay in the body. The first line wins; extras are
+    dropped here and rejected by ``md-deck check``.
+    """
+    lines = text.splitlines(keepends=True)
+    found: str | None = None
+    out: list[str] = []
+    code = False
+    depth = 0
+    for line in lines:
+        stripped = line.strip()
+        if not code and (stripped.startswith("```") or stripped.startswith("~~~")):
+            code = True
+            out.append(line)
+            continue
+        if code:
+            out.append(line)
+            if stripped.startswith("```") or stripped.startswith("~~~"):
+                code = False
+            continue
+        if stripped.startswith(":::") and stripped != ":::":
+            depth += 1
+            out.append(line)
+            continue
+        if stripped == ":::":
+            depth = max(0, depth - 1)
+            out.append(line)
+            continue
+        if depth == 0:
+            match = EYEBROW_LINE_RE.match(line.rstrip("\n"))
+            if match:
+                body = match.group("body").strip()
+                if found is None and body:
+                    found = body
+                continue
+        out.append(line)
+    return "".join(out), found
+
+
 def _render_columns(body: str, options: frozenset[str], ctx: RenderContext) -> str:
     cols = [c.strip() for c in re.split(r"\n\+\+\+\n", body.strip())]
     option_classes = " ".join(sorted(options))
@@ -377,7 +423,12 @@ def _render_columns(body: str, options: frozenset[str], ctx: RenderContext) -> s
     for col in cols:
         # Allow nested flow fences inside a column.
         inner = _mark_column_head(_render_fragment(col, ctx, parent="columns"))
-        parts.append(f'<div class="column">{inner}</div>')
+        # {.dashed} on the column heading (or any element in the card) dashes
+        # the card outline. The class stays on the heading as well.
+        col_class = "column"
+        if re.search(r'class="[^"]*\bdashed\b', inner):
+            col_class = "column dashed"
+        parts.append(f'<div class="{col_class}">{inner}</div>')
     parts.append("</div>")
     return "\n".join(parts)
 
@@ -449,6 +500,7 @@ def render_slide_markdown(
 ) -> SlideRender:
     ctx = ctx or RenderContext()
     slide_md, slide_id, slide_classes = _extract_heading_attrs(slide_md)
+    slide_md, eyebrow = _extract_eyebrow(slide_md)
     slide_md = encode_h1_breaks(slide_md)
     slide_md, source_from_line = _extract_sources(slide_md)
     text = _render_key_messages(slide_md, ctx)
@@ -502,6 +554,8 @@ def render_slide_markdown(
     flush_buf()
 
     html = _add_title_class("\n".join(chunks)).replace(TITLE_BREAK_SENTINEL, "<br>")
+    if eyebrow:
+        html = f'<p class="eyebrow">{_inline_md(eyebrow)}</p>\n{html}'
     source_html = None
     if source_parts:
         source_html = "\n".join(source_parts)

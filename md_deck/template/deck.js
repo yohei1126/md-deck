@@ -51,6 +51,29 @@
     }
   }
 
+  function ensureGapMarker(svg, color) {
+    ensureMarkers(svg);
+    const defs = svg.querySelector("defs");
+    let marker = svg.querySelector("#flow-arrowhead-gap");
+    if (!marker) {
+      marker = document.createElementNS("http://www.w3.org/2000/svg", "marker");
+      marker.setAttribute("id", "flow-arrowhead-gap");
+      marker.setAttribute("markerWidth", "10");
+      marker.setAttribute("markerHeight", "7");
+      marker.setAttribute("refX", "9");
+      marker.setAttribute("refY", "3.5");
+      marker.setAttribute("orient", "auto");
+      const poly = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
+      poly.setAttribute("points", "0 0, 10 3.5, 0 7");
+      poly.setAttribute("fill", color || "#000");
+      marker.appendChild(poly);
+      defs.appendChild(marker);
+      return;
+    }
+    const poly = marker.querySelector("polygon");
+    if (poly && color) poly.setAttribute("fill", color);
+  }
+
   function nodeByKey(flow, key) {
     return flow.querySelector(`.flow-node[data-node="${CSS.escape(key)}"]`);
   }
@@ -139,12 +162,16 @@
         skip: false,
       });
     });
-    Array.from(flow.querySelectorAll(".flow-node-badge")).forEach((el, index) => {
+    Array.from(
+      flow.querySelectorAll(".flow-node-badge, .flow-node-index")
+    ).forEach((el, index) => {
+      const node = el.closest(".flow-node");
+      const nodeKey = node ? node.getAttribute("data-node") : "";
       out.push({
         key: `badge:${index}`,
         kind: "badge",
         box: relBox(el, flowBox, scale),
-        skip: false,
+        skip: skip.has(nodeKey),
       });
     });
     return out;
@@ -1159,18 +1186,47 @@
       Math.abs(end.x - beforeEnd.x) > 8 &&
       Math.abs(end.y - mid.y) < 2;
 
+    // Dashed labels use the gap accent. On a vertical stroke the upright
+    // stack is preferred; a horizontal shaft keeps the label above or below.
+    // The other orientation stays as a fallback when the preferred one hits
+    // a node or leaves the flow.
+    const gapLabel = edge.style === "dashed" || edge.kind === "dashed";
+
     // Do not slide a beside-the-line label back across the stroke to make it
     // fit. A side that cannot hold the text loses on the overflow score, and
     // the other side is used instead.
     const candidates = [];
     if (verticalMid) {
+      if (gapLabel) {
+        candidates.push({
+          name: "right",
+          mode: "right",
+          vertical: true,
+          anchor: "middle",
+          x: mid.x,
+          y: mid.y,
+          prefer: 0,
+          beside: true,
+        });
+        candidates.push({
+          name: "left",
+          mode: "left",
+          vertical: true,
+          anchor: "middle",
+          x: mid.x,
+          y: mid.y,
+          prefer: 4,
+          beside: true,
+        });
+      }
+      const besidePrefer = gapLabel ? 24 : 0;
       candidates.push({
         name: "right",
         anchor: "start",
         x: mid.x + LABEL_GAP,
         y: mid.y,
         dy: verticalDy,
-        prefer: 0,
+        prefer: besidePrefer,
         beside: true,
       });
       candidates.push({
@@ -1179,7 +1235,7 @@
         x: mid.x - LABEL_GAP,
         y: mid.y,
         dy: verticalDy,
-        prefer: 4,
+        prefer: besidePrefer + 4,
         beside: true,
       });
     } else {
@@ -1202,6 +1258,31 @@
         }
       }
       const seen = [];
+      // A dashed label the author broke with \n stacks upright in the gap.
+      // A single-line dashed label stays horizontal unless that box loses.
+      const stackBias = gapLabel && lines.length > 1 ? 24 : 0;
+      if (gapLabel && lines.length > 1) {
+        candidates.push({
+          name: "above",
+          mode: "above",
+          vertical: true,
+          anchor: "middle",
+          x: mid.x,
+          y: mid.y,
+          prefer: 0,
+          side: "above",
+        });
+        candidates.push({
+          name: "below",
+          mode: "below",
+          vertical: true,
+          anchor: "middle",
+          x: mid.x,
+          y: mid.y,
+          prefer: 4,
+          side: "below",
+        });
+      }
       xs.forEach((raw) => {
         const x = clamp(raw, spanLo, spanHi);
         if (seen.some((u) => Math.abs(u - x) < 1)) return;
@@ -1213,7 +1294,7 @@
           x,
           y: mid.y - LABEL_GAP + nudge,
           dy: `${-(lines.length - 1) * 1.15}em`,
-          prefer: (placeAbove ? 0 : 12) + drift * 1.5,
+          prefer: (placeAbove ? 0 : 12) + drift * 1.5 + stackBias,
           side: "above",
         });
         candidates.push({
@@ -1222,7 +1303,7 @@
           x,
           y: mid.y + LABEL_GAP + 8 + nudge,
           dy: "0.9em",
-          prefer: (placeAbove ? 12 : 0) + drift * 1.5,
+          prefer: (placeAbove ? 12 : 0) + drift * 1.5 + stackBias,
           side: "below",
         });
       });
@@ -1234,7 +1315,46 @@
       text.setAttribute("y", String(c.y));
       text.setAttribute("text-anchor", c.anchor);
       text.classList.add("flow-label", "flow-edge-label");
+      if (gapLabel) text.classList.add("flow-label-gap");
       applyEdgeHooks(text, edge);
+      if (c.vertical) {
+        text.classList.add("flow-label-gap-vertical");
+        const chars = Array.from(lines.join(""));
+        chars.forEach((ch, i) => {
+          const tspan = document.createElementNS("http://www.w3.org/2000/svg", "tspan");
+          tspan.setAttribute("x", String(c.x));
+          tspan.setAttribute("dy", i === 0 ? "0" : "1.05em");
+          tspan.textContent = ch;
+          text.appendChild(tspan);
+        });
+        svg.appendChild(text);
+        const bbox = text.getBBox();
+        const cx = bbox.x + bbox.width / 2;
+        const cy = bbox.y + bbox.height / 2;
+        let dx = 0;
+        let dy = 0;
+        if (c.mode === "right") {
+          dx = mid.x + 8 - bbox.x;
+          dy = mid.y - cy;
+        } else if (c.mode === "left") {
+          dx = mid.x - 8 - (bbox.x + bbox.width);
+          dy = mid.y - cy;
+        } else if (c.mode === "above") {
+          dx = mid.x - cx;
+          dy = mid.y - 8 - (bbox.y + bbox.height);
+        } else if (c.mode === "below") {
+          dx = mid.x - cx;
+          dy = mid.y + 8 - bbox.y;
+        }
+        if (Math.abs(dx) > 0.5 || Math.abs(dy) > 0.5) {
+          text.setAttribute("y", String(parseFloat(text.getAttribute("y")) + dy));
+          const nx = c.x + dx;
+          Array.from(text.children).forEach((tspan) => {
+            tspan.setAttribute("x", String(nx));
+          });
+        }
+        return text;
+      }
       lines.forEach((line, i) => {
         const tspan = document.createElementNS("http://www.w3.org/2000/svg", "tspan");
         tspan.setAttribute("x", String(c.x));
@@ -1322,9 +1442,12 @@
   function drawPolyline(svg, pts, edge, labelNudge, labelObstacles, flow, otherPaths) {
     const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
     path.setAttribute("d", pathD(pts));
-    path.setAttribute("marker-end", "url(#flow-arrowhead)");
-    if (edge.style === "dashed") {
-      path.setAttribute("stroke-dasharray", "6 4");
+    const dashed = edge.style === "dashed" || edge.kind === "dashed";
+    if (dashed) {
+      path.setAttribute("stroke-dasharray", "7 5");
+      path.setAttribute("marker-end", "url(#flow-arrowhead-gap)");
+    } else {
+      path.setAttribute("marker-end", "url(#flow-arrowhead)");
     }
     applyEdgeHooks(path, edge);
     svg.appendChild(path);
@@ -1437,9 +1560,14 @@
       if (!a || !b) return;
       if (Math.abs(a.cy - b.cy) > Math.max(a.height, b.height) * 0.7) return;
       if (a.cx >= b.cx) return;
-      const size = measureLabelSize(svg, labelLines(edge.label));
+      const lines = labelLines(edge.label);
+      const size = measureLabelSize(svg, lines);
       const gap = b.left - a.right;
-      const need = size.width + 24;
+      // A dashed label broken with \n is drawn as an upright column, so the
+      // row keeps a short shaft instead of the full horizontal width.
+      const stacked =
+        (edge.style === "dashed" || edge.kind === "dashed") && lines.length > 1;
+      const need = stacked ? 56 : size.width + 24;
       if (gap < need) {
         const extra = need - gap;
         aEl.style.marginInlineEnd = `${extra}px`;
@@ -1884,6 +2012,125 @@
     return paths;
   }
 
+  const ALT_SIDE_PAIRS = [
+    ["bottom", "top"],
+    ["top", "bottom"],
+    ["bottom", "bottom"],
+    ["top", "top"],
+    ["right", "left"],
+    ["left", "right"],
+    ["right", "right"],
+    ["left", "left"],
+    ["bottom", "right"],
+    ["bottom", "left"],
+    ["top", "right"],
+    ["top", "left"],
+    ["right", "top"],
+    ["left", "top"],
+    ["right", "bottom"],
+    ["left", "bottom"],
+  ];
+
+  function finalStubLen(pts) {
+    if (!pts || pts.length < 2) return 0;
+    const a = pts[pts.length - 2];
+    const b = pts[pts.length - 1];
+    return Math.hypot(b.x - a.x, b.y - a.y);
+  }
+
+  function pathOutsideCount(pts, box) {
+    if (!box || !pts) return 0;
+    let n = 0;
+    pts.forEach((p) => {
+      if (
+        p.x < box.left - 1 ||
+        p.x > box.right + 1 ||
+        p.y < box.top - 1 ||
+        p.y > box.bottom + 1
+      ) {
+        n += 1;
+      }
+    });
+    return n;
+  }
+
+  function bestClearRoute(plan, drawn, flowBox) {
+    // Try other sides and a small port shift. The first route that misses
+    // nodes, stays inside the flow, and crosses less is the one we keep.
+    if (!plan || !plan.a || !plan.b) return null;
+    const offsets = [0, -22, 22, -44, 44];
+    let best = null;
+    let bestScore = Infinity;
+    ALT_SIDE_PAIRS.forEach(([fromSide, toSide]) => {
+      offsets.forEach((off) => {
+        const p1 = sidePointAt(
+          plan.a,
+          fromSide,
+          clampPortOffset(plan.a, fromSide, off)
+        );
+        const p2 = sidePointAt(
+          plan.b,
+          toSide,
+          clampPortOffset(plan.b, toSide, -off)
+        );
+        const pts = pickPathForPorts(
+          plan.a,
+          plan.b,
+          "auto",
+          plan.obstacles,
+          drawn,
+          flowBox,
+          p1,
+          p2,
+          fromSide,
+          toSide
+        );
+        if (!pts || pts.length < 2 || !isOrthogonalPath(pts)) return;
+        if (pathHitsObstacles(pts, plan.obstacles, HIT_PAD) > 0) return;
+        if (finalStubLen(pts) < 14) return;
+        if (pathOutsideCount(pts, flowBox) > 0) return;
+        const score =
+          pathCrossings(pts, drawn) * 1e6 +
+          pathOverlaps(pts, drawn) * 10 +
+          pathLength(pts);
+        if (score < bestScore - 1e-6) {
+          bestScore = score;
+          best = pts;
+        }
+      });
+    });
+    return best;
+  }
+
+  function repairCrossings(routed, flowBox) {
+    // A second edge can share the diagram with an earlier one. When the
+    // chosen path crosses, move whichever edge has a free corridor. Straight
+    // edges and edges that already miss stay put. No diagram is special-cased.
+    for (let pass = 0; pass < 3; pass += 1) {
+      let changed = false;
+      for (let i = routed.length - 1; i >= 0; i -= 1) {
+        const item = routed[i];
+        if (!item.plan || item.forked || item.edge.shape === "straight") continue;
+        // An explicit between route is the lane-gap U. Replacing it with a
+        // side entry shortens the shaft the label sits on.
+        if ((item.edge.route || "auto") === "between") continue;
+        const others = [];
+        for (let j = 0; j < routed.length; j += 1) {
+          if (j !== i) others.push(routed[j].pts);
+        }
+        const before = pathCrossings(item.pts, others);
+        if (before === 0) continue;
+        const alt = bestClearRoute(item.plan, others, flowBox);
+        if (!alt) continue;
+        if (pathCrossings(alt, others) < before) {
+          item.pts = alt;
+          changed = true;
+        }
+      }
+      if (!changed) break;
+    }
+  }
+
   function drawFlow(flow) {
     let svg = flow.querySelector("svg.flow-svg");
     if (!svg) {
@@ -1893,6 +2140,10 @@
     }
     while (svg.lastChild) svg.removeChild(svg.lastChild);
     ensureMarkers(svg);
+    const gapColor =
+      cssTokenVar(flow, "--color-edge-gap", "") ||
+      cssTokenVar(flow, "--color-highlight", "#000");
+    ensureGapMarker(svg, gapColor);
     svg.style.color =
       getComputedStyle(flow).getPropertyValue("--color-flow-arrow").trim() || "#000";
 
@@ -2251,7 +2502,10 @@
           const x = clamp(want, lo + Math.min(pad, (hi - lo) / 2), hi - Math.min(pad, (hi - lo) / 2));
           const p1 = { x, y: fromPort.point.y };
           const p2 = { x, y: toPort.point.y };
-          if (pathHitsObstacles([p1, p2], plan.obstacles, HIT_PAD) === 0) {
+          if (
+            pathHitsObstacles([p1, p2], plan.obstacles, HIT_PAD) === 0 &&
+            pathCrossings([p1, p2], drawn) === 0
+          ) {
             fromPort.point = p1;
             toPort.point = p2;
           }
@@ -2289,6 +2543,9 @@
         );
         // Same-side U detours: nest trunks (fan-in and fan-out) with arrowhead-
         // aware spacing so heads stay clear and trunks do not share a y.
+        // Keep the picked path when the nest or rebuild would add a crossing.
+        const picked = pts;
+        let next = picked;
         if (isSameSideUD(plan) && Math.max(fromPort.count, toPort.count) > 1) {
           const nestGap = detourNestGap(portGap);
           const baseClear = detourBaseClear(portGap);
@@ -2303,17 +2560,20 @@
               : Math.max(fromPort.point.y, toPort.point.y) +
                 baseClear +
                 nestGap * rank;
-          pts = buildUPath(fromPort.point, toPort.point, midY);
+          next = buildUPath(fromPort.point, toPort.point, midY);
         } else if (
           (plan.fromSide === "bottom" && plan.toSide === "top") ||
           (plan.fromSide === "top" && plan.toSide === "bottom")
         ) {
-          pts = rebuildOrthogonalWithPorts(
+          next = rebuildOrthogonalWithPorts(
             pts,
             fromPort.point,
             toPort.point,
             corridorShift * 0.5
           );
+        }
+        if (pathCrossings(next, drawn) <= pathCrossings(picked, drawn)) {
+          pts = next;
         }
         if (!isOrthogonalPath(pts)) {
           pts = rebuildOrthogonalWithPorts(
@@ -2334,9 +2594,13 @@
         edge: { ...plan.edge, shape },
         labelNudge: shifted.labelNudge,
         bidirectional: plan.edge.bidirectional,
+        plan,
+        forked: forkPaths.has(planIdx),
       });
       drawn.push(shifted.pts);
     });
+
+    repairCrossings(routed, layoutBox);
 
     routed.forEach((item, index) => {
       const others = [];

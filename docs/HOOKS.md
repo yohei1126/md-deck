@@ -28,6 +28,7 @@ becomes `<section class="slide path-diagram" id="routing" data-index="…">`.
 
 | Hook | Element | Source |
 | --- | --- | --- |
+| `.eyebrow` | Paragraph before the title | Top-level `eyebrow: …` line. Colour is `--color-accent-2` |
 | `.title` | First `h1` | Always added (merged with any `attr_list` classes). A `\n` in the H1 source is a `<br>` inside this element. Titles use `text-wrap: balance` when they wrap without a `<br>` |
 | `.key-message` | Key Message box | `**Key Message:** …`. The box is bold (`--font-weight-title`). `**emphasis**` in the sentence is a `<strong>` |
 | `.key-message .label` | Label span | Text from `label_key_message` or `lang` default |
@@ -37,7 +38,8 @@ becomes `<section class="slide path-diagram" id="routing" data-index="…">`.
 | `.question .label` | Label span | Text from `label_question` or `lang` default |
 | `.columns` | Column row | `::: columns` |
 | `.columns.plain` / `.columns.panel` / `.columns.fill` / `.columns.figures` | same | Block options. `fill` asks the row to use leftover slide height. `figures` enlarges `.column-head` for a plain big number |
-| `.column` | One column | Split by `+++` |
+| `.column` | One column | Split by `+++`. The row is content height unless the block is `.columns.fill` |
+| `.column.dashed` | same | `{.dashed}` on the column heading (the class is copied onto the card). Border style is dashed |
 | `.column-head` | First heading in a column | First `h2`–`h6` in that column. About `1.1em` of the body so a short title does not wrap. A following paragraph stays under it |
 | `.source` | Footer source | `Source:` / `出典:` line or `::: source` |
 | `.source .label` | Source prefix | Text from `label_source` or `lang` default (omitted when `label_source` is empty). Weight / gap from `--source-label-weight` / `--source-label-gap` |
@@ -83,7 +85,8 @@ becomes `<section class="slide path-diagram" id="routing" data-index="…">`.
 | `.flow-node-actor` (etc.) | same | Class mirror of `data-kind` |
 | `.flow-node-title` | Title span | Primary label (omitted for chips-only nodes) |
 | `.flow-node-caption` | Caption span | `Name \| caption`. Size `--font-size-flow-body` (default `18px`), colour `--color-text` |
-| `.flow-node-badge` | Badge span | `Name {badge}` |
+| `.flow-node-badge` | Badge span | `Name {badge}` when the text is not a short index |
+| `.flow-node-index` | Corner index | Leading circled number (`① Intake`) or a short badge (`{1}`, `{①}`). Positioned off the title |
 | `.flow-chips` / `.flow-chip` | Chip tags | `Name [[chip1, chip2]]` or chips-only `[[a, b]]` |
 | `div.flow-callout` | Note box | `callout: NodeId : text [pos=below]` |
 | `div.flow-callout[data-anchor]` / `[data-pos]` | same | Anchor key and position (`below-left` / `below-right` included) |
@@ -102,10 +105,12 @@ Every drawn arrow path and label text carries these hooks. Style CSS may target 
 | Hook | Element | Notes |
 | --- | --- | --- |
 | `.flow-arrow` | SVG `<path>` | Every arrow |
-| `.flow-arrow-dashed` | SVG `<path>` | Dashed stroke |
+| `.flow-arrow-dashed` | SVG `<path>` | Dashed stroke. Uses `--color-edge-gap` and a gap arrowhead |
 | `.flow-link` | SVG `<path>` | Cross-lane `link:` and callout connectors |
 | `.flow-callout-arrow` | SVG `<path>` | Callout connector (also carries `.flow-link` and `.flow-callout`) |
 | `.flow-label` | SVG `<text>` | Arrow label (`.flow-edge-label` kept as an alias) |
+| `.flow-label-gap` | SVG `<text>` | Dashed-edge label. Fill is `--color-edge-gap`, weight is the title weight |
+| `.flow-label-gap-vertical` | SVG `<text>` | That label stacked upright beside the stroke |
 | `[data-from]` / `[data-to]` | path and text | Endpoint node keys |
 | `[data-kind]` | path and text | `solid`, `dashed`, `bidirectional`, or `link` |
 | `[data-shape]` | path | `orthogonal` or `straight` when set on the edge |

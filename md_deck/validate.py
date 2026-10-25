@@ -15,7 +15,7 @@ from jsonschema import Draft202012Validator
 from md_deck.errors import CheckError, sort_errors
 from md_deck.flow import KNOWN_NODE_KINDS, collect_flow_nodes, parse_flow_body
 from md_deck.titles import TitleMeasure, heading_title_messages, title_measure_from_tokens
-from md_deck.slides import ALLOWED_NESTING, BLOCK_OPTIONS
+from md_deck.slides import ALLOWED_NESTING, BLOCK_OPTIONS, EYEBROW_LINE_RE
 from md_deck.style import (
     EDGE_SHAPE_TOKENS,
     EDGE_SHAPES,
@@ -548,6 +548,7 @@ def validate_slide_body(
     h1_lines: list[int] = []
     h1_raw: list[tuple[int, str]] = []
     key_message_lines: list[int] = []
+    eyebrow_lines: list[tuple[int, str]] = []
     heading_levels: list[tuple[int, int]] = []  # (line, level)
 
     def abs_line(i: int) -> int:
@@ -701,6 +702,10 @@ def validate_slide_body(
             continue
 
         # Outside blocks
+        eyebrow_match = EYEBROW_LINE_RE.match(line)
+        if eyebrow_match:
+            eyebrow_lines.append((lineno, eyebrow_match.group("body").strip()))
+
         if KEY_MESSAGE_LINE_RE.match(line):
             key_message_lines.append(lineno)
             body = KEY_MESSAGE_LINE_RE.match(line).group("body").strip()  # type: ignore[union-attr]
@@ -787,6 +792,19 @@ def validate_slide_body(
                     f"slide {slide.index} has more than one H1 title",
                 )
             )
+
+    if len(eyebrow_lines) > 1:
+        for lineno, _body in eyebrow_lines[1:]:
+            errors.append(
+                CheckError(
+                    path,
+                    lineno,
+                    f"slide {slide.index} has more than one eyebrow",
+                )
+            )
+    for lineno, body in eyebrow_lines:
+        if not body:
+            errors.append(CheckError(path, lineno, "eyebrow body is empty"))
 
     if len(key_message_lines) > 1:
         for lineno in key_message_lines[1:]:

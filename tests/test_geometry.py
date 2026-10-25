@@ -1162,3 +1162,121 @@ def test_same_row_fan_out_trunks_nested_not_collinear(geometry_page):
     assert max(result["midYs"]) - min(result["midYs"]) >= 16, result
     assert result["startGap"] >= 16, result
     assert min(result["finals"]) >= 18, result
+
+
+def test_second_dashed_edge_does_not_cross_the_first(geometry_page):
+    """A later dashed link can share a lane map without crossing the earlier one."""
+    result = geometry_page.evaluate(
+        r"""() => {
+          const slide = Array.from(document.querySelectorAll('.slide')).find((s) =>
+            (s.querySelector('h1') || {}).textContent.includes('Second dashed')
+          );
+          if (!slide) return { ok: false, reason: 'missing-slide' };
+          const flow = slide.querySelector('.flow');
+          function ptsOf(fromKey, toKey) {
+            const path = flow.querySelector(
+              `path.flow-arrow[data-from="${fromKey}"][data-to="${toKey}"]`
+            );
+            if (!path) return null;
+            const pts = [];
+            const re = /([ML])\s*([-\d.]+)\s+([-\d.]+)/g;
+            let m;
+            const d = path.getAttribute('d') || '';
+            while ((m = re.exec(d))) pts.push({ x: parseFloat(m[2]), y: parseFloat(m[3]) });
+            return pts;
+          }
+          function crosses(a, b) {
+            const EPS = 0.75;
+            function seg(a1, a2, b1, b2) {
+              const aVert = Math.abs(a1.x - a2.x) < EPS;
+              const bVert = Math.abs(b1.x - b2.x) < EPS;
+              if (aVert === bVert) return false;
+              const vert = aVert ? [a1, a2] : [b1, b2];
+              const horz = aVert ? [b1, b2] : [a1, a2];
+              const x = vert[0].x;
+              const y = horz[0].y;
+              const yLo = Math.min(vert[0].y, vert[1].y) + EPS;
+              const yHi = Math.max(vert[0].y, vert[1].y) - EPS;
+              const xLo = Math.min(horz[0].x, horz[1].x) + EPS;
+              const xHi = Math.max(horz[0].x, horz[1].x) - EPS;
+              return x > xLo && x < xHi && y > yLo && y < yHi;
+            }
+            let n = 0;
+            for (let i = 1; i < a.length; i += 1) {
+              for (let j = 1; j < b.length; j += 1) {
+                if (seg(a[i - 1], a[i], b[j - 1], b[j])) n += 1;
+              }
+            }
+            return n;
+          }
+          const back = ptsOf('l4', 'l2');
+          const direct = ptsOf('u3', 'l3');
+          if (!back || !direct) return { ok: false, reason: 'missing-path', back, direct };
+          const n = crosses(back, direct);
+          return { ok: n === 0, crossings: n, back, direct };
+        }"""
+    )
+    assert result.get("ok"), result
+
+
+def test_vertical_gap_label_is_accent_and_off_the_stroke(geometry_page):
+    result = geometry_page.evaluate(
+        r"""() => {
+          const slide = Array.from(document.querySelectorAll('.slide')).find((s) =>
+            (s.querySelector('h1') || {}).textContent.includes('Vertical gap')
+          );
+          if (!slide) return { ok: false, reason: 'missing-slide' };
+          const flow = slide.querySelector('.flow');
+          const path = flow.querySelector('path.flow-arrow-dashed');
+          const label = flow.querySelector('text.flow-label-gap');
+          if (!path || !label) return { ok: false, reason: 'missing', path: Boolean(path), label: Boolean(label) };
+          const pb = path.getBBox();
+          const lb = label.getBBox();
+          const weight = getComputedStyle(label).fontWeight;
+          const gap = getComputedStyle(flow).getPropertyValue('--color-edge-gap').trim();
+          const muted = getComputedStyle(flow).getPropertyValue('--color-muted').trim();
+          const fill = getComputedStyle(label).fill;
+          const vertical = label.classList.contains('flow-label-gap-vertical');
+          const overlapsX = lb.x < pb.x + pb.width && lb.x + lb.width > pb.x;
+          const overlapsY = lb.y < pb.y + pb.height && lb.y + lb.height > pb.y;
+          return {
+            ok: vertical && lb.height > lb.width && !(overlapsX && overlapsY),
+            vertical,
+            tall: lb.height > lb.width,
+            overlaps: overlapsX && overlapsY,
+            weight,
+            gap,
+            muted,
+            fill,
+          };
+        }"""
+    )
+    assert result.get("ok"), result
+    assert result["weight"] in {"700", "bold"}, result
+    assert result["gap"].lower() != result["muted"].lower()
+
+
+def test_corner_index_sits_outside_the_title(geometry_page):
+    result = geometry_page.evaluate(
+        r"""() => {
+          const slide = Array.from(document.querySelectorAll('.slide')).find((s) =>
+            (s.querySelector('h1') || {}).textContent.includes('Corner index')
+          );
+          if (!slide) return { ok: false, reason: 'missing-slide' };
+          const node = slide.querySelector('.flow-node[data-node="in"]');
+          const badge = node.querySelector('.flow-node-index');
+          const title = node.querySelector('.flow-node-title');
+          const br = badge.getBoundingClientRect();
+          const tr = title.getBoundingClientRect();
+          return {
+            ok: title.textContent.trim() === 'Intake'
+              && !title.textContent.includes('①')
+              && (br.right <= tr.left + 6 || br.bottom <= tr.top + 6),
+            title: title.textContent,
+            badge: badge.textContent,
+            br: { left: br.left, top: br.top, right: br.right, bottom: br.bottom },
+            tr: { left: tr.left, top: tr.top },
+          };
+        }"""
+    )
+    assert result.get("ok"), result

@@ -109,6 +109,16 @@ body {
   text-align: center;
 }
 
+/* Section label above the title. Colour is the secondary accent. */
+.eyebrow {
+  margin: 0 0 0.2em;
+  color: var(--color-accent-2);
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-title);
+  letter-spacing: 0.04em;
+  line-height: 1.2;
+}
+
 .slide h1,
 .slide .title {
   margin: 0;
@@ -186,9 +196,10 @@ body {
 .columns {
   display: flex;
   gap: var(--gap);
-  flex: 1 1 auto;
-  min-height: 0;
-  align-items: stretch;
+  /* Content height. Leftover slide space stays outside the cards.
+     ::: columns fill opts back into stretching the row. */
+  flex: 0 0 auto;
+  align-items: flex-start;
 }
 
 .column {
@@ -208,6 +219,22 @@ body {
 .columns.fill {
   flex: 1 1 auto;
   align-items: stretch;
+}
+
+.columns.fill > .column {
+  align-self: stretch;
+}
+
+/* {.dashed} on a column heading. A muted layer can use the same class. */
+.column.dashed {
+  border-style: dashed;
+}
+
+.columns.plain .column.dashed {
+  padding: var(--card-padding);
+  border: var(--border-width) dashed var(--color-card-border);
+  border-radius: var(--card-radius);
+  background: transparent;
 }
 
 /* plain: no card chrome (style file may still colour headings) */
@@ -600,10 +627,21 @@ body {
 }
 
 /* A wide or fill row stretches the box. Keep the title and caption at the
-   top of that box so the extra height is empty space, not stretched leading. */
+   top of that box so the extra height is empty space, not stretched leading.
+   Line-height stays the body size so a tall step does not look loosely set. */
 .flow.flow-wide .flow-node,
 .flow.flow-fill .flow-node {
   justify-content: flex-start;
+}
+
+.flow.flow-wide .flow-node-title,
+.flow.flow-wide .flow-node-caption,
+.flow.flow-fill .flow-node-title,
+.flow.flow-fill .flow-node-caption,
+.flow.flow-steps .flow-node-title,
+.flow.flow-steps .flow-node-caption {
+  flex: 0 0 auto;
+  line-height: var(--line-height);
 }
 
 .flow-node-title {
@@ -621,6 +659,29 @@ body {
   display: inline-block;
   font-size: var(--font-size-small);
   color: var(--color-muted);
+}
+
+/* Corner index (leading ① or a short {1} badge). Sits off the title text. */
+.flow-node-index {
+  position: absolute;
+  z-index: 2;
+  top: 0;
+  left: 0;
+  transform: translate(-35%, -40%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  min-width: 1.45em;
+  height: 1.45em;
+  padding: 0 0.2em;
+  border-radius: 999px;
+  border: var(--border-width) solid var(--color-title);
+  background: var(--color-title);
+  color: var(--color-flow-node-bg);
+  font-size: calc(var(--font-size-small) * 0.85);
+  font-weight: var(--font-weight-title);
+  line-height: 1;
 }
 
 .flow-chips {
@@ -698,7 +759,20 @@ body {
 
 .flow-svg path.flow-arrow-dashed,
 .flow-svg path.flow-callout-arrow {
-  stroke-dasharray: 6 4;
+  stroke-dasharray: 7 5;
+}
+
+/* Dashed gaps use the accent, not muted body text. Callout connectors stay
+   on the arrow colour; they are not .flow-arrow-dashed. */
+.flow-svg path.flow-arrow-dashed {
+  stroke: var(--color-edge-gap);
+  stroke-width: 2.5;
+  marker-end: url(#flow-arrowhead-gap);
+}
+
+.flow-svg text.flow-label-gap {
+  fill: var(--color-edge-gap);
+  font-weight: var(--font-weight-title);
 }
 
 table {

@@ -49,7 +49,7 @@ Label tokens become both HTML label text (when set) and quoted CSS variables for
 | `color_border` | `--color-border` | `#cccccc` | no | Generic border token |
 | `color_title` | `--color-title` | `#000000` | **yes** | `h1`–`h3` / accent |
 | `color_top_bar` | `--color-top-bar` | `#000000` | no | Top bar / rule colour for style CSS |
-| `color_accent_2` | `--color-accent-2` | `#666666` | no | Secondary accent |
+| `color_accent_2` | `--color-accent-2` | `#666666` | no | Secondary accent. Eyebrows use it. `dark-blue` sets `#1A6B7A` |
 | `color_highlight` | `--color-highlight` | `#000000` | no | Highlight stroke / text |
 | `color_highlight_bg` | `--color-highlight-bg` | `#f5f5f5` | no | Highlight fill |
 | `color_key_message_bg` | `--color-key-message-bg` | `#f5f5f5` | no | Key Message box fill |
@@ -63,6 +63,7 @@ Label tokens become both HTML label text (when set) and quoted CSS variables for
 | `color_flow_node_bg` | `--color-flow-node-bg` | `#ffffff` | no | Flow node fill |
 | `color_flow_node_border` | `--color-flow-node-border` | `#000000` | no | Flow node border |
 | `color_flow_arrow` | `--color-flow-arrow` | `#000000` | no | Flow arrow stroke |
+| `color_edge_gap` | `--color-edge-gap` | `#000000` | no | Dashed gap stroke and label. `dark-blue` sets the accent `#F7581D` |
 | `color_table_header_bg` | `--color-table-header-bg` | `#f0f0f0` | no | Table header fill |
 | `color_table_border` | `--color-table-border` | `#cccccc` | no | Table cell borders |
 | `font_family` | `--font-family` | `sans-serif` | **yes** | Font stack |
@@ -88,14 +89,14 @@ Label tokens become both HTML label text (when set) and quoted CSS variables for
 | `card_padding` | `--card-padding` | `16px` | no | Inner padding for boxes |
 | `key_message_radius` | `--key-message-radius` | `8px` | no | Key Message radius |
 | `question_radius` | `--question-radius` | `8px` | no | Question radius |
-| `border_width` | `--border-width` | `1px` | no | Default border width (`0` / `none` ok) |
+| `border_width` | `--border-width` | `1px` | no | Default border width (`0` / `none` ok). `theme: dark-blue` sets `2px` when this token is omitted |
 | `flow_node_min_width` | `--flow-node-min-width` | `120px` | no | Minimum flow node width (`0` / `none` ok) |
 | `flow_node_max_width` | `--flow-node-max-width` | `none` | no | Cap for boxes in a wide row or beside a stack. `none` (the default) lets those boxes share the row. A length such as `240px` keeps a centred inset |
 | `flow_node_min_height` | `--flow-node-min-height` | `96px` | no | Floor on a flow node (`0` / `none` sizes to the label). A wide row still grows toward `flow_preferred_height` |
 | `flow_preferred_height` | `--flow-preferred-height` | `60%` | no | A `::: flow wide` row with no stack grows toward this share of the slide content box. `none` keeps content height. A length such as `220px` is a fixed cap. `flow_fill_height: fill` ignores it |
 | `flow_stack_gap` | `--flow-stack-gap` | `32px` | no | Vertical gap between boxes inside a `{ A / B }` stack (`0` / `none` ok) |
 | `flow_fill_height` | `--flow-fill-height` | `none` | no | `none` uses `flow_preferred_height` for a wide row and content height otherwise. `fill` stretches every flow to the leftover slide height |
-| `column_min_height` | `--column-min-height` | `160px` | no | Minimum column card height (`0` / `none` sizes to the copy) |
+| `column_min_height` | `--column-min-height` | `160px` | no | Floor on a column card (`0` / `none` sizes to the copy). The row stays content height unless the block is `::: columns fill` |
 | `flow_node_padding` | `--flow-node-padding` | `12px` | no | Flow node padding |
 | `flow_callout_gap` | `--flow-callout-gap` | `12px` | no | Gap between a callout box and its anchor node |
 | `flow_port_gap` | `--flow-port-gap` | `12px` | no | Spacing between fan-in / fan-out edge ports on one node side |

@@ -423,6 +423,9 @@ def test_plain_theme_stays_black_on_white():
     plain = tokens_to_css({"theme": "plain"})
     assert "--color-background: #ffffff;" in plain
     assert "--color-flow-arrow: #000000;" in plain
+    assert "--border-width: 1px;" in css
+    assert "--color-edge-gap: #000000;" in css
+    assert "#1A6B7A" not in css
 
 
 def test_dark_blue_theme_fills_omitted_colours_and_yields_to_explicit():
@@ -435,7 +438,12 @@ def test_dark_blue_theme_fills_omitted_colours_and_yields_to_explicit():
     assert "--color-highlight: #F7581D;" in css
     assert "--color-question-border: #F7581D;" in css
     assert "--color-card-bg: #E3EAF2;" in css
-    assert "--color-flow-node-bg: #FFF8F3;" in css
+    assert "--color-flow-node-bg: #FFFFFF;" in css
+    assert "--border-width: 2px;" in css
+    assert "--color-accent-2: #1A6B7A;" in css
+    assert "--color-edge-gap: #F7581D;" in css
+    explicit = tokens_to_css({"theme": "dark-blue", "border_width": "1px"})
+    assert "--border-width: 1px;" in explicit
     assert "--theme:" not in css
     errors = validate_style_tokens(
         {"theme": "dark-blue", "font_family": "sans-serif", "font_size_body": 22},
@@ -508,3 +516,55 @@ def test_spread_figures_and_key_message_emphasis():
     assert 'class="key-message"' in message.html
     assert "<strong>Ship</strong>" in message.html
     assert "--font-size-flow-body: 18px;" in tokens_to_css({})
+
+
+def test_corner_index_from_circled_title_and_digit_badge():
+    lifted = parse_node_text("① Intake {#in}")
+    assert lifted.index == "①"
+    assert lifted.title == "Intake"
+    assert lifted.badge is None
+    assert lifted.node_id == "in"
+    digit = parse_node_text("Check {2}")
+    assert digit.index == "2"
+    assert digit.title == "Check"
+    assert digit.badge is None
+    word = parse_node_text("[doc] Spec {#spec} {v1}")
+    assert word.badge == "v1"
+    assert word.index is None
+    assert word.title == "Spec"
+    bare = parse_node_text("①")
+    assert bare.index is None
+    assert bare.title == "①"
+    both = parse_node_text("① Intake {draft}")
+    assert both.index == "①"
+    assert both.title == "Intake"
+    assert both.badge == "draft"
+    html = render_flow_html(parse_flow_body("① Intake {#in} -> Check {2}\n"))
+    assert 'class="flow-node-index"' in html
+    assert ">①</span>" in html
+    assert ">2</span>" in html
+    assert "① Intake" not in html
+
+
+def test_eyebrow_and_dashed_column_class():
+    slide = render_slide_markdown(
+        "eyebrow: Section label\n\n"
+        "# Title\n\n"
+        "::: columns panel\n"
+        "## Quiet {.dashed .muted}\n\n"
+        "A short note.\n\n"
+        "+++\n\n"
+        "## Solid\n\n"
+        "A short note.\n"
+        ":::\n"
+    )
+    assert slide.html.startswith('<p class="eyebrow">Section label</p>')
+    assert 'class="column dashed"' in slide.html
+    assert slide.html.count('class="column dashed"') == 1
+    assert "column-head" in slide.html
+    # The fence body is not an eyebrow, even if a line starts with the word.
+    kept = render_slide_markdown(
+        "# Title\n\n::: flow\neyebrow: not a label\nA -> B\n:::\n"
+    )
+    assert "eyebrow" not in kept.html or "not a label" in kept.html
+    assert '<p class="eyebrow">' not in kept.html

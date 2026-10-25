@@ -55,3 +55,27 @@ link: p => t [route=between]
 link: q => t [route=between]
 link: r => t [route=between]
 :::
+
+---
+
+eyebrow: Worked example
+
+# Index, gap label, and a dashed card {#chrome .demo}
+
+**Key Message:** A corner index, a dashed gap, and a dashed card are generic hooks.
+
+::: columns panel
+## Quiet {.dashed}
+
+A quieter layer can use a dashed outline.
+
++++
+
+## Solid
+
+The other card keeps a solid border.
+:::
+
+::: flow
+① Intake {#in} -> [doc] Check {2} -.[held].-> [highlight] Out {#out}
+:::

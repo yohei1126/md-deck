@@ -54,6 +54,22 @@ KIND_RE = re.compile(
 NODE_ID_RE = re.compile(r"\{#(?P<id>[A-Za-z][\w-]*)\}")
 # Badge: {text} that is not {#id}
 BADGE_RE = re.compile(r"\{(?![#])(?P<badge>[^{}]+)\}")
+# Circled indexes (①–⑳ and the other enclosed-number blocks). A leading one
+# is lifted out of the title so it can sit in the corner, off the label.
+_CIRCLED_INDEX = (
+    r"\u2460-\u2473"  # ①-⑳
+    r"\u24EA"  # ⓪
+    r"\u24F5-\u24FE"  # ⓵-⓾
+    r"\u2776-\u277F"  # ❶-❿
+    r"\u2780-\u2789"  # ➀-➉
+    r"\u278A-\u2793"  # ➊-➓
+    r"\u3251-\u325F"  # ㉑-㉟
+    r"\u32B1-\u32BF"  # ㊱-㊿
+)
+_INDEX_TOKEN_RE = re.compile(rf"(?:[{_CIRCLED_INDEX}]{{1,2}}|\d{{1,3}})\Z")
+_LEADING_INDEX_RE = re.compile(
+    rf"^(?P<idx>[{_CIRCLED_INDEX}])[ \t]*(?P<rest>\S[\s\S]*)\Z"
+)
 # Stack group in a chain: { A / B / C } or { A; B }
 STACK_OPEN_RE = re.compile(r"^\{\s*(?P<body>.*?)\s*\}\s*$", re.DOTALL)
 
@@ -65,6 +81,8 @@ class FlowNode:
     kind: str | None = None
     caption: str | None = None
     badge: str | None = None
+    # Short index drawn in the corner, outside the title (① or {1}).
+    index: str | None = None
     node_id: str | None = None
     chips: list[str] = field(default_factory=list)
 
@@ -176,6 +194,26 @@ def _resolve_edge_shape(
     return raw
 
 
+def _is_index_token(text: str) -> bool:
+    """True for a corner index: ①… or one to three digits. Not a word badge."""
+    flat = text.replace("\n", "").strip()
+    if not flat:
+        return False
+    return _INDEX_TOKEN_RE.fullmatch(flat) is not None
+
+
+def _lift_leading_index(title: str) -> tuple[str, str] | None:
+    """Pull a leading circled number off a title. Leave a bare ① as the title."""
+    match = _LEADING_INDEX_RE.match(title.strip())
+    if not match:
+        return None
+    index = match.group("idx")
+    rest = match.group("rest").strip()
+    if not rest:
+        return None
+    return index, rest
+
+
 def _split_chips(chips_raw: str) -> list[str]:
     """Split chip lists on commas only; honour \\, escapes inside a chip."""
     chips: list[str] = []
@@ -247,8 +285,16 @@ def parse_node_text(raw: str) -> FlowNode:
     title = _hard_breaks(title)
     if caption:
         caption = _hard_breaks(caption)
+    index: str | None = None
+    if badge and _is_index_token(badge):
+        index = badge.replace("\n", "").strip()
+        badge = None
+    if index is None and title:
+        lifted = _lift_leading_index(title)
+        if lifted:
+            index, title = lifted
     # Chips-only nodes keep an empty title and render just the chip row.
-    if not title and not chips and not node_id:
+    if not title and not chips and not node_id and not index:
         title = raw.strip() or "?"
     if not title and chips and not node_id:
         # Stable key from chip labels when no title / id was given.
@@ -261,6 +307,7 @@ def parse_node_text(raw: str) -> FlowNode:
         kind=kind,
         caption=caption,
         badge=badge,
+        index=index,
         node_id=node_id,
         chips=chips,
     )
@@ -325,6 +372,7 @@ def _is_id_reference(node: FlowNode) -> bool:
         and node.kind is None
         and node.caption is None
         and node.badge is None
+        and node.index is None
     )
 
 
@@ -342,6 +390,8 @@ def _merge_node_fields(existing: FlowNode, node: FlowNode) -> None:
         existing.caption = node.caption
     if existing.badge is None and node.badge is not None:
         existing.badge = node.badge
+    if existing.index is None and node.index is not None:
+        existing.index = node.index
     if not existing.chips and node.chips:
         existing.chips = list(node.chips)
 
@@ -739,6 +789,10 @@ def _br_escape(text: str) -> str:
 
 def _node_inner_html(node: FlowNode) -> str:
     parts: list[str] = []
+    if node.index:
+        parts.append(
+            f'<span class="flow-node-index">{_br_escape(node.index)}</span>'
+        )
     if node.title:
         parts.append(
             f'<span class="flow-node-title">{_br_escape(node.title)}</span>'

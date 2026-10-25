@@ -472,3 +472,36 @@ Gamma {#z19}
 {#t19} -> {#y19}
 {#t19} -> {#z19}
 :::
+
+---
+
+# Second dashed edge keeps a clear corridor
+
+::: flow spread
+lane: Upper
+[doc] One {#u1} -> [doc] Two {#u2} -> [doc] Three {#u3} -> [doc] Four {#u4}
+lane: Lower
+[doc] Five {#l1} -> [doc] Six {#l2} -> [doc] Seven {#l3} -> [doc] Eight {#l4}
+link: l4 ..> l2 : return [route=up]
+link: u3 ..> l3 : direct [route=down]
+:::
+
+---
+
+# Vertical gap label
+
+::: flow
+lane: Upper
+[doc] Alpha {#ga}
+lane: Lower
+[doc] Beta {#gb}
+link: ga ..> gb : gap [route=down]
+:::
+
+---
+
+# Corner index sits outside the title
+
+::: flow
+① Intake {#in} -> Review {2}
+:::
