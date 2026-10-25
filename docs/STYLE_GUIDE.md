@@ -23,7 +23,7 @@ Required (check fails if missing):
 - `font_family`, `font_size_body`
 - `color_background`, `color_text`, `color_title`, unless `theme: dark-blue` (that theme supplies them)
 
-`theme` is `plain` (default) or `dark-blue`. It is not a CSS variable. `dark-blue` fills omitted colour tokens. A colour token you set overrides that role. When to use a role is the shared color skill in [yohei1126/agent-skills](https://github.com/yohei1126/agent-skills), separate from the md-deck skill. This page does not repeat that guidance.
+`theme` is `plain` (default) or `dark-blue`. It is not a CSS variable. `dark-blue` fills omitted colour tokens. A colour token you set overrides that role. When to use a role is [visual-color/SKILL.md](https://github.com/yohei1126/agent-skills/blob/main/visual-color/SKILL.md). When to draw a diagram is [visual-diagram/SKILL.md](https://github.com/yohei1126/agent-skills/blob/main/visual-diagram/SKILL.md). Deck authoring is [md-deck/SKILL.md](https://github.com/yohei1126/agent-skills/blob/main/md-deck/SKILL.md). visual-color and visual-diagram land on `main` when [agent-skills#23](https://github.com/yohei1126/agent-skills/pull/23) merges. This page does not copy those skills.
 
 Optional tokens use the plain defaults in the table below when omitted. Unknown names fail the check. See [`schemas/style.schema.json`](../schemas/style.schema.json).
 

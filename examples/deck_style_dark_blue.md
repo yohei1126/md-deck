@@ -1,7 +1,9 @@
 ---
 # Opt-in role palette. Sample builds use examples/deck_style.md (plain).
 # theme fills omitted colour tokens. Set a colour token to override one role.
-# When to use a role: the shared color skill in yohei1126/agent-skills.
+# When to use a role: https://github.com/yohei1126/agent-skills/blob/main/visual-color/SKILL.md
+# Diagrams: https://github.com/yohei1126/agent-skills/blob/main/visual-diagram/SKILL.md
+# Both land on main when https://github.com/yohei1126/agent-skills/pull/23 merges.
 theme: dark-blue
 
 page_width: 1280

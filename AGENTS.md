@@ -12,13 +12,13 @@ Guidance for coding agents working on **md-deck** (Markdown → 16:9 PDF generat
 
 When creating or revising decks that **use** md-deck (including work in other repos), follow:
 
-**[md-deck skill (yohei1126/agent-skills)](https://github.com/yohei1126/agent-skills/blob/main/md-deck/SKILL.md)**
+**[md-deck/SKILL.md](https://github.com/yohei1126/agent-skills/blob/main/md-deck/SKILL.md)**
 
 That skill covers workflow, style vs content, spacing/density, review before tag/release, and common failures. Do not invent unsupported Markdown directives.
 
-The generator rules below live in this repo. The skill's authoring checklist is updated separately in [yohei1126/agent-skills](https://github.com/yohei1126/agent-skills/blob/main/md-deck/SKILL.md) when that checklist should match. Do not paste the skill into this repository.
+The generator rules below live in this repo. The skill's authoring checklist is updated separately in [md-deck/SKILL.md](https://github.com/yohei1126/agent-skills/blob/main/md-deck/SKILL.md) when that checklist should match. Do not paste the skill into this repository.
 
-When to use a colour, including article covers and diagrams, is a separate shared color skill in that repository. Do not copy it here. This repo only implements the `theme` token (`plain` by default, `dark-blue` opt-in).
+When to use a colour is [visual-color/SKILL.md](https://github.com/yohei1126/agent-skills/blob/main/visual-color/SKILL.md). When to draw a diagram, including article covers, is [visual-diagram/SKILL.md](https://github.com/yohei1126/agent-skills/blob/main/visual-diagram/SKILL.md). Those two files land on `main` when [agent-skills#23](https://github.com/yohei1126/agent-skills/pull/23) merges. Do not copy them here. This repo only implements the `theme` token (`plain` by default, `dark-blue` opt-in).
 
 ## Docs in this repo
 

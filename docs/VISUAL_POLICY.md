@@ -2,7 +2,7 @@
 
 md-deck should produce slide materials that are as easy to read as a NotebookLM slide, without becoming a flashy deck. Colour stays quiet. Information is structured. The bone of a diagram — boxes, arrows, and branches — is obvious.
 
-This page is the generator-side record of that policy: what the HTML/CSS → PDF path can draw today, what it cannot, which approach to take, and how cover titles may break. Recipes and before/after markup are in [DIAGRAMS.md](DIAGRAMS.md). Tokens stay in [STYLE_GUIDE.md](STYLE_GUIDE.md). The authoring skill in [yohei1126/agent-skills](https://github.com/yohei1126/agent-skills/blob/main/md-deck/SKILL.md) is updated separately; do not copy it into this repo. When to use a colour, for decks and for article covers and diagrams, is a separate shared color skill in that same repository. This page does not repeat it.
+This page is the generator-side record of that policy: what the HTML/CSS → PDF path can draw today, what it cannot, which approach to take, and how cover titles may break. Recipes and before/after markup are in [DIAGRAMS.md](DIAGRAMS.md). Tokens stay in [STYLE_GUIDE.md](STYLE_GUIDE.md). Authoring stays in [md-deck/SKILL.md](https://github.com/yohei1126/agent-skills/blob/main/md-deck/SKILL.md). When to use a colour is [visual-color/SKILL.md](https://github.com/yohei1126/agent-skills/blob/main/visual-color/SKILL.md). When to draw a diagram, including article covers, is [visual-diagram/SKILL.md](https://github.com/yohei1126/agent-skills/blob/main/visual-diagram/SKILL.md). visual-color and visual-diagram land on `main` when [agent-skills#23](https://github.com/yohei1126/agent-skills/pull/23) merges. This page does not copy those skills.
 
 ## Policy
 
@@ -137,7 +137,7 @@ Why not the other defaults:
 Phased:
 
 1. **Now.** Document the limits, the policy, and the three recipes, including before/after. Check cover titles. Balance automatic title wraps with CSS. Size diagram boxes with tokens (`flow_node_max_width`, `flow_node_min_height`, `flow_preferred_height`, `flow_stack_gap`, `column_min_height`). Full leftover-height stretch is opt-in (`flow_fill_height` or `::: flow fill`). Do not bake a deck's frame or palette into those defaults.
-2. **Next, in the skill repo.** Teach the copy budget and the pre-release PNG review in `yohei1126/agent-skills` `md-deck/SKILL.md`. md-deck will still not fail a merely dense slide. Overflow past 80% remains the generator gate.
+2. **Next, in the skill repo.** Teach the copy budget and the pre-release PNG review in [md-deck/SKILL.md](https://github.com/yohei1126/agent-skills/blob/main/md-deck/SKILL.md). md-deck will still not fail a merely dense slide. Overflow past 80% remains the generator gate.
 3. **Later, only if a recipe fails in a real deck.** Add a small generator feature on this same pipeline (junction, step number, a columns option). Do not open a second diagram language.
 4. **Escape hatch.** Keep relative images for non-diagram figures.
 
@@ -148,7 +148,9 @@ Phased:
 | Words, slide order, which recipe to use | Deck repository (slides Markdown) |
 | Colours, type, spacing, quiet kind tints | Deck repository (`deck_style.md` tokens and `css` fences) |
 | Contract, layout, arrow routing, cover-title check, recipes, this policy | This repo |
-| Authoring workflow and the pre-tag checklist | `yohei1126/agent-skills` (follow-up; not copied here) |
+| Authoring workflow and the pre-tag checklist | [md-deck/SKILL.md](https://github.com/yohei1126/agent-skills/blob/main/md-deck/SKILL.md) |
+| When to use a colour | [visual-color/SKILL.md](https://github.com/yohei1126/agent-skills/blob/main/visual-color/SKILL.md) |
+| When to draw a diagram | [visual-diagram/SKILL.md](https://github.com/yohei1126/agent-skills/blob/main/visual-diagram/SKILL.md) |
 
 ## Cover titles
 

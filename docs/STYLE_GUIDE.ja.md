@@ -34,7 +34,7 @@ md-deck はレンダリングだけを担当し、見た目のテーマは同梱
 詳細な表は英語版 [STYLE_GUIDE.md](STYLE_GUIDE.md) を正とします。主なグループ:
 
 - 必須: `font_family`, `font_size_body`。`color_background`, `color_text`, `color_title` は `theme: dark-blue` のとき省略可（テーマが埋める）
-- テーマ: `theme`（`plain` / `dark-blue`）。既定は `plain`（白地に黒）。`dark-blue` は省略した色だけを埋める。書いた色が優先。いつ使うかは [agent-skills](https://github.com/yohei1126/agent-skills) の共有カラースキル（md-deck スキルとは別）。手順はここへ写さない
+- テーマ: `theme`（`plain` / `dark-blue`）。既定は `plain`（白地に黒）。`dark-blue` は省略した色だけを埋める。書いた色が優先。色の使い分けは [visual-color/SKILL.md](https://github.com/yohei1126/agent-skills/blob/main/visual-color/SKILL.md)。図の使い分けは [visual-diagram/SKILL.md](https://github.com/yohei1126/agent-skills/blob/main/visual-diagram/SKILL.md)。スライド資料の手順は [md-deck/SKILL.md](https://github.com/yohei1126/agent-skills/blob/main/md-deck/SKILL.md)。visual-color と visual-diagram は [agent-skills#23](https://github.com/yohei1126/agent-skills/pull/23) のマージで `main` に入る。手順はここへ写さない
 - 見本: [`examples/deck_style.md`](../examples/deck_style.md) はプレーン。[`examples/deck_style_dark_blue.md`](../examples/deck_style_dark_blue.md) が `dark-blue`
 - 追加色: `color_top_bar`, `color_accent_2`, `color_highlight`, `color_highlight_bg`, `color_gray`, `color_muted`
 - ページ: `page_width`, `page_height`, `page_padding`, `page_padding_*`, `footer_inset_bottom`, `footer_inset_right`（負の値可）, `gap`

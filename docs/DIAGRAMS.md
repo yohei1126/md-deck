@@ -2,7 +2,7 @@
 
 Three patterns cover most of the bone a slide needs: a 2-box compare, a branch, and a 3-step horizontal row. Each pair below is valid Markdown. The "before" slide builds; it fails the [visual policy](VISUAL_POLICY.md), not the checker. The checker does not score sentence length.
 
-The buildable deck is [`examples/diagram_patterns.md`](../examples/diagram_patterns.md). HTML below is what the generator emits before `deck.js` measures the page. `.flow-edge` elements are data. At PDF time they become SVG `.flow-arrow` paths. Arrow coordinates are not part of the example.
+The buildable deck is [`examples/diagram_patterns.md`](../examples/diagram_patterns.md). When to draw one of these patterns is [visual-diagram/SKILL.md](https://github.com/yohei1126/agent-skills/blob/main/visual-diagram/SKILL.md). When to colour it is [visual-color/SKILL.md](https://github.com/yohei1126/agent-skills/blob/main/visual-color/SKILL.md). Those two files land on `main` when [agent-skills#23](https://github.com/yohei1126/agent-skills/pull/23) merges. This page does not copy them. HTML below is what the generator emits before `deck.js` measures the page. `.flow-edge` elements are data. At PDF time they become SVG `.flow-arrow` paths. Arrow coordinates are not part of the example.
 
 Listings are whitespace-normalized. Pair-index attributes on edges are omitted. Long "before" paragraphs are shortened with an ellipsis; the example file has the full sentences.
 
