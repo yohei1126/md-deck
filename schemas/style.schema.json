@@ -71,6 +71,7 @@
     "flow_node_min_width": { "$ref": "#/$defs/sizeOrNone" },
     "flow_node_max_width": { "$ref": "#/$defs/sizeOrNone" },
     "flow_node_min_height": { "$ref": "#/$defs/sizeOrNone" },
+    "flow_stack_gap": { "$ref": "#/$defs/sizeOrNone" },
     "column_min_height": { "$ref": "#/$defs/sizeOrNone" },
     "flow_node_padding": { "$ref": "#/$defs/sizeOrNone" },
     "label_question": { "type": "string", "minLength": 1 },

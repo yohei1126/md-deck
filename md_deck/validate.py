@@ -424,6 +424,7 @@ def validate_style_tokens(tokens: Any, path: str, fm_line: int) -> list[CheckErr
                     "flow_node_padding",
                     "flow_callout_gap",
                     "flow_port_gap",
+                    "flow_stack_gap",
                     "source_label_gap",
                 }
             ):

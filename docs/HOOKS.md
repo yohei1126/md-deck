@@ -74,7 +74,7 @@ becomes `<section class="slide path-diagram" id="routing" data-index="…">`.
 | `.lane[data-lane]` | same | 0-based lane index |
 | `.lane-label` | Lane title | Text after `lane:` |
 | `.flow-row` | Node row inside a lane | Always present inside each `.lane` |
-| `.flow-stack` | Vertical stack | `{ A / B }` in a chain |
+| `.flow-stack` | Vertical stack | `{ A / B }` in a chain. Gap is `--flow-stack-gap` (default `32px`) |
 | `.flow-node` | Node box | Each node |
 | `.flow-node[data-node]` | same | Node key (`{#id}` when set, else title; chips-only nodes use `[[a, b]]`) |
 | `.flow-node[data-id]` | same | Present when `Name {#id}` was set |

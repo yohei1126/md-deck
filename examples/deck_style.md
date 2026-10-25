@@ -59,8 +59,9 @@ key_message_radius: 8
 question_radius: 8
 border_width: 1
 flow_node_min_width: 120
-flow_node_max_width: 240
-flow_node_min_height: 148
+flow_node_max_width: none
+flow_node_min_height: 260
+flow_stack_gap: 32
 column_min_height: 160
 flow_node_padding: 12
 

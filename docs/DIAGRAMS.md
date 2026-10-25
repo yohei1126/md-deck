@@ -154,7 +154,7 @@ Start {#start}
 </div>
 ```
 
-What changed: the choice left the second label and became two nodes inside `.flow-stack`. Two edges leave `start`, one per outcome. The renderer draws them as one trunk that splits, with a horizontal run into the middle of each box long enough for the arrowhead. The row keeps at least 72px between Start and the stack, and the pair stays centred, so the heads do not sit in the corners. Labels are names.
+What changed: the choice left the second label and became two nodes inside `.flow-stack`. Two edges leave `start`, one per outcome. The renderer draws them as one trunk that splits, with a horizontal run into the middle of each box long enough for the arrowhead. The row keeps at least 72px between Start and the stack, and the two outcome boxes keep `flow_stack_gap` (default `32px`) between them. The pair stays centred, so the heads do not sit in the corners. Labels are names.
 
 ## 3-step horizontal
 
@@ -208,9 +208,9 @@ Collect -> Decide -> Record
 </div>
 ```
 
-What changed: the `ol` of sentences became three `.flow-node` boxes and two edges, Collect → Decide → Record. `wide` keeps them on one row, centred, with the same gap between boxes. Each box grows up to `flow_node_max_width` (default `240px`) and the row uses the height left under the title, so the group fills the middle of the slide instead of floating as three chips. `steps` paints a muted index above each name via `.flow-node-title::before`. `fill` (`::: flow wide steps fill`) is the same stretch, and it wins over a deck style that set `.flow { flex: none }`. A flow with a callout does not take that extra height.
+What changed: the `ol` of sentences became three `.flow-node` boxes and two edges, Collect → Decide → Record. `wide` keeps them on one row, centred, with the same gap between boxes. Each box shares the row (`flow_node_max_width` defaults to `none`) and is at least `flow_node_min_height` (default `260px`), and the row uses the height left under the title, so the group fills the panel instead of floating as three chips. `steps` paints a muted index above each name via `.flow-node-title::before`. `fill` (`::: flow wide steps fill`) is the same stretch, and it wins over a deck style that set `.flow { flex: none }`. A flow with a callout does not take that extra height.
 
-Do not set `justify-content: space-between` on `.flow-row` or `.flow.flow-wide .flow-row` to enlarge this row. That declaration cancels the centring and pins Collect and Record to the edges. Remove it from a deck style that still has it. To let the boxes share the full row, set `flow_node_max_width: none`.
+A deck style must not set `justify-content: space-between` on `.flow-row` or `.flow.flow-wide .flow-row`. That declaration cancels the centring and pins Collect and Record to the edges. Remove it. The default already shares the row; a length on `flow_node_max_width` is what puts the side inset back.
 
 ## One sentence and three cards
 
@@ -247,7 +247,7 @@ One file
 </div>
 ```
 
-What changed from a 2-box compare: a third column, and a single sentence above the cards. Each card stays one short line. Column cards have a `column_min_height` floor (default `160px`) and stretch with the row. `::: columns fill` asks them to take the height still free on the slide.
+What changed from a 2-box compare: a third column, and a single sentence above the cards. Each card stays one short line. Column cards have a `column_min_height` floor (default `160px`) and stretch with the row. `::: columns fill` asks them to take the height still free on the slide. Bullets inside a column keep a `1.4em` indent even when the deck style zeroes `ul` padding.
 
 ## Cover title on the same deck
 

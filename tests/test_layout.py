@@ -156,6 +156,13 @@ def test_branch_fork_has_gap_and_arrowheads(layout_pages):
       }
       const start = box(flow.querySelector('.flow-node[data-node="start"]'));
       const stack = box(flow.querySelector('.flow-stack'));
+      const keepEl = flow.querySelector('.flow-node[data-node="Keep"]');
+      const changeEl = flow.querySelector('.flow-node[data-node="Change"]');
+      const kr = keepEl.getBoundingClientRect();
+      const cr = changeEl.getBoundingClientRect();
+      const upper = kr.top <= cr.top ? kr : cr;
+      const lower = kr.top <= cr.top ? cr : kr;
+      const stackGap = (lower.top - upper.bottom) / scale;
       const targets = ['Keep', 'Change'].map((key) => {
         const node = box(flow.querySelector(`.flow-node[data-node="${key}"]`));
         const pts = ptsOf(key);
@@ -169,10 +176,11 @@ def test_branch_fork_has_gap_and_arrowheads(layout_pages):
           endDx: Math.abs(last.x - node.left),
         };
       });
-      return { gap: stack.left - start.right, targets };
+      return { gap: stack.left - start.right, stackGap, targets };
     }"""
     result = page.evaluate(script)
     assert result["gap"] >= 64, result
+    assert 24 <= result["stackGap"] <= 48, result
     for target in result["targets"]:
         assert target["dy"] < 1, target
         assert target["run"] >= 18, target
@@ -228,11 +236,11 @@ def test_wide_steps_are_centred_with_even_gaps(layout_pages):
     assert abs(result["gaps"][0] - result["gaps"][1]) < 8, result
     assert 60 <= result["gaps"][0] <= 140, result
     assert abs(result["mid"] - result["flowW"] / 2) < 40, result
-    assert result["inset"] > 80, result
+    assert result["inset"] < 48, result
     for width in result["widths"]:
-        assert 200 <= width <= 260, result
+        assert width >= 280, result
     for height in result["heights"]:
-        assert height >= 140, result
-    assert 0.55 <= result["groupRatio"] <= 0.8, result
+        assert height >= 240, result
+    assert result["groupRatio"] >= 0.8, result
     assert result["stepClass"] is True, result
     assert result["indexes"] == ["counter(flow-step)"] * 3, result

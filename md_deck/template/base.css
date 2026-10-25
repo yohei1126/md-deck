@@ -199,6 +199,15 @@ body {
   margin: 0;
 }
 
+/* Keep a real indent inside column cards. A deck rule `ul { padding: 0 }`
+   does not win over this more specific selector. */
+.column ul,
+.column ol {
+  margin: 0;
+  padding-inline-start: 1.4em;
+  list-style-position: outside;
+}
+
 .flow {
   position: relative;
   display: flex;
@@ -271,9 +280,9 @@ body {
 }
 
 /* wide = one row, centred as a group, even gaps.
-   Boxes grow up to --flow-node-max-width so a short row is not a cluster of chips.
-   Do not set justify-content: space-between on .flow-row: it overrides this
-   centring and pins the end boxes to the edges. */
+   Boxes grow to share the row (max-width defaults to none) instead of
+   shrinking to the label. Do not set justify-content: space-between on
+   .flow-row: it cancels this centring and pins the end boxes to the edges. */
 .flow.flow-wide .flow-row {
   flex-wrap: nowrap;
   justify-content: center;
@@ -305,6 +314,15 @@ body {
   flex: 1 1 auto;
   width: 100%;
   max-width: none;
+  /* Share the stack's height. A 260px floor on every member would
+     overflow a two-high fork. */
+  min-height: 0;
+}
+
+/* Several lanes share the slide, so each box uses a lower floor than a
+   single-row wide / steps diagram. */
+.flow-lanes:has(> .lane + .lane) .flow-node {
+  min-height: min(160px, var(--flow-node-min-height));
 }
 
 .flow.flow-wide .flow-row:has(> .flow-stack) {
@@ -400,7 +418,7 @@ body {
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  gap: calc(var(--gap) * 0.4);
+  gap: var(--flow-stack-gap);
   z-index: 1;
 }
 

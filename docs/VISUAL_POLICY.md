@@ -31,7 +31,7 @@ Stable classes are [HOOKS.md](HOOKS.md). Arrow path geometry is not stable; the 
 
 | Piece | Today |
 | --- | --- |
-| Horizontal steps | `A -> B -> C`. `::: flow wide` keeps one centred row with even gaps. Boxes grow up to `flow_node_max_width` and are at least `flow_node_min_height`. `steps` adds a muted index. `fill` stretches them to the leftover height. `flow_node_max_width: none` shares the row |
+| Horizontal steps | `A -> B -> C`. `::: flow wide` keeps one centred row with even gaps. Boxes share that row (`flow_node_max_width` defaults to `none`) and are at least `flow_node_min_height` (`260px`). `steps` adds a muted index. `fill` re-asserts leftover-height stretch. A length cap such as `240px` brings back a side inset |
 | Two-up compare | `::: columns` / `panel` / `plain` / `fill`, split with `+++`. Cards have a `column_min_height` floor and already stretch with the row. A column may contain one nested `::: flow` |
 | Branch | A `{ A / B }` stack plus a separate edge into each member. Those edges share a trunk and keep at least 72px before the stack so arrowheads do not sit in the corners. Same-row fan-out (no stack) is still routed as nested trunks |
 | Lanes and cross-links | `lane:` and `link:` with `route=` (`between`, `down`, `up`, `left`, `right`, `auto`) |
@@ -68,13 +68,16 @@ Flow and column boxes used to shrink to their labels and sit in empty space. The
 | Token | Default | Role |
 | --- | --- | --- |
 | `flow_node_min_width` | `120px` | Floor so a short label does not collapse the box |
-| `flow_node_max_width` | `240px` | Ceiling on a wide row and on a stack row. Three boxes plus the gaps land near two thirds of a 1280×720 slide and stay centred. `none` lets them share the row |
-| `flow_node_min_height` | `148px` | Floor on every flow node. `0` or `none` sizes to the label |
+| `flow_node_max_width` | `none` | No ceiling on a wide row or a stack row, so the boxes share the panel. A length (for example `240px`) caps them and leaves a centred inset |
+| `flow_node_min_height` | `260px` | Floor on a flow node, so a wide or steps box is about the height of a lunch card. `0` or `none` sizes to the label. A flow with two or more lanes uses at most `160px` per box |
+| `flow_stack_gap` | `32px` | Space between the boxes inside a `{ A / B }` stack. This is separate from the 72px trunk gap beside the stack |
 | `column_min_height` | `160px` | Floor on every column card |
 
-A flow also grows into the height left under the title, and the boxes stretch with it. Width on a wide row or a stack row still stops at `flow_node_max_width`, so a three-box row stays centred near two thirds of the slide instead of becoming an edge-to-edge ruler. A flow that contains a callout does not stretch: the note is drawn outside the node, and stretching that node to the bottom of the slide would push the note off the page. `::: flow fill` is the explicit hook (class `.flow-fill`). It is more specific than a plain `.flow` rule, so it keeps the stretch when a deck style has set `.flow { flex: none }` or `align-items: center`. `::: columns fill` is the same hook for column cards, which already stretch with the row.
+A flow also grows into the height left under the title, and the boxes stretch with it. With the default `flow_node_max_width: none`, a wide row's boxes share the width of the panel and stay on even gaps. The row is still centred; there is simply no empty side band left to centre inside. Set a length on `flow_node_max_width` when a deck wants that band back. A flow that contains a callout does not stretch: the note is drawn outside the node, and stretching that node to the bottom of the slide would push the note off the page. `::: flow fill` is the explicit hook (class `.flow-fill`). It is more specific than a plain `.flow` rule, so it keeps the stretch when a deck style has set `.flow { flex: none }` or `align-items: center`. `::: columns fill` is the same hook for column cards, which already stretch with the row.
 
-A rule such as `.flow-row { justify-content: space-between }` in a deck style cancels the centred row from this generator. Authors who adopt the defaults should remove that declaration. It is not the way to enlarge the boxes.
+Lists inside a column keep `padding-inline-start: 1.4em` from `.column ul` / `.column ol`. That selector is more specific than a deck rule of `ul { padding: 0 }`, so the markers stay indented in a panel.
+
+A deck style must not set `.flow-row { justify-content: space-between }` (or the same declaration on `.flow.flow-wide .flow-row`). It cancels the centred row and pins the end boxes to the edges. Remove that declaration when adopting these defaults. It is not the way to enlarge the boxes.
 
 A caption on a flow node stays one text block (`Name | caption`, with `\n` for extra lines). Chips (`[[a, b]]`) are the inline tags. A short bullet list inside a flow node is not supported yet; that remains a follow-up. Use a column card when the text is a list.
 
