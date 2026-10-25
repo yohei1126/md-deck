@@ -2,7 +2,7 @@
 
 md-deck should produce slide materials that are as easy to read as a NotebookLM slide, without becoming a flashy deck. Colour stays quiet. Information is structured. The bone of a diagram — boxes, arrows, and branches — is obvious.
 
-This page is the generator-side record of that policy: what the HTML/CSS → PDF path can draw today, what it cannot, which approach to take, and how cover titles may break. Recipes and before/after markup are in [DIAGRAMS.md](DIAGRAMS.md). Tokens stay in [STYLE_GUIDE.md](STYLE_GUIDE.md). The authoring skill in [yohei1126/agent-skills](https://github.com/yohei1126/agent-skills/blob/main/md-deck/SKILL.md) is updated separately; do not copy it into this repo.
+This page is the generator-side record of that policy: what the HTML/CSS → PDF path can draw today, what it cannot, which approach to take, and how cover titles may break. Recipes and before/after markup are in [DIAGRAMS.md](DIAGRAMS.md). Tokens stay in [STYLE_GUIDE.md](STYLE_GUIDE.md). The authoring skill in [yohei1126/agent-skills](https://github.com/yohei1126/agent-skills/blob/main/md-deck/SKILL.md) is updated separately; do not copy it into this repo. When to use a colour, for decks and for article covers and diagrams, is a separate shared color skill in that same repository. This page does not repeat it.
 
 ## Policy
 
@@ -17,6 +17,20 @@ This page is the generator-side record of that policy: what the HTML/CSS → PDF
 - Shrink-to-fit (down to 80%) is a last resort. Cut the copy before relying on it.
 
 `examples/` in this repo stays generic. Customer and proposal copy belongs in the deck repository.
+
+## Colour
+
+The sample style stays plain: black on white. In a deck style file, `theme: dark-blue` fills any colour token you omit. A colour token you set still wins. The values are CSS variables on the slide background, titles, body text, flow-node borders and fills, arrows, column cards, and question blocks. Copy [`examples/deck_style_dark_blue.md`](../examples/deck_style_dark_blue.md). Token names are in [STYLE_GUIDE.md](STYLE_GUIDE.md).
+
+`dark-blue` is one 60/30/10 role set, not a product brand. Ground `#EDE8E4` (the sample's sub colour, not its pure white), text `#333333`, navy `#073365` for titles, node borders, and arrows, accent `#F7581D` for callouts and the question border. Card and key-message fills use a light navy tint (`#E3EAF2`). Node fill stays off-white (`#F4F0EC`).
+
+## 参考
+
+1. [プレゼンデザイン Dark blue](https://ppt.design4u.jp/theme-color-samples/) — HEX roles for that sample. The site closed in May 2026. [Wayback](https://web.archive.org/web/2024/https://ppt.design4u.jp/theme-color-samples/).
+2. [Deckary: PowerPoint color schemes](https://deckary.com/blog/powerpoint-color-schemes) — navy, gray, and one accent, as 60-30-10. Navy `#003366` is close to `#073365`; this repo ships one palette.
+3. [Cambridge slide accessibility](https://www.cctl.cam.ac.uk/slide-accessibility-guidance) — avoid a pure white ground; navy on off-white.
+4. [デジタル庁 カラー](https://design.digital.go.jp/dads/foundations/color/) — colour as separate role tokens.
+5. [ONS PowerPoint](https://service-manual.ons.gov.uk/brand-guidelines/application/creating-powerpoint-presentations) — a bright white ground is harder to read; their template uses a gray ground.
 
 ## What the pipeline can draw
 
@@ -44,7 +58,7 @@ Stable classes are [HOOKS.md](HOOKS.md). Arrow path geometry is not stable; the 
 
 The cover is still a normal slide plus a quiet title-slide layout: the block is centred, the title is centred, and front matter `subtitle` and `date` (when set) sit on one muted line under the H1 (`.cover-meta`). `author` and `audience` are validated and are not drawn. Front matter `title` remains the PDF document title (`<title>`). A further line in the slide body is an ordinary paragraph, also centred.
 
-md-deck does not ship a cover frame, an accent band, or a brand palette. Those are deck-style choices. A reusable, token-only frame and a larger title — still no product colours — look like this in the deck style's `css` fence. Leave it out when the plain centred cover is enough. The same comment lives in [`examples/deck_style.md`](../examples/deck_style.md) and is not applied to the sample build.
+md-deck does not ship a cover frame or an accent band. `theme: dark-blue` is an opt-in role palette, not a product brand. A reusable, token-only frame and a larger title — still no product colours — look like this in the deck style's `css` fence. Leave it out when the plain centred cover is enough. The same comment lives in [`examples/deck_style.md`](../examples/deck_style.md) and is not applied to the sample build.
 
 ```css
 .slide[data-cover="true"] .slide-content {

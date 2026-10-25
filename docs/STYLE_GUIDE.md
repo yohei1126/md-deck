@@ -1,6 +1,6 @@
 # Style Markdown and slide conventions
 
-md-deck renders decks. It does not ship a visual theme. Each deck repository owns two Markdown files: slide content and a style file. The style file is both the human-readable style guide and the machine-readable theme.
+md-deck renders decks. The default palette is plain black on white. `theme: dark-blue` in the style file is an opt-in role palette. Each deck repository owns two Markdown files: slide content and a style file. The style file is both the human-readable style guide and the machine-readable tokens.
 
 The **input contract** (required front matter, schemas, asset paths, and `md-deck check` rules) is in [INPUT_FORMAT.md](INPUT_FORMAT.md). HTML hooks for style CSS are in [HOOKS.md](HOOKS.md). This page lists tokens and authoring conventions.
 
@@ -14,14 +14,16 @@ A style file is Markdown with:
 
 Pass the file with `--style path/to/deck_style.md`, or set `style:` in the slides front matter. The CLI flag overrides front matter. If neither resolves to a file, the check fails.
 
-`examples/deck_style.md` is a plain black-on-white sample that lists tokens. Copy it into a deck repo and change the values; do not treat it as a product look.
+`examples/deck_style.md` is a plain black-on-white sample that lists tokens. Copy it into a deck repo and change the values; do not treat it as a product look. [`examples/deck_style_dark_blue.md`](../examples/deck_style_dark_blue.md) is the opt-in palette. The sample builds stay on the plain file.
 
 ## Required vs optional tokens
 
 Required (check fails if missing):
 
-- `color_background`, `color_text`, `color_title`
 - `font_family`, `font_size_body`
+- `color_background`, `color_text`, `color_title`, unless `theme: dark-blue` (that theme supplies them)
+
+`theme` is `plain` (default) or `dark-blue`. It is not a CSS variable. `dark-blue` fills omitted colour tokens. A colour token you set overrides that role. When to use a role is the shared color skill in [yohei1126/agent-skills](https://github.com/yohei1126/agent-skills), separate from the md-deck skill. This page does not repeat that guidance.
 
 Optional tokens use the plain defaults in the table below when omitted. Unknown names fail the check. See [`schemas/style.schema.json`](../schemas/style.schema.json).
 
@@ -39,7 +41,8 @@ Label tokens become both HTML label text (when set) and quoted CSS variables for
 | --- | --- | --- | --- | --- |
 | `page_width` | `--page-width` | `1280px` | no | Slide width |
 | `page_height` | `--page-height` | `720px` | no | Slide height |
-| `color_background` | `--color-background` | `#ffffff` | **yes** | Page background |
+| `theme` | — | `plain` | no | `plain` or `dark-blue`. Not emitted as CSS. `dark-blue` fills omitted colour tokens |
+| `color_background` | `--color-background` | `#ffffff` | **yes** | Page background. Supplied by `theme: dark-blue` when omitted |
 | `color_text` | `--color-text` | `#000000` | **yes** | Body text |
 | `color_muted` | `--color-muted` | `#444444` | no | Secondary text (`.muted`, captions) |
 | `color_gray` | `--color-gray` | `#444444` | no | Gray accent (alias-style token for decks that distinguish gray from muted) |

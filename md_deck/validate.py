@@ -28,6 +28,8 @@ from md_deck.style import (
     PLACEMENT_TOKENS,
     QUESTION_LABEL_PLACEMENTS,
     SIGNED_SIZE_TOKENS,
+    THEME_NAMES,
+    THEMES,
     TOKEN_SPEC,
     ZERO_OR_NONE_TOKENS,
 )
@@ -328,8 +330,15 @@ def validate_style_tokens(tokens: Any, path: str, fm_line: int) -> list[CheckErr
     for key in unknown:
         errors.append(CheckError(path, fm_line, f"unknown style token: {key}"))
 
+    theme_name = ""
+    raw_theme = tokens.get("theme")
+    if isinstance(raw_theme, str):
+        theme_name = raw_theme.strip().lower()
+    supplied = set(tokens)
+    if theme_name in THEMES:
+        supplied |= set(THEMES[theme_name])
     for key in sorted(REQUIRED_STYLE_TOKENS):
-        if key not in tokens:
+        if key not in supplied:
             errors.append(
                 CheckError(path, fm_line, f"missing required style token: {key}")
             )
@@ -382,6 +391,17 @@ def validate_style_tokens(tokens: Any, path: str, fm_line: int) -> list[CheckErr
             elif key not in OPTIONAL_EMPTY_LABEL_TOKENS and not value.strip():
                 errors.append(
                     CheckError(path, fm_line, f"token {key}: must be a non-empty string")
+                )
+        elif key == "theme":
+            if not isinstance(value, str) or value.strip().lower() not in THEME_NAMES:
+                errors.append(
+                    CheckError(
+                        path,
+                        fm_line,
+                        "token theme: expected "
+                        + ", ".join(sorted(THEME_NAMES))
+                        + f", got {value!r}",
+                    )
                 )
         elif key in FILL_HEIGHT_TOKENS:
             text = str(value).strip().lower()

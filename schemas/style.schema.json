@@ -5,11 +5,21 @@
   "type": "object",
   "additionalProperties": false,
   "required": [
-    "color_background",
-    "color_text",
-    "color_title",
     "font_family",
     "font_size_body"
+  ],
+  "allOf": [
+    {
+      "if": {
+        "not": {
+          "properties": { "theme": { "const": "dark-blue" } },
+          "required": ["theme"]
+        }
+      },
+      "then": {
+        "required": ["color_background", "color_text", "color_title"]
+      }
+    }
   ],
   "properties": {
     "page_width": { "$ref": "#/$defs/size" },
@@ -96,6 +106,11 @@
     "page_number_placement": {
       "type": "string",
       "enum": ["bottom-right", "bottom-left", "bottom-center"]
+    },
+    "theme": {
+      "type": "string",
+      "enum": ["plain", "dark-blue"],
+      "description": "Named colour palette. plain keeps black on white. dark-blue fills omitted colour tokens (off-white ground, not pure white); an explicit colour token overrides that role."
     }
   },
   "$defs": {

@@ -9,8 +9,9 @@ from typing import Any
 import yaml
 
 # Token name -> (css variable, default used only when building docs examples).
-# The generator does not apply a built-in visual theme; these defaults are the
-# plain fallback values when a listed token is omitted from a style file.
+# `plain` (the default) uses the values below. `theme: dark-blue` fills any
+# colour token the file omits; an explicit colour still wins. `theme` itself
+# is not emitted as CSS.
 TOKEN_SPEC: dict[str, tuple[str, Any]] = {
     "page_width": ("--page-width", "1280px"),
     "page_height": ("--page-height", "720px"),
@@ -81,6 +82,8 @@ TOKEN_SPEC: dict[str, tuple[str, Any]] = {
     "label_source": ("--label-source", "Source:"),
     "question_label_placement": ("--question-label-placement", "inline"),
     "page_number_placement": ("--page-number-placement", "bottom-right"),
+    # Selector only. Skipped when emitting CSS.
+    "theme": ("", "plain"),
 }
 
 # Tokens that may be 0 or the keyword none (radii, borders, paddings).
@@ -128,6 +131,40 @@ EDGE_SHAPES = frozenset({"orthogonal", "straight"})
 FILL_HEIGHT_TOKENS = frozenset({"flow_fill_height"})
 FILL_HEIGHT_ON = frozenset({"fill", "1", "true", "yes"})
 FILL_HEIGHT_VALUES = frozenset({"none", "fill"})
+
+# Named palettes. `plain` leaves every colour on the TOKEN_SPEC default.
+# `dark-blue` is a generic 60/30/10 role set: off-white ground, navy structure,
+# one accent. It is not a product brand. The ground is the sample's sub colour
+# (#EDE8E4), not pure white. See docs/VISUAL_POLICY.md.
+THEME_NAMES = frozenset({"plain", "dark-blue"})
+THEMES: dict[str, dict[str, str]] = {
+    "plain": {},
+    "dark-blue": {
+        "color_background": "#EDE8E4",
+        "color_text": "#333333",
+        "color_muted": "#5C564F",
+        "color_gray": "#5C564F",
+        "color_border": "#C8C0B8",
+        "color_title": "#073365",
+        "color_top_bar": "#073365",
+        "color_accent_2": "#5C564F",
+        "color_highlight": "#F7581D",
+        "color_highlight_bg": "#F8E4DC",
+        "color_key_message_bg": "#E3EAF2",
+        "color_key_message_text": "#073365",
+        "color_key_message_border": "#073365",
+        "color_question_bg": "#F8E4DC",
+        "color_question_text": "#333333",
+        "color_question_border": "#F7581D",
+        "color_card_bg": "#E3EAF2",
+        "color_card_border": "#073365",
+        "color_flow_node_bg": "#F4F0EC",
+        "color_flow_node_border": "#073365",
+        "color_flow_arrow": "#073365",
+        "color_table_header_bg": "#E3EAF2",
+        "color_table_border": "#C8C0B8",
+    },
+}
 
 FRONT_MATTER_RE = re.compile(r"\A---\s*\n(.*?)\n---\s*\n?", re.DOTALL)
 CSS_FENCE_RE = re.compile(r"```css\s*\n(.*?)```", re.DOTALL | re.IGNORECASE)
@@ -215,6 +252,21 @@ def _preferred_height_vars(tokens: dict[str, Any]) -> tuple[str, str]:
     return _format_css_value("flow_node_min_height", raw), "1"
 
 
+def _apply_theme(tokens: dict[str, Any]) -> dict[str, Any]:
+    """Fill omitted colour tokens from `theme`. Explicit tokens stay."""
+    out = dict(tokens)
+    raw = out.get("theme", "plain")
+    name = str(raw).strip().lower() if raw is not None else "plain"
+    if name not in THEMES:
+        raise ValueError(
+            f"Unknown theme {raw!r}. Expected one of: {', '.join(sorted(THEME_NAMES))}."
+        )
+    for key, value in THEMES[name].items():
+        if key not in out:
+            out[key] = value
+    return out
+
+
 def tokens_to_css(tokens: dict[str, Any], extra_css: str = "") -> str:
     """Build a :root rule from tokens, filling omitted tokens with plain defaults."""
     unknown = sorted(set(tokens) - set(TOKEN_SPEC))
@@ -225,7 +277,7 @@ def tokens_to_css(tokens: dict[str, Any], extra_css: str = "") -> str:
             + ". See docs/STYLE_GUIDE.md for the schema."
         )
 
-    expanded = _expand_padding_sides(tokens)
+    expanded = _apply_theme(_expand_padding_sides(tokens))
     preferred_height, preferred_grow = _preferred_height_vars(expanded)
     # font_size_table falls back to font_size_small when omitted.
     if "font_size_table" not in expanded and "font_size_small" in expanded:
@@ -234,6 +286,8 @@ def tokens_to_css(tokens: dict[str, Any], extra_css: str = "") -> str:
     lines = [":root {"]
     for name, (css_var, default) in TOKEN_SPEC.items():
         raw = expanded[name] if name in expanded else default
+        if name == "theme":
+            continue
         if name == "flow_preferred_height":
             lines.append(f"  {css_var}: {preferred_height};")
             lines.append(f"  --flow-preferred-grow: {preferred_grow};")

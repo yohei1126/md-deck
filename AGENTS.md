@@ -18,6 +18,8 @@ That skill covers workflow, style vs content, spacing/density, review before tag
 
 The generator rules below live in this repo. The skill's authoring checklist is updated separately in [yohei1126/agent-skills](https://github.com/yohei1126/agent-skills/blob/main/md-deck/SKILL.md) when that checklist should match. Do not paste the skill into this repository.
 
+When to use a colour, including article covers and diagrams, is a separate shared color skill in that repository. Do not copy it here. This repo only implements the `theme` token (`plain` by default, `dark-blue` opt-in).
+
 ## Docs in this repo
 
 | Doc | Topic |

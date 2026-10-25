@@ -1,6 +1,8 @@
 ---
 # Plain demonstration style: black text on white, one font, no brand colours.
-# Real decks replace this file in their own repo. md-deck does not ship a theme.
+# Real decks replace this file in their own repo.
+# Opt-in palette: theme: dark-blue in examples/deck_style_dark_blue.md.
+# This file stays plain so sample builds do not pick up that palette.
 
 page_width: 1280
 page_height: 720
@@ -94,11 +96,11 @@ Style CSS should target the stable hooks in [HOOKS.md](../docs/HOOKS.md) (for ex
 
 ## English note
 
-Tokens drive CSS variables. Omit a token and the generator fills a plain default listed in `docs/STYLE_GUIDE.md`. There is no built-in brand palette inside md-deck.
+Tokens drive CSS variables. Omit a token and the generator fills a plain default listed in `docs/STYLE_GUIDE.md`. `theme: dark-blue` is an opt-in palette in [`deck_style_dark_blue.md`](deck_style_dark_blue.md). This file does not set it.
 
 ## 日本語メモ
 
-このファイルは形式の見本です。色やフォントの本番指定は、各デッキ用リポジトリのスタイル Markdown に置きます。md-deck 本体にはデザインやブランド色は含まれません。見た目のフックは [HOOKS.md](../docs/HOOKS.md) を参照してください。
+このファイルは白黒の見本です。`theme: dark-blue` は [`deck_style_dark_blue.md`](deck_style_dark_blue.md) にあります。サンプルのビルドはこのファイルのままです。見た目のフックは [HOOKS.md](../docs/HOOKS.md) を参照してください。
 
 ```css
 /* Optional extra rules. Example: slightly tighter lists in this sample. */

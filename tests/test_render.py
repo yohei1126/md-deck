@@ -5,7 +5,8 @@ from __future__ import annotations
 from md_deck.build import build_html
 from md_deck.flow import parse_flow_body, parse_node_text, render_flow_html
 from md_deck.slides import apply_hard_breaks, parse_deck, render_slide_markdown, resolve_labels
-from md_deck.style import tokens_to_css
+from md_deck.style import load_style_file, tokens_to_css
+from md_deck.validate import validate_style_tokens
 
 
 def test_labelled_and_dashed_arrows():
@@ -411,3 +412,53 @@ def test_footer_inset_allows_negative():
     })
     assert "--footer-inset-right: -20px;" in css
     assert "--footer-inset-bottom: -4px;" in css
+
+
+def test_plain_theme_stays_black_on_white():
+    css = tokens_to_css({})
+    assert "--color-background: #ffffff;" in css
+    assert "--color-text: #000000;" in css
+    assert "--color-title: #000000;" in css
+    assert "--theme:" not in css
+    plain = tokens_to_css({"theme": "plain"})
+    assert "--color-background: #ffffff;" in plain
+    assert "--color-flow-arrow: #000000;" in plain
+
+
+def test_dark_blue_theme_fills_omitted_colours_and_yields_to_explicit():
+    css = tokens_to_css({"theme": "dark-blue", "color_title": "#112233"})
+    assert "--color-background: #EDE8E4;" in css
+    assert "--color-text: #333333;" in css
+    assert "--color-title: #112233;" in css
+    assert "--color-flow-node-border: #073365;" in css
+    assert "--color-flow-arrow: #073365;" in css
+    assert "--color-highlight: #F7581D;" in css
+    assert "--color-question-border: #F7581D;" in css
+    assert "--color-card-bg: #E3EAF2;" in css
+    assert "--theme:" not in css
+    errors = validate_style_tokens(
+        {"theme": "dark-blue", "font_family": "sans-serif", "font_size_body": 22},
+        "style.md",
+        1,
+    )
+    assert errors == []
+    bad = validate_style_tokens(
+        {"theme": "navy", "font_family": "sans-serif", "font_size_body": 22,
+         "color_background": "#fff", "color_text": "#000", "color_title": "#000"},
+        "style.md",
+        1,
+    )
+    assert any("theme" in e.message for e in bad)
+
+
+def test_dark_blue_example_file_uses_the_theme():
+    from pathlib import Path
+
+    tokens, _extra = load_style_file(Path("examples/deck_style_dark_blue.md"))
+    assert tokens["theme"] == "dark-blue"
+    assert "color_background" not in tokens
+    css = tokens_to_css(tokens)
+    assert "--color-background: #EDE8E4;" in css
+    plain, _ = load_style_file(Path("examples/deck_style.md"))
+    assert "theme" not in plain
+    assert tokens_to_css(plain).count("--color-background: #ffffff;") == 1
