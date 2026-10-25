@@ -530,3 +530,38 @@ A short note.
 
 A short note.
 :::
+
+---
+
+# Same-row around landing
+
+::: flow
+lane: Row
+Left {#sld} -> Mid {#smd} -> Right {#srd}
+link: sld => srd : under [route=down]
+link: srd => sld : over [route=up]
+:::
+
+---
+
+# Lane label misses the vertical link
+
+::: flow
+lane: Upper
+Alpha {#la}
+lane: Insurance
+Beta {#lb}
+link: la => lb : drop [route=down]
+:::
+
+---
+
+# Lane label shifts off a vertical link
+
+::: flow
+lane: Upper
+One {#na} -> Two {#nb} -> Three {#nc} -> Four {#nd}
+lane: This lane label is wider than one box
+Five {#ne} -> Six {#nf} -> Seven {#ng} -> Eight {#nh}
+link: na => ne : drop [route=down]
+:::

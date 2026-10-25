@@ -21,4 +21,9 @@ flow_port_gap: 12
 .question {
   margin-bottom: 40px;
 }
+
+/* A later shorthand must not wipe `{.dashed}` width or colour. */
+.columns .column {
+  border: 1px solid #cccccc;
+}
 ```

@@ -590,7 +590,7 @@ def test_dashed_outline_css_uses_its_own_tokens():
     from pathlib import Path
 
     css = Path("md_deck/template/base.css").read_text(encoding="utf-8")
-    rule = css.split(".column.dashed,", 1)[1].split("}", 1)[0]
+    rule = css.split(".columns .column.dashed,", 1)[1].split("}", 1)[0]
     assert "var(--dashed-outline-width)" in rule
     assert "var(--color-dashed-outline)" in rule
     assert "var(--border-width)" not in rule

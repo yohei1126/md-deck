@@ -174,7 +174,7 @@ A plain (not `wide`) flow with lanes is as wide as its widest lane and is centre
 
 ### Link routes and anchors
 
-A vertical link (`bottom` → `top` or `top` → `bottom`) between two boxes whose widths overlap by at least 24px is one straight vertical stroke at a shared x, not a Z between the two centres. A label sits off the stroke and inside the flow: beside a vertical stroke, on the side that has room, or above or below a horizontal stroke. On a horizontal run it prefers the side that stays clear of other links. A short same-row shaft keeps the label centred between the two boxes, clear of both of them. It is not drawn across its own line or past the content edge. A callout sits far enough from its anchor (`flow_callout_gap`, at least the arrowhead plus a 16px shaft) that its connector reads as an arrow.
+A vertical link (`bottom` → `top` or `top` → `bottom`) between two boxes whose widths overlap by at least 24px is one straight vertical stroke at a shared x, not a Z between the two centres. When that x would cross a lane label and the overlap still has a clear x, the stroke slides to the nearest clear x. If the label is wider than the overlap and the lane has room, the label shifts within the lane so the stroke stays off the text. A label sits off the stroke and inside the flow: beside a vertical stroke, on the side that has room, or above or below a horizontal stroke. On a horizontal run it prefers the side that stays clear of other links. A short same-row shaft keeps the label centred between the two boxes, clear of both of them. It is not drawn across its own line or past the content edge. A callout sits far enough from its anchor (`flow_callout_gap`, at least the arrowhead plus a 16px shaft) that its connector reads as an arrow.
 
 Cross-lane links and same-row edges that would pass through other nodes draw as orthogonal paths by default. Routing treats nodes, badges, callouts, and edge labels as obstacles, only in the rows or columns the path crosses. When several clear paths exist, the renderer picks a crossing-free one deterministically. Several edges that leave or enter the same node side use distinct ports spaced by `flow_port_gap` (default 12px) so arrowheads do not stack and trunks stay separate. Same-row U detours (fan-in or fan-out that bend above or below the row) widen that spacing to about an arrowhead width plus a gap, keep a final stub at least arrowhead length, and grow the flow's padding so nested trunks stay inside the flow box rather than crossing the slide title. Farther sources or targets take the outer trunk and farther port so routes nest without crossing.
 
@@ -182,11 +182,13 @@ Opt into straight (diagonal) strokes with `shape=straight` on a `link:` or chain
 
 Callout connectors with `side=` leave that side of the note box. If a simple L would run back through the callout itself (for example `pos=above side=left` when the note is centred over its anchor), the path steps outside the box, or falls back to the facing side (`bottom` for `above`, `top` for `below`). Facing and outside stubs keep a final segment long enough for the arrowhead.
 
+A same-row `route=down` or `route=up` is an around path: it leaves and enters on the detour side (`down` the bottom edge, `up` the top edge) so the arrowhead stays outside the target. When other boxes sit on that side, the trunk steps past them through a side gutter instead of closing the lane gap. A target on another row still uses the facing edge.
+
 | `route=` | Leaves source | Enters target | Corridor |
 | --- | --- | --- | --- |
 | `between` | bottom | top | Gap between the two rows (preferred for lane-to-lane); always orthogonal even when the source sits above the target’s width |
-| `down` | bottom | top (gap) or bottom (around) | Prefers the between-lane gap; may detour below if the gap is blocked |
-| `up` | top | bottom (gap) or top (around) | Prefers the between-lane gap above |
+| `down` | bottom | bottom when the target shares the row; top otherwise | Under the shared row, or the lane gap when the target is on another row |
+| `up` | top | top when the target shares the row; bottom otherwise | Over the shared row, or the lane gap when the target is on another row |
 | `left` | left | left | Left of both boxes |
 | `right` | right | right | Right of both boxes |
 | `auto` | chosen | chosen | Scores gap, side, and around candidates; avoids node hits, shared trunks, and arrow crossings |

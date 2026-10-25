@@ -40,7 +40,7 @@ becomes `<section class="slide path-diagram" id="routing" data-index="…">`.
 | `.columns` | Column row | `::: columns` |
 | `.columns.plain` / `.columns.panel` / `.columns.fill` / `.columns.figures` | same | Block options. `fill` asks the row to use leftover slide height. `figures` enlarges `.column-head` for a plain big number |
 | `.column` | One column | Split by `+++`. The row is content height unless the block is `.columns.fill` |
-| `.column.dashed` | same | `{.dashed}` on the column heading (the class is copied onto the card). Outline uses `--dashed-outline-width` and `--color-dashed-outline`, not the card border |
+| `.column.dashed` | same | `{.dashed}` on the column heading (the class is copied onto the card). Outline uses `--dashed-outline-width` and `--color-dashed-outline`, not the card border. The rule is `.columns .column.dashed`, so a later `.columns .column { border: … }` shorthand does not wipe the width or colour. A deck rule on `.columns .column.dashed` can still override |
 | `.column-head` | First heading in a column | First `h2`–`h6` in that column. About `1.1em` of the body so a short title does not wrap. A following paragraph stays under it |
 | `.source` | Footer source | `Source:` / `出典:` line or `::: source` |
 | `.source .label` | Source prefix | Text from `label_source` or `lang` default (omitted when `label_source` is empty). Weight / gap from `--source-label-weight` / `--source-label-gap` |

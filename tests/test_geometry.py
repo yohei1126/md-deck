@@ -1354,3 +1354,148 @@ def test_dashed_column_outline_is_darker_than_a_hairline(geometry_page):
     assert result["width"] >= 2, result
     assert result["color"] in {"rgb(51, 51, 51)", "#333333"}, result
     assert result["color"] != result["solidColor"], result
+    # Fixture deck CSS sets `.columns .column { border: 1px solid #ccc }`
+    # after base.css. The dashed card must keep its own outline.
+    assert result["solidWidth"] < 2, result
+    assert result["solidColor"] in {"rgb(204, 204, 204)", "#cccccc"}, result
+
+
+def test_same_row_around_lands_on_the_detour_side(geometry_page):
+    """route=down/up on one row enters the side the path went around.
+
+    A facing-side landing runs the last stub behind the target and hides
+    the arrowhead. Another row still uses the facing edge.
+    """
+    result = geometry_page.evaluate(
+        r"""() => {
+          function slideBy(title) {
+            return Array.from(document.querySelectorAll('.slide')).find((s) =>
+              (s.querySelector('h1') || {}).textContent.includes(title)
+            );
+          }
+          function measure(slide, fromKey, toKey) {
+            const flow = slide.querySelector('.flow');
+            const scale = Number(slide.dataset.scale || '1') || 1;
+            const fr = flow.getBoundingClientRect();
+            const path = flow.querySelector(
+              `path.flow-arrow[data-from="${fromKey}"][data-to="${toKey}"]`
+            );
+            const node = flow.querySelector(`.flow-node[data-node="${toKey}"]`);
+            if (!path || !node) return { ok: false, reason: 'missing', fromKey, toKey };
+            const pts = [];
+            const re = /([ML])\s*([-\d.]+)\s+([-\d.]+)/g;
+            let m;
+            const d = path.getAttribute('d') || '';
+            while ((m = re.exec(d))) pts.push({ x: +m[2], y: +m[3] });
+            const r = node.getBoundingClientRect();
+            const box = {
+              left: (r.left - fr.left) / scale,
+              right: (r.right - fr.left) / scale,
+              top: (r.top - fr.top) / scale,
+              bottom: (r.bottom - fr.top) / scale,
+            };
+            const end = pts[pts.length - 1];
+            const prev = pts[pts.length - 2];
+            return { ok: pts.length >= 2, pts, box, end, prev };
+          }
+          const around = slideBy('Same-row around landing');
+          const cross = document.querySelectorAll('.slide')[0];
+          if (!around || !cross) return { ok: false, reason: 'missing-slide' };
+          return {
+            ok: true,
+            down: measure(around, 'sld', 'srd'),
+            up: measure(around, 'srd', 'sld'),
+            cross: measure(cross, 'a3', 'b1'),
+          };
+        }"""
+    )
+    assert result.get("ok"), result
+    down = result["down"]
+    up = result["up"]
+    cross = result["cross"]
+    assert down.get("ok") and up.get("ok") and cross.get("ok"), result
+    # Down enters the bottom from below; the tip is on that edge.
+    assert abs(down["end"]["y"] - down["box"]["bottom"]) <= 2.5, down
+    assert down["prev"]["y"] > down["box"]["bottom"] + 12, down
+    assert abs(down["end"]["y"] - down["box"]["top"]) > 8, down
+    # Up enters the top from above.
+    assert abs(up["end"]["y"] - up["box"]["top"]) <= 2.5, up
+    assert up["prev"]["y"] < up["box"]["top"] - 12, up
+    assert abs(up["end"]["y"] - up["box"]["bottom"]) > 8, up
+    # A lower row still takes the arrow on its top edge.
+    assert abs(cross["end"]["y"] - cross["box"]["top"]) <= 2.5, cross
+    assert cross["prev"]["y"] < cross["box"]["top"] - 8, cross
+
+
+def _lane_label_clear_of_vertical(geometry_page, title, from_key, to_key):
+    return geometry_page.evaluate(
+        r"""({ title, fromKey, toKey }) => {
+          const slide = Array.from(document.querySelectorAll('.slide')).find((s) =>
+            (s.querySelector('h1') || {}).textContent.includes(title)
+          );
+          if (!slide) return { ok: false, reason: 'missing-slide' };
+          const flow = slide.querySelector('.flow');
+          const scale = Number(slide.dataset.scale || '1') || 1;
+          const fr = flow.getBoundingClientRect();
+          const path = flow.querySelector(
+            `path.flow-arrow[data-from="${fromKey}"][data-to="${toKey}"]`
+          );
+          const labels = Array.from(slide.querySelectorAll('.lane-label'));
+          const lower = labels[labels.length - 1];
+          if (!path || !lower) return { ok: false, reason: 'missing', path: Boolean(path) };
+          const pts = [];
+          const re = /([ML])\s*([-\d.]+)\s+([-\d.]+)/g;
+          let m;
+          const d = path.getAttribute('d') || '';
+          while ((m = re.exec(d))) pts.push({ x: +m[2], y: +m[3] });
+          const r = lower.getBoundingClientRect();
+          const box = {
+            left: (r.left - fr.left) / scale,
+            right: (r.right - fr.left) / scale,
+            top: (r.top - fr.top) / scale,
+            bottom: (r.bottom - fr.top) / scale,
+            text: lower.textContent,
+          };
+          let hit = false;
+          for (let i = 1; i < pts.length; i += 1) {
+            const p = pts[i - 1];
+            const q = pts[i];
+            if (Math.abs(p.x - q.x) > 0.75) continue;
+            const x = p.x;
+            const y0 = Math.min(p.y, q.y);
+            const y1 = Math.max(p.y, q.y);
+            if (x < box.left - 2 || x > box.right + 2) continue;
+            if (y1 < box.top - 2 || y0 > box.bottom + 2) continue;
+            hit = true;
+          }
+          const node = flow.querySelector(`.flow-node[data-node="${toKey}"]`);
+          const nr = node.getBoundingClientRect();
+          const targetTop = (nr.top - fr.top) / scale;
+          const end = pts[pts.length - 1];
+          return {
+            ok: true,
+            hit,
+            box,
+            pts,
+            end,
+            targetTop,
+            entersTop: Math.abs(end.y - targetTop) <= 2.5,
+          };
+        }""",
+        {"title": title, "fromKey": from_key, "toKey": to_key},
+    )
+
+
+def test_vertical_link_misses_lane_label(geometry_page):
+    slid = _lane_label_clear_of_vertical(
+        geometry_page, "Lane label misses", "la", "lb"
+    )
+    assert slid.get("ok"), slid
+    assert slid["entersTop"], slid
+    assert slid["hit"] is False, slid
+    shifted = _lane_label_clear_of_vertical(
+        geometry_page, "Lane label shifts", "na", "ne"
+    )
+    assert shifted.get("ok"), shifted
+    assert shifted["entersTop"], shifted
+    assert shifted["hit"] is False, shifted

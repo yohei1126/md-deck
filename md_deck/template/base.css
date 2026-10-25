@@ -239,9 +239,11 @@ body {
   background: transparent;
 }
 
-/* {.dashed} on a column heading. Width and colour are their own tokens so a
-   1px card border cannot hide the outline. */
-.column.dashed,
+/* {.dashed} on a column heading. Width and colour are their own tokens.
+   Three classes beat a later deck rule on `.columns .column` that sets
+   `border` in one shorthand, so that shorthand cannot wipe the outline.
+   A deck rule that names the dashed card itself can still override. */
+.columns .column.dashed,
 .columns.plain .column.dashed {
   border-style: dashed;
   border-width: var(--dashed-outline-width);

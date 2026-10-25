@@ -591,19 +591,27 @@
       add("vh", simplify([p1, mid2, p2]));
     };
 
+    const sameRow = boxesShareRow(a, b);
     if (route === "between") {
       if (b.cy >= a.cy) betweenDown();
       else betweenUp();
       aroundDown();
       aroundUp();
     } else if (route === "down") {
-      betweenDown();
-      aroundDown();
+      // Same row: the facing top entry runs the last stub behind the target.
+      if (sameRow) aroundDown();
+      else {
+        betweenDown();
+        aroundDown();
+      }
       aroundRight();
       aroundLeft();
     } else if (route === "up") {
-      betweenUp();
-      aroundUp();
+      if (sameRow) aroundUp();
+      else {
+        betweenUp();
+        aroundUp();
+      }
       aroundRight();
       aroundLeft();
     } else if (route === "right") {
@@ -712,11 +720,27 @@
     return pickPath(a, b, route, obstacles, drawn || [], flowBox);
   }
 
+  function boxesShareRow(a, b) {
+    return Math.abs(a.cy - b.cy) < Math.max(a.height, b.height) * 0.7;
+  }
+
+  // Same-row around enters on the detour side. A target on another row
+  // still uses the facing edge (bottom → top, or top → bottom).
+  function detourLanding(a, b, route) {
+    const routeName = route || "auto";
+    if (!a || !b || !boxesShareRow(a, b)) return "";
+    if (routeName === "down") return "bottom";
+    if (routeName === "up") return "top";
+    return "";
+  }
+
   function preferredSides(a, b, route) {
     const routeName = route || "auto";
     if (routeName === "between") {
       return b.cy >= a.cy ? ["bottom", "top"] : ["top", "bottom"];
     }
+    const around = detourLanding(a, b, routeName);
+    if (around) return [around, around];
     if (routeName === "down") return ["bottom", "top"];
     if (routeName === "up") return ["top", "bottom"];
     if (routeName === "left") return ["left", "left"];
@@ -2071,14 +2095,42 @@
     return n;
   }
 
+  function approachesFromOutside(pts, box, side) {
+    if (!pts || pts.length < 2 || !box) return false;
+    const end = pts[pts.length - 1];
+    const prev = pts[pts.length - 2];
+    const eps = 2.5;
+    if (side === "bottom") {
+      return Math.abs(end.y - box.bottom) <= eps && prev.y > box.bottom + 8;
+    }
+    if (side === "top") {
+      return Math.abs(end.y - box.top) <= eps && prev.y < box.top - 8;
+    }
+    if (side === "left") {
+      return Math.abs(end.x - box.left) <= eps && prev.x < box.left - 8;
+    }
+    if (side === "right") {
+      return Math.abs(end.x - box.right) <= eps && prev.x > box.right + 8;
+    }
+    return true;
+  }
+
   function bestClearRoute(plan, drawn, flowBox) {
     // Try other sides and a small port shift. The first route that misses
     // nodes, stays inside the flow, and crosses less is the one we keep.
+    // A same-row down/up link stays on the detour side: a facing-side
+    // repair would hide the arrowhead behind the target.
     if (!plan || !plan.a || !plan.b) return null;
+    const locked = detourLanding(plan.a, plan.b, plan.route);
+    const pairs = locked
+      ? ALT_SIDE_PAIRS.filter(
+          ([fromSide, toSide]) => fromSide === locked && toSide === locked
+        )
+      : ALT_SIDE_PAIRS;
     const offsets = [0, -22, 22, -44, 44];
     let best = null;
     let bestScore = Infinity;
-    ALT_SIDE_PAIRS.forEach(([fromSide, toSide]) => {
+    pairs.forEach(([fromSide, toSide]) => {
       offsets.forEach((off) => {
         const p1 = sidePointAt(
           plan.a,
@@ -2105,6 +2157,7 @@
         if (!pts || pts.length < 2 || !isOrthogonalPath(pts)) return;
         if (pathHitsObstacles(pts, plan.obstacles, HIT_PAD) > 0) return;
         if (finalStubLen(pts) < 14) return;
+        if (locked && !approachesFromOutside(pts, plan.b, locked)) return;
         if (pathOutsideCount(pts, flowBox) > 0) return;
         const score =
           pathCrossings(pts, drawn) * 1e6 +
@@ -2148,7 +2201,142 @@
     }
   }
 
+  function buildClearAroundPath(p1, p2, side, obstacles, flowBox, portGap, drawn) {
+    // Same-row down/up. A U tight against the row hides behind a cross-lane
+    // vertical that uses the lane gap. When other boxes sit on the detour
+    // side, run the trunk past them through a vertical gap.
+    const below = side === "bottom";
+    const baseClear = detourBaseClear(portGap);
+    const attachY = below ? Math.max(p1.y, p2.y) : Math.min(p1.y, p2.y);
+    let outerY = below ? attachY + baseClear : attachY - baseClear;
+    const spanLo = Math.min(p1.x, p2.x) - 4;
+    const spanHi = Math.max(p1.x, p2.x) + 4;
+    (obstacles || []).forEach((o) => {
+      if (o.skip) return;
+      if (o.box.right < spanLo || o.box.left > spanHi) return;
+      if (below) {
+        if (o.box.bottom >= attachY - 1) outerY = Math.max(outerY, o.box.bottom + 8);
+      } else if (o.box.top <= attachY + 1) {
+        outerY = Math.min(outerY, o.box.top - 8);
+      }
+    });
+    const minY = (flowBox && flowBox.top != null ? flowBox.top : 0) + 8;
+    const maxY = (flowBox && flowBox.bottom != null ? flowBox.bottom : 1e9) - 8;
+    outerY = clamp(outerY, minY, maxY);
+    const jogY = below
+      ? Math.min(attachY + baseClear, outerY)
+      : Math.max(attachY - baseClear, outerY);
+    if (Math.abs(outerY - jogY) < 1) return buildUPath(p1, p2, outerY);
+
+    function segmentClear(a, b) {
+      return (
+        pathHitsObstacles([a, b], obstacles, HIT_PAD) === 0 &&
+        pathCrossings([a, b], drawn || []) === 0
+      );
+    }
+    const minX = (flowBox && flowBox.left != null ? flowBox.left : 0) + 8;
+    const maxX = (flowBox && flowBox.right != null ? flowBox.right : 1e9) - 8;
+    const channels = [];
+    for (let x = minX; x <= maxX; x += 4) {
+      if (segmentClear({ x, y: jogY }, { x, y: outerY })) channels.push(x);
+    }
+    function bestChannel(portX) {
+      let best = null;
+      let bestDist = Infinity;
+      channels.forEach((x) => {
+        if (!segmentClear({ x: portX, y: jogY }, { x, y: jogY })) return;
+        const dist = Math.abs(x - portX);
+        if (dist < bestDist - 1e-6) {
+          bestDist = dist;
+          best = x;
+        }
+      });
+      return best;
+    }
+    const c1 = bestChannel(p1.x);
+    const c2 = bestChannel(p2.x);
+    if (c1 == null || c2 == null) return buildUPath(p1, p2, jogY);
+    if (Math.abs(c1 - c2) > 1 && !segmentClear({ x: c1, y: outerY }, { x: c2, y: outerY })) {
+      return buildUPath(p1, p2, jogY);
+    }
+    return simplify([
+      p1,
+      { x: p1.x, y: jogY },
+      { x: c1, y: jogY },
+      { x: c1, y: outerY },
+      { x: c2, y: outerY },
+      { x: c2, y: jogY },
+      { x: p2.x, y: jogY },
+      p2,
+    ]);
+  }
+
+  function laneLabelBoxes(flow, flowBox, scale) {
+    return Array.from(flow.querySelectorAll(".lane-label")).map((el) =>
+      relBox(el, flowBox, scale)
+    );
+  }
+
+  function verticalHitsLaneLabel(x, y1, y2, labels, pad) {
+    const p = { x, y: y1 };
+    const q = { x, y: y2 };
+    return labels.some((box) => segmentHitsBox(p, q, box, pad));
+  }
+
+  function nudgeLaneLabels(flow, routed, flowBox, scale) {
+    // A vertical stroke that still crosses a lane name slides the label
+    // within its lane. Routing already prefers an x that misses the label
+    // when the boxes overlap past it.
+    Array.from(flow.querySelectorAll(".lane-label")).forEach((el) => {
+      el.style.transform = "";
+      const box = relBox(el, flowBox, scale);
+      const xs = [];
+      routed.forEach((item) => {
+        const pts = item.pts || [];
+        for (let i = 1; i < pts.length; i += 1) {
+          const p = pts[i - 1];
+          const q = pts[i];
+          if (Math.abs(p.x - q.x) > 0.75) continue;
+          if (!segmentHitsBox(p, q, box, 2)) continue;
+          xs.push(p.x);
+        }
+      });
+      if (!xs.length) return;
+      const strokeX = xs.reduce((sum, x) => sum + x, 0) / xs.length;
+      const pad = 8;
+      const lane = el.closest(".lane");
+      const laneBox = lane
+        ? relBox(lane, flowBox, scale)
+        : { left: 0, right: flow.clientWidth, top: 0, bottom: flow.clientHeight };
+      const nodes = lane
+        ? Array.from(lane.querySelectorAll(".flow-node")).map((node) =>
+            relBox(node, flowBox, scale)
+          )
+        : [];
+      function fits(dx) {
+        const left = box.left + dx;
+        const right = box.right + dx;
+        if (left < laneBox.left - 1 || right > laneBox.right + 1) return false;
+        if (strokeX > left - pad && strokeX < right + pad) return false;
+        return !nodes.some((nb) => {
+          const overlapX = right > nb.left + 1 && left < nb.right - 1;
+          const overlapY = box.bottom > nb.top + 1 && box.top < nb.bottom - 1;
+          return overlapX && overlapY;
+        });
+      }
+      const options = [strokeX + pad - box.left, strokeX - pad - box.right]
+        .filter((dx) => Math.abs(dx) > 0.5)
+        .sort((a, b) => Math.abs(a) - Math.abs(b));
+      const dx = options.find((delta) => fits(delta));
+      if (dx == null) return;
+      el.style.transform = `translateX(${dx}px)`;
+    });
+  }
+
   function drawFlow(flow) {
+    flow.querySelectorAll(".lane-label").forEach((el) => {
+      el.style.transform = "";
+    });
     let svg = flow.querySelector("svg.flow-svg");
     if (!svg) {
       svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
@@ -2318,11 +2506,34 @@
     }
     const needTop = nestClearancePx(maxSameSideNestCount("top"), portGap);
     const needBottom = nestClearancePx(maxSameSideNestCount("bottom"), portGap);
+    // A same-row around with boxes on the detour side needs a side gutter.
+    // The gaps between chained nodes are already full of arrows, so the
+    // trunk steps outside the row instead of sealing the lane gap.
+    const sideGutter = 20;
+    let needSide = false;
+    plans.forEach((plan) => {
+      if (plan.route !== "down" && plan.route !== "up") return;
+      if (plan.fromSide !== plan.toSide) return;
+      const below = plan.toSide === "bottom";
+      const spanLo = Math.min(plan.a.left, plan.b.left);
+      const spanHi = Math.max(plan.a.right, plan.b.right);
+      const blocked = plan.obstacles.some((o) => {
+        if (o.skip) return false;
+        if (o.box.right < spanLo || o.box.left > spanHi) return false;
+        if (below) return o.box.top >= Math.max(plan.a.bottom, plan.b.bottom) - 1;
+        return o.box.bottom <= Math.min(plan.a.top, plan.b.top) + 1;
+      });
+      if (blocked) needSide = true;
+    });
     // Reset inline padding so CSS card-padding is the baseline each redraw.
     flow.style.paddingTop = "";
     flow.style.paddingBottom = "";
+    flow.style.paddingLeft = "";
+    flow.style.paddingRight = "";
     const basePadTop = parseFloat(getComputedStyle(flow).paddingTop) || 0;
     const basePadBottom = parseFloat(getComputedStyle(flow).paddingBottom) || 0;
+    const basePadLeft = parseFloat(getComputedStyle(flow).paddingLeft) || 0;
+    const basePadRight = parseFloat(getComputedStyle(flow).paddingRight) || 0;
     let grew = false;
     if (needTop > basePadTop + 0.5) {
       flow.style.paddingTop = `${needTop}px`;
@@ -2330,6 +2541,14 @@
     }
     if (needBottom > basePadBottom + 0.5) {
       flow.style.paddingBottom = `${needBottom}px`;
+      grew = true;
+    }
+    if (needSide && sideGutter > basePadLeft + 0.5) {
+      flow.style.paddingLeft = `${sideGutter}px`;
+      grew = true;
+    }
+    if (needSide && sideGutter > basePadRight + 0.5) {
+      flow.style.paddingRight = `${sideGutter}px`;
       grew = true;
     }
     if (grew) {
@@ -2516,15 +2735,59 @@
         if (hi - lo >= STRAIGHT_OVERLAP_MIN) {
           const pad = Math.min(plan.a.width, plan.b.width) * 0.15;
           const want = (plan.a.cx + plan.b.cx) / 2;
-          const x = clamp(want, lo + Math.min(pad, (hi - lo) / 2), hi - Math.min(pad, (hi - lo) / 2));
-          const p1 = { x, y: fromPort.point.y };
-          const p2 = { x, y: toPort.point.y };
-          if (
-            pathHitsObstacles([p1, p2], plan.obstacles, HIT_PAD) === 0 &&
-            pathCrossings([p1, p2], drawn) === 0
+          const inset = Math.min(pad, (hi - lo) / 2);
+          const loX = lo + inset;
+          const hiX = hi - inset;
+          const y1 = fromPort.point.y;
+          const y2 = toPort.point.y;
+          const labels = laneLabelBoxes(flow, flowBox, scale);
+          function clearVertical(x) {
+            const seg = [
+              { x, y: y1 },
+              { x, y: y2 },
+            ];
+            return (
+              pathHitsObstacles(seg, plan.obstacles, HIT_PAD) === 0 &&
+              pathCrossings(seg, drawn) === 0 &&
+              !verticalHitsLaneLabel(x, y1, y2, labels, 4)
+            );
+          }
+          let chosen = null;
+          const wantX = clamp(want, loX, hiX);
+          if (clearVertical(wantX)) chosen = wantX;
+          else if (
+            pathHitsObstacles(
+              [
+                { x: wantX, y: y1 },
+                { x: wantX, y: y2 },
+              ],
+              plan.obstacles,
+              HIT_PAD
+            ) === 0 &&
+            pathCrossings(
+              [
+                { x: wantX, y: y1 },
+                { x: wantX, y: y2 },
+              ],
+              drawn
+            ) === 0
           ) {
-            fromPort.point = p1;
-            toPort.point = p2;
+            // The centre line only misses nodes. Slide within the overlap
+            // so it also misses a lane label.
+            let bestDist = Infinity;
+            for (let x = loX; x <= hiX + 0.1; x += 4) {
+              const trial = Math.min(x, hiX);
+              if (!clearVertical(trial)) continue;
+              const dist = Math.abs(trial - want);
+              if (dist < bestDist - 1e-6) {
+                bestDist = dist;
+                chosen = trial;
+              }
+            }
+          }
+          if (chosen != null) {
+            fromPort.point = { x: chosen, y: y1 };
+            toPort.point = { x: chosen, y: y2 };
           }
         }
       }
@@ -2579,6 +2842,29 @@
                 nestGap * rank;
           next = buildUPath(fromPort.point, toPort.point, midY);
         } else if (
+          isSameSideUD(plan) &&
+          (plan.route === "down" || plan.route === "up")
+        ) {
+          // Land on the detour side, and lift the trunk past boxes on that
+          // side (through a clear gap) so a cross-lane stroke is not walled in.
+          const candidate = buildClearAroundPath(
+            fromPort.point,
+            toPort.point,
+            plan.toSide,
+            plan.obstacles,
+            layoutBox,
+            portGap,
+            drawn
+          );
+          if (
+            candidate &&
+            pathHitsObstacles(candidate, plan.obstacles, HIT_PAD) <=
+              pathHitsObstacles(picked, plan.obstacles, HIT_PAD) &&
+            pathCrossings(candidate, drawn) <= pathCrossings(picked, drawn)
+          ) {
+            next = candidate;
+          }
+        } else if (
           (plan.fromSide === "bottom" && plan.toSide === "top") ||
           (plan.fromSide === "top" && plan.toSide === "bottom")
         ) {
@@ -2618,6 +2904,7 @@
     });
 
     repairCrossings(routed, layoutBox);
+    nudgeLaneLabels(flow, routed, flowBox, scale);
 
     routed.forEach((item, index) => {
       const others = [];
