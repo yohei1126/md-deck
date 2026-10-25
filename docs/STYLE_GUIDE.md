@@ -62,20 +62,21 @@ Label tokens become both HTML label text (when set) and quoted CSS variables for
 | `color_card_border` | `--color-card-border` | `#cccccc` | no | Column card border |
 | `color_flow_node_bg` | `--color-flow-node-bg` | `#ffffff` | no | Flow node fill |
 | `color_flow_node_border` | `--color-flow-node-border` | `#000000` | no | Flow node border |
-| `color_flow_arrow` | `--color-flow-arrow` | `#000000` | no | Flow arrow stroke |
-| `color_edge_gap` | `--color-edge-gap` | `#000000` | no | Dashed gap stroke and label. `dark-blue` sets the accent `#F7581D` |
+| `color_flow_arrow` | `--color-flow-arrow` | `#000000` | no | Flow arrow stroke, including ordinary dashed edges |
+| `color_edge_gap` | `--color-edge-gap` | `#000000` | no | Opt-in gap emphasis (`style=gap`) stroke and label. `dark-blue` sets the accent `#F7581D`. Ordinary dashed edges do not use it |
+| `color_dashed_outline` | `--color-dashed-outline` | `#333333` | no | `{.dashed}` card outline. `dark-blue` sets the teal `#1A6B7A` |
 | `color_table_header_bg` | `--color-table-header-bg` | `#f0f0f0` | no | Table header fill |
 | `color_table_border` | `--color-table-border` | `#cccccc` | no | Table cell borders |
 | `font_family` | `--font-family` | `sans-serif` | **yes** | Font stack |
-| `font_size_body` | `--font-size-body` | `22px` | **yes** | Body size |
+| `font_size_body` | `--font-size-body` | `24px` | **yes** | Body size. Flow node titles use this size and `--font-weight-title` |
 | `font_size_title` | `--font-size-title` | `36px` | no | Title size |
-| `font_size_key_message` | `--font-size-key-message` | `20px` | no | Key Message size |
-| `font_size_question` | `--font-size-question` | `18px` | no | Question size |
-| `font_size_small` | `--font-size-small` | `16px` | no | Footer, badges, chips |
-| `font_size_flow_body` | `--font-size-flow-body` | `18px` | no | Flow-node caption (`.flow-node-caption`). Body colour, not muted |
+| `font_size_key_message` | `--font-size-key-message` | `22px` | no | Key Message size |
+| `font_size_question` | `--font-size-question` | `20px` | no | Question size |
+| `font_size_small` | `--font-size-small` | `18px` | no | Footer, badges, chips, eyebrows |
+| `font_size_flow_body` | `--font-size-flow-body` | `20px` | no | Flow-node caption (`.flow-node-caption`). Body colour, not muted |
 | `font_size_table` | `--font-size-table` | `font_size_small` | no | Table body size (falls back to `font_size_small` when omitted) |
 | `font_weight_title` | `--font-weight-title` | `700` | no | Titles and labels |
-| `font_weight_body` | `--font-weight-body` | `400` | no | Body weight |
+| `font_weight_body` | `--font-weight-body` | `500` | no | Body weight. Node titles stay on `font_weight_title` |
 | `line_height` | `--line-height` | `1.45` | no | Body line height |
 | `page_padding` | `--page-padding` | `48px` | no | Default inset; fills omitted sides |
 | `page_padding_top` | `--page-padding-top` | `48px` | no | Top inset |
@@ -89,7 +90,9 @@ Label tokens become both HTML label text (when set) and quoted CSS variables for
 | `card_padding` | `--card-padding` | `16px` | no | Inner padding for boxes |
 | `key_message_radius` | `--key-message-radius` | `8px` | no | Key Message radius |
 | `question_radius` | `--question-radius` | `8px` | no | Question radius |
-| `border_width` | `--border-width` | `1px` | no | Default border width (`0` / `none` ok). `theme: dark-blue` sets `2px` when this token is omitted |
+| `border_width` | `--border-width` | `2px` | no | Default border width (`0` / `none` ok). `theme: dark-blue` sets `3px` when this token is omitted. A `{.dashed}` card uses `dashed_outline_width` instead |
+| `flow_stroke_width` | `--flow-stroke-width` | `3px` | no | SVG arrow shaft. `theme: dark-blue` sets `3.5px` when this token is omitted. Gap emphasis (`style=gap`) adds `0.5px`. Arrowheads stay a fixed size |
+| `dashed_outline_width` | `--dashed-outline-width` | `2px` | no | `{.dashed}` card outline width. `theme: dark-blue` sets `2.5px` when this token is omitted |
 | `flow_node_min_width` | `--flow-node-min-width` | `120px` | no | Minimum flow node width (`0` / `none` ok) |
 | `flow_node_max_width` | `--flow-node-max-width` | `none` | no | Cap for boxes in a wide row or beside a stack. `none` (the default) lets those boxes share the row. A length such as `240px` keeps a centred inset |
 | `flow_node_min_height` | `--flow-node-min-height` | `96px` | no | Floor on a flow node (`0` / `none` sizes to the label). A wide row still grows toward `flow_preferred_height` |

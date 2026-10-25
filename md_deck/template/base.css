@@ -109,7 +109,8 @@ body {
   text-align: center;
 }
 
-/* Section label above the title. Colour is the secondary accent. */
+/* Section label above the title. Colour is the secondary accent.
+   Default is the start edge. eyebrow-end is the opt-in right align. */
 .eyebrow {
   margin: 0 0 0.2em;
   color: var(--color-accent-2);
@@ -117,6 +118,11 @@ body {
   font-weight: var(--font-weight-title);
   letter-spacing: 0.04em;
   line-height: 1.2;
+  text-align: start;
+}
+
+.slide .eyebrow.eyebrow-end {
+  text-align: end;
 }
 
 .slide h1,
@@ -225,23 +231,26 @@ body {
   align-self: stretch;
 }
 
-/* {.dashed} on a column heading. A muted layer can use the same class. */
-.column.dashed {
-  border-style: dashed;
-}
-
-.columns.plain .column.dashed {
-  padding: var(--card-padding);
-  border: var(--border-width) dashed var(--color-card-border);
-  border-radius: var(--card-radius);
-  background: transparent;
-}
-
 /* plain: no card chrome (style file may still colour headings) */
 .columns.plain .column {
   padding: 0;
   border: none;
   border-radius: 0;
+  background: transparent;
+}
+
+/* {.dashed} on a column heading. Width and colour are their own tokens so a
+   1px card border cannot hide the outline. */
+.column.dashed,
+.columns.plain .column.dashed {
+  border-style: dashed;
+  border-width: var(--dashed-outline-width);
+  border-color: var(--color-dashed-outline);
+}
+
+.columns.plain .column.dashed {
+  padding: var(--card-padding);
+  border-radius: var(--card-radius);
   background: transparent;
 }
 
@@ -646,6 +655,7 @@ body {
 
 .flow-node-title {
   display: block;
+  font-weight: var(--font-weight-title);
 }
 
 .flow-node-caption {
@@ -746,7 +756,7 @@ body {
 .flow-svg path {
   fill: none;
   stroke: var(--color-flow-arrow);
-  stroke-width: 2;
+  stroke-width: var(--flow-stroke-width);
   marker-end: url(#flow-arrowhead);
 }
 
@@ -757,16 +767,23 @@ body {
   font-family: var(--font-family);
 }
 
-.flow-svg path.flow-arrow-dashed,
 .flow-svg path.flow-callout-arrow {
-  stroke-dasharray: 7 5;
+  stroke-dasharray: 6 4;
 }
 
-/* Dashed gaps use the accent, not muted body text. Callout connectors stay
-   on the arrow colour; they are not .flow-arrow-dashed. */
+/* Ordinary dashed edges stay on the arrow colour. Gap emphasis is opt-in
+   (`style=gap` → .flow-arrow-gap) and uses the accent plus a slightly
+   thicker shaft. Callout connectors are not gap edges. */
 .flow-svg path.flow-arrow-dashed {
+  stroke: var(--color-flow-arrow);
+  stroke-dasharray: 9 6;
+  marker-end: url(#flow-arrowhead);
+}
+
+.flow-svg path.flow-arrow-gap {
   stroke: var(--color-edge-gap);
-  stroke-width: 2.5;
+  stroke-width: calc(var(--flow-stroke-width) + 0.5px);
+  stroke-dasharray: 7 5;
   marker-end: url(#flow-arrowhead-gap);
 }
 

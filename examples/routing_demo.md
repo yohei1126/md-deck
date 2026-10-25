@@ -58,11 +58,11 @@ link: r => t [route=between]
 
 ---
 
-eyebrow: Worked example
+eyebrow: Worked example [align=end]
 
 # Index, gap label, and a dashed card {#chrome .demo}
 
-**Key Message:** A corner index, a dashed gap, and a dashed card are generic hooks.
+**Key Message:** A corner index, an opt-in gap accent, and a dashed card are generic hooks.
 
 ::: columns panel
 ## Quiet {.dashed}
@@ -77,5 +77,6 @@ The other card keeps a solid border.
 :::
 
 ::: flow
-① Intake {#in} -> [doc] Check {2} -.[held].-> [highlight] Out {#out}
+① Intake {#in} -> [doc] Check {2} ..> [muted] Filed {#filed}
+{#filed} -.[held].-> [highlight] Out {#out} [style=gap]
 :::

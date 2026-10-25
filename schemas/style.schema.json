@@ -47,7 +47,11 @@
     "color_flow_arrow": { "$ref": "#/$defs/color" },
     "color_edge_gap": {
       "$ref": "#/$defs/color",
-      "description": "Dashed gap stroke and label. Plain default is black. dark-blue uses the orange accent."
+      "description": "Opt-in gap emphasis (style=gap) stroke and label. Ordinary dashed edges use color_flow_arrow. Plain default is black. dark-blue uses the orange accent."
+    },
+    "color_dashed_outline": {
+      "$ref": "#/$defs/color",
+      "description": "Outline of a {.dashed} column card. Plain default is #333333. dark-blue uses the teal accent #1A6B7A."
     },
     "color_table_header_bg": { "$ref": "#/$defs/color" },
     "color_table_border": { "$ref": "#/$defs/color" },
@@ -83,6 +87,14 @@
     "key_message_radius": { "$ref": "#/$defs/sizeOrNone" },
     "question_radius": { "$ref": "#/$defs/sizeOrNone" },
     "border_width": { "$ref": "#/$defs/sizeOrNone" },
+    "flow_stroke_width": {
+      "$ref": "#/$defs/size",
+      "description": "SVG arrow shaft. Plain default is 3px. dark-blue uses 3.5px when omitted. Gap emphasis adds 0.5px."
+    },
+    "dashed_outline_width": {
+      "$ref": "#/$defs/size",
+      "description": "Width of a {.dashed} column outline. Plain default is 2px. dark-blue uses 2.5px when omitted."
+    },
     "flow_node_min_width": { "$ref": "#/$defs/sizeOrNone" },
     "flow_node_max_width": { "$ref": "#/$defs/sizeOrNone" },
     "flow_node_min_height": { "$ref": "#/$defs/sizeOrNone" },
@@ -115,7 +127,7 @@
     "theme": {
       "type": "string",
       "enum": ["plain", "dark-blue"],
-      "description": "Named colour palette. plain keeps black on white. dark-blue fills omitted colour tokens (off-white ground, white node fill, 2px borders); an explicit colour token overrides that role."
+      "description": "Named colour palette. plain keeps black on white. dark-blue fills omitted colour tokens (off-white ground, white node fill, 3px borders, 3.5px arrow shafts); an explicit colour token overrides that role."
     }
   },
   "$defs": {

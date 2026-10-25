@@ -15,7 +15,12 @@ from jsonschema import Draft202012Validator
 from md_deck.errors import CheckError, sort_errors
 from md_deck.flow import KNOWN_NODE_KINDS, collect_flow_nodes, parse_flow_body
 from md_deck.titles import TitleMeasure, heading_title_messages, title_measure_from_tokens
-from md_deck.slides import ALLOWED_NESTING, BLOCK_OPTIONS, EYEBROW_LINE_RE
+from md_deck.slides import (
+    ALLOWED_NESTING,
+    BLOCK_OPTIONS,
+    EYEBROW_LINE_RE,
+    parse_eyebrow_body,
+)
 from md_deck.style import (
     EDGE_SHAPE_TOKENS,
     EDGE_SHAPES,
@@ -803,7 +808,10 @@ def validate_slide_body(
                 )
             )
     for lineno, body in eyebrow_lines:
-        if not body:
+        label, _align, align_error = parse_eyebrow_body(body)
+        if align_error:
+            errors.append(CheckError(path, lineno, align_error))
+        if not label:
             errors.append(CheckError(path, lineno, "eyebrow body is empty"))
 
     if len(key_message_lines) > 1:

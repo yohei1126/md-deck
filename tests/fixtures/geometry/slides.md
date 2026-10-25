@@ -495,7 +495,7 @@ lane: Upper
 [doc] Alpha {#ga}
 lane: Lower
 [doc] Beta {#gb}
-link: ga ..> gb : gap [route=down]
+link: ga ..> gb : gap [route=down style=gap]
 :::
 
 ---
@@ -504,4 +504,29 @@ link: ga ..> gb : gap [route=down]
 
 ::: flow
 ① Intake {#in} -> Review {2}
+:::
+
+---
+
+# Dashed stroke versus gap emphasis
+
+::: flow
+Ordinary {#ord} ..> Plain {#pln}
+Gap {#gp} -.[held].-> Mark {#mk} [style=gap]
+:::
+
+---
+
+# Dashed card outline
+
+::: columns panel
+## Quiet {.dashed}
+
+A short note.
+
++++
+
+## Solid
+
+A short note.
 :::

@@ -40,6 +40,27 @@ def test_eyebrow_must_be_one_non_empty_line(tmp_path: Path):
         'title: X\nversion: "1"\ndate: "2026-01-01"\nlang: en\n'
         "style: deck_style.md\n"
         "---\n\n"
+        "eyebrow: Label [align=middle]\n\n"
+        "# Title\n",
+        encoding="utf-8",
+    )
+    bad_align = _messages(check_deck(slides, style))
+    assert any("unknown eyebrow align" in m for m in bad_align)
+    slides.write_text(
+        "---\n"
+        'title: X\nversion: "1"\ndate: "2026-01-01"\nlang: en\n'
+        "style: deck_style.md\n"
+        "---\n\n"
+        "eyebrow: Label [align=end]\n\n"
+        "# Title\n",
+        encoding="utf-8",
+    )
+    assert check_deck(slides, style) == []
+    slides.write_text(
+        "---\n"
+        'title: X\nversion: "1"\ndate: "2026-01-01"\nlang: en\n'
+        "style: deck_style.md\n"
+        "---\n\n"
         "eyebrow: Section\n\n"
         "# Title\n",
         encoding="utf-8",

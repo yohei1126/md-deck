@@ -12,9 +12,10 @@
   // Boxes that overlap by at least this much horizontally get one straight
   // vertical stroke instead of a Z between their centres.
   const STRAIGHT_OVERLAP_MIN = 24;
-  // Arrowhead marker is 10x7 at strokeWidth units with stroke-width 2 ≈ 18×13 px.
+  // Arrowhead is userSpaceOnUse so a thicker shaft does not grow the head.
+  // 20×14 with refX 18 matches the clearance below.
   const ARROWHEAD_LEN = 18;
-  const ARROWHEAD_WIDTH = 13;
+  const ARROWHEAD_WIDTH = 14;
   // Same-row U detours need ports wider than the head plus a visible gap.
   const DETOUR_PORT_MIN = ARROWHEAD_WIDTH + 5;
 
@@ -38,13 +39,14 @@
     if (!svg.querySelector("#flow-arrowhead")) {
       const marker = document.createElementNS("http://www.w3.org/2000/svg", "marker");
       marker.setAttribute("id", "flow-arrowhead");
-      marker.setAttribute("markerWidth", "10");
-      marker.setAttribute("markerHeight", "7");
-      marker.setAttribute("refX", "9");
-      marker.setAttribute("refY", "3.5");
+      marker.setAttribute("markerUnits", "userSpaceOnUse");
+      marker.setAttribute("markerWidth", "20");
+      marker.setAttribute("markerHeight", "14");
+      marker.setAttribute("refX", "18");
+      marker.setAttribute("refY", "7");
       marker.setAttribute("orient", "auto");
       const poly = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
-      poly.setAttribute("points", "0 0, 10 3.5, 0 7");
+      poly.setAttribute("points", "0 0, 20 7, 0 14");
       poly.setAttribute("fill", "currentColor");
       marker.appendChild(poly);
       defs.appendChild(marker);
@@ -58,13 +60,14 @@
     if (!marker) {
       marker = document.createElementNS("http://www.w3.org/2000/svg", "marker");
       marker.setAttribute("id", "flow-arrowhead-gap");
-      marker.setAttribute("markerWidth", "10");
-      marker.setAttribute("markerHeight", "7");
-      marker.setAttribute("refX", "9");
-      marker.setAttribute("refY", "3.5");
+      marker.setAttribute("markerUnits", "userSpaceOnUse");
+      marker.setAttribute("markerWidth", "20");
+      marker.setAttribute("markerHeight", "14");
+      marker.setAttribute("refX", "18");
+      marker.setAttribute("refY", "7");
       marker.setAttribute("orient", "auto");
       const poly = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
-      poly.setAttribute("points", "0 0, 10 3.5, 0 7");
+      poly.setAttribute("points", "0 0, 20 7, 0 14");
       poly.setAttribute("fill", color || "#000");
       marker.appendChild(poly);
       defs.appendChild(marker);
@@ -1008,8 +1011,16 @@
       el.setAttribute("data-shape", edge.shape);
     }
     el.classList.add("flow-arrow");
-    if (edge.style === "dashed" || edge.kind === "dashed") {
+    const dashed = edge.style === "dashed" || edge.kind === "dashed";
+    const gap = edge.emphasis === "gap";
+    if (dashed || gap) {
       el.classList.add("flow-arrow-dashed");
+    }
+    if (gap) {
+      el.setAttribute("data-emphasis", "gap");
+      if ((el.tagName || "").toLowerCase() === "path") {
+        el.classList.add("flow-arrow-gap");
+      }
     }
     if (edge.kind === "link" || edge.cross) {
       el.classList.add("flow-link");
@@ -1186,11 +1197,10 @@
       Math.abs(end.x - beforeEnd.x) > 8 &&
       Math.abs(end.y - mid.y) < 2;
 
-    // Dashed labels use the gap accent. On a vertical stroke the upright
-    // stack is preferred; a horizontal shaft keeps the label above or below.
-    // The other orientation stays as a fallback when the preferred one hits
-    // a node or leaves the flow.
-    const gapLabel = edge.style === "dashed" || edge.kind === "dashed";
+    // Gap emphasis (`style=gap`) uses the accent and, on a vertical stroke or
+    // a multi-line label, an upright stack. An ordinary dashed edge keeps the
+    // same label placement as a solid arrow.
+    const gapLabel = edge.emphasis === "gap";
 
     // Do not slide a beside-the-line label back across the stroke to make it
     // fit. A side that cannot hold the text loses on the overflow score, and
@@ -1258,8 +1268,8 @@
         }
       }
       const seen = [];
-      // A dashed label the author broke with \n stacks upright in the gap.
-      // A single-line dashed label stays horizontal unless that box loses.
+      // A gap label the author broke with \n stacks upright beside the shaft.
+      // A single-line gap label stays horizontal unless that box loses.
       const stackBias = gapLabel && lines.length > 1 ? 24 : 0;
       if (gapLabel && lines.length > 1) {
         candidates.push({
@@ -1417,7 +1427,9 @@
       });
       (labelObstacles || []).forEach((obstacle) => {
         const other = obstacle && obstacle.box;
-        if (other && labelOverlapArea(box, other) > 0) penalty += 5000;
+        // Higher than a node kiss (6000) or a stroke graze (7000) so two
+        // labels that share a lane gap take opposite sides instead of stacking.
+        if (other && labelOverlapArea(box, other) > 0) penalty += 12000;
       });
       return penalty;
     }
@@ -1443,9 +1455,13 @@
     const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
     path.setAttribute("d", pathD(pts));
     const dashed = edge.style === "dashed" || edge.kind === "dashed";
-    if (dashed) {
+    const gap = edge.emphasis === "gap";
+    if (gap) {
       path.setAttribute("stroke-dasharray", "7 5");
       path.setAttribute("marker-end", "url(#flow-arrowhead-gap)");
+    } else if (dashed) {
+      path.setAttribute("stroke-dasharray", "9 6");
+      path.setAttribute("marker-end", "url(#flow-arrowhead)");
     } else {
       path.setAttribute("marker-end", "url(#flow-arrowhead)");
     }
@@ -1508,6 +1524,7 @@
           from: el.getAttribute("data-from"),
           to: el.getAttribute("data-to"),
           style: el.getAttribute("data-style") || "solid",
+          emphasis: el.getAttribute("data-emphasis") || "",
           label: el.getAttribute("data-label"),
           bidirectional: el.getAttribute("data-bidirectional") === "true",
           cross: el.classList.contains("flow-edge-cross"),
@@ -1529,8 +1546,9 @@
       edges.push({
         from: nodes[i].getAttribute("data-node") || String(i),
         to: nodes[i + 1].getAttribute("data-node") || String(i + 1),
-        style: "solid",
-        label: null,
+          style: "solid",
+          emphasis: "",
+          label: null,
         bidirectional: false,
         cross: false,
         route: "auto",
@@ -1563,10 +1581,9 @@
       const lines = labelLines(edge.label);
       const size = measureLabelSize(svg, lines);
       const gap = b.left - a.right;
-      // A dashed label broken with \n is drawn as an upright column, so the
+      // A gap label broken with \n is drawn as an upright column, so the
       // row keeps a short shaft instead of the full horizontal width.
-      const stacked =
-        (edge.style === "dashed" || edge.kind === "dashed") && lines.length > 1;
+      const stacked = edge.emphasis === "gap" && lines.length > 1;
       const need = stacked ? 56 : size.width + 24;
       if (gap < need) {
         const extra = need - gap;

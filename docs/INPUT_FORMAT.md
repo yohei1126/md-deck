@@ -34,7 +34,7 @@ color_background: "#ffffff"
 color_text: "#000000"
 color_title: "#000000"
 font_family: "sans-serif"
-font_size_body: 22
+font_size_body: 24
 ---
 
 # Style notes for humans (ignored by the generator)
@@ -87,7 +87,7 @@ Deck-specific:
 - At least one non-empty slide; a trailing `---` that creates an empty slide is an error
 - Exactly one H1 (`# …`) per slide; no H1 inside `:::` blocks
 - Optional heading attributes via `attr_list`: `# Title {#id .class}` (sets slide `id` / classes and the `h1` attributes)
-- Section label above the title: a top-level line `eyebrow: Section label` (one per slide, non-empty). It renders as `<p class="eyebrow">` before the `h1`. A line inside a fence is left alone
+- Section label above the title: a top-level line `eyebrow: Section label` (one per slide, non-empty). Optional `[align=end]` or `[align=right]` aligns it to the end edge; the default is the start edge. It renders as `<p class="eyebrow">` before the `h1`. A line inside a fence is left alone
 - H1 line break: `\n` inside the heading (`# First phrase\nSecond phrase`) becomes a `<br>` in `.title`. An ATX heading cannot wrap with a trailing `\`. Cover rules (the first slide, `{.cover}`, and `{.no-cover}`) are in [VISUAL_POLICY.md](VISUAL_POLICY.md)
 - Heading levels must not skip (H1 then H4 is an error)
 - At most one `**Key Message:**` line per slide
@@ -98,7 +98,8 @@ Deck-specific:
   - `question` / `source`: no options
 - Every `:::` opener needs a matching closer; stray closers and `::` / `::::` lines fail
 - Nested blocks are forbidden, except `::: flow` inside `::: columns` (one level only)
-- Flow: at least two nodes; empty nodes in `A -> -> B` fail; unknown `[kind]` markers fail; unknown `route=` / `pos=` / `shape=` / `side=` values fail; duplicate `{#id}` fails
+- Flow: at least two nodes; empty nodes in `A -> -> B` fail; unknown `[kind]` markers fail; unknown `route=` / `pos=` / `shape=` / `side=` / `style=` values fail; duplicate `{#id}` fails
+- An eyebrow is one non-empty line. `eyebrow: Label [align=end]` (or `right`) aligns it to the end edge. `start` and `left` keep the default. An unknown `align=` fails the check
 - Columns: at least two non-empty parts split by a `+++` line; `+++` outside `columns` fails
 - Question and source blocks must not be empty
 - Tables: every row has the same column count; an empty first header cell promotes the first body column to `th[scope=row]`
@@ -127,8 +128,9 @@ callout: pdf : Ready to ship [pos=below]
 | --- | --- |
 | Solid arrow | `A -> B` |
 | Labelled solid | `A -[label]-> B` |
-| Dashed arrow | `A ..> B` |
+| Dashed arrow | `A ..> B` (arrow colour, same shaft as a solid edge) |
 | Labelled dashed | `A -.[label].-> B` |
+| Gap emphasis | Trailing `[style=gap]` on a dashed edge: `A -.[label].-> B [style=gap]` or `link: A ..> B : label [style=gap]`. Uses `color_edge_gap` and a shaft `0.5px` thicker. A solid edge with `style=gap` fails the check |
 | Bidirectional pair | `A <-> B` or `A <-[label]-> B` |
 | Node kind | `[actor]`, `[system]`, `[doc]`, `[muted]`, `[highlight]` before the name |
 | Node id | `Name {#id}` (stable `data-node` / link target; works with duplicate titles and `\n` breaks) |
@@ -138,7 +140,7 @@ callout: pdf : Ready to ship [pos=below]
 | Line break in node / label / badge | `\n` or a trailing `\` |
 | Lane | `lane: Label` starts a lane. `lane:` with no label starts an unlabelled row. Optional `[align=start\|center\|end]` moves a shorter lane inside the group (default `start` keeps columns aligned across lanes) |
 | Cross-lane link | `link: From => To : optional label [route=between]` (also `->` / `..>`; routes below). Optional `shape=straight` (or `orthogonal`) per link. A bare `{#id} -> {#other}` that names nodes already defined in other lanes resolves the same way |
-| Edge shape on a chain | Trailing opts on the destination: `A -> B [shape=straight]` |
+| Edge shape on a chain | Trailing opts on the destination: `A -> B [shape=straight]`. The same bracket holds `style=gap` on a dashed destination |
 | Callout | `callout: NodeId : text [pos=below]` (`above` / `below` / `below-left` / `below-right` / `left` / `right`). Optional `side=top\|bottom\|left\|right` sets where the connector leaves the callout box |
 | Stacked column | `A -> { Upper / Lower } -> B` (edges attach to the stack mid-box; write a separate edge to each member to fan out) |
 | Parallel edges | Repeat the same pair on separate lines; strokes offset and labels separate |
@@ -158,9 +160,11 @@ A row that contains a `.flow-stack` keeps at least 72px between the stack and th
 
 A node caption (`Name | caption`, hook `.flow-node-caption`) is one block of text. `\n` breaks it into lines. It uses `font_size_flow_body` (default `18px`) and the body text colour, including when the box is tall. Badges and chips stay on `font_size_small`. Short bullets inside a flow node are not a syntax yet; use chips (`[[a, b]]`) or a `::: columns` card. Bullets in flow nodes are a follow-up.
 
-A column heading (`.column-head`) is about `1.1em` of the body size so a short title stays on one line. A paragraph in a card sits under that heading. A `::: columns` row is content height: cards do not stretch to the leftover slide, so a short card does not keep a large empty bottom. `::: columns fill` is the opt-in that stretches the row. `{.dashed}` on a column heading (for example `## Quiet {.dashed}`) adds `.dashed` to that card so the outline is dashed; pair it with `{.muted}` when the layer should read quieter. A list in a tall card (`fill`, or a card that is only as tall as a taller sibling) is packed under that heading; the line-height stays a normal reading size. `::: columns figures` is the same card row with a large heading for a plain figure (class `.columns.figures`). The figure and its caption are centred in the card.
+A column heading (`.column-head`) is about `1.1em` of the body size so a short title stays on one line. A paragraph in a card sits under that heading. A `::: columns` row is content height: cards do not stretch to the leftover slide, so a short card does not keep a large empty bottom. `::: columns fill` is the opt-in that stretches the row. `{.dashed}` on a column heading (for example `## Quiet {.dashed}`) adds `.dashed` to that card. The outline uses `dashed_outline_width` and `color_dashed_outline` (plain `#333333` at `2px`; `dark-blue` teal `#1A6B7A` at `2.5px`), not the card border. Pair it with `{.muted}` when the layer should read quieter. A list in a tall card (`fill`, or a card that is only as tall as a taller sibling) is packed under that heading; the line-height stays a normal reading size. `::: columns figures` is the same card row with a large heading for a plain figure (class `.columns.figures`). The figure and its caption are centred in the card.
 
-A leading circled number on a flow title (`① Intake`) is lifted into `.flow-node-index`, a corner badge outside the title text. `{1}` or `{①}` does the same. A longer badge such as `{draft}` stays inside the node. Dashed edges (a chain `-. [label].->` or `link: … ..>`) draw in `--color-edge-gap` with a bold label. On a vertical stroke, that label stacks upright beside the stroke (`.flow-label-gap-vertical`) when the stack fits in the open gap; otherwise it stays horizontal beside the stroke. A single-line label on a horizontal shaft stays above or below that shaft. `route=between` keeps the lane-gap shaft. A later auto-routed edge that would cross an earlier one is moved to a free side or corridor when one exists.
+A leading circled number on a flow title (`① Intake`) is lifted into `.flow-node-index`, a corner badge outside the title text. `{1}` or `{①}` does the same. A longer badge such as `{draft}` stays inside the node. A dashed edge (a chain `..>` / `-. [label].->`, or `link: … ..>`) uses the arrow colour and the normal arrowhead. Add `[style=gap]` on that dashed edge when the stroke should use `--color-edge-gap`, a slightly thicker dash, and a bold label. On a vertical gap stroke, that label stacks upright beside the stroke (`.flow-label-gap-vertical`) when the stack fits in the open gap; otherwise it stays horizontal beside the stroke. A single-line label on a horizontal shaft stays above or below that shaft. An ordinary dashed label stays muted, like a solid label. `route=between` keeps the lane-gap shaft. A later auto-routed edge that would cross an earlier one is moved to a free side or corridor when one exists.
+
+A section label is a top-level line `eyebrow: Section label`. It renders as `<p class="eyebrow">` before the `h1`, aligned to the start edge. `eyebrow: Section label [align=end]` (or `right`) adds `.eyebrow-end` and aligns the line to the end edge. `start` and `left` keep the default. A line inside a fence is left alone.
 
 `**Key Message:**` is bold. `**emphasis**` inside the sentence is still inline Markdown.
 

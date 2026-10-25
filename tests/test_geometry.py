@@ -1280,3 +1280,77 @@ def test_corner_index_sits_outside_the_title(geometry_page):
         }"""
     )
     assert result.get("ok"), result
+
+
+def test_ordinary_dash_is_arrow_colour_and_gap_is_opt_in(geometry_page):
+    result = geometry_page.evaluate(
+        r"""() => {
+          const slide = Array.from(document.querySelectorAll('.slide')).find((s) =>
+            (s.querySelector('h1') || {}).textContent.includes('Dashed stroke versus gap')
+          );
+          if (!slide) return { ok: false, reason: 'missing-slide' };
+          const flow = slide.querySelector('.flow');
+          const strokePx = parseFloat(getComputedStyle(flow).getPropertyValue('--flow-stroke-width'));
+          const ordinary = flow.querySelector('path.flow-arrow[data-from="ord"]');
+          const held = flow.querySelector('path.flow-arrow[data-from="gp"]');
+          if (!ordinary || !held) return { ok: false, reason: 'missing-path' };
+          const os = getComputedStyle(ordinary);
+          const hs = getComputedStyle(held);
+          const gapLabel = flow.querySelector('text.flow-label-gap');
+          return {
+            strokePx,
+            ordinaryClass: ordinary.className.baseVal || ordinary.getAttribute('class'),
+            heldClass: held.className.baseVal || held.getAttribute('class'),
+            ordinaryMarker: ordinary.getAttribute('marker-end'),
+            heldMarker: held.getAttribute('marker-end'),
+            ordinaryStroke: os.stroke,
+            heldStroke: hs.stroke,
+            ordinaryWidth: parseFloat(os.strokeWidth),
+            heldWidth: parseFloat(hs.strokeWidth),
+            gapLabel: Boolean(gapLabel),
+            ordinaryEmphasis: ordinary.getAttribute('data-emphasis'),
+            heldEmphasis: held.getAttribute('data-emphasis'),
+          };
+        }"""
+    )
+    assert "flow-arrow-dashed" in result["ordinaryClass"], result
+    assert "flow-arrow-gap" not in result["ordinaryClass"], result
+    assert "flow-arrow-gap" in result["heldClass"], result
+    assert "flow-arrowhead-gap" not in result["ordinaryMarker"], result
+    assert "flow-arrowhead-gap" in result["heldMarker"], result
+    assert result["ordinaryStroke"] != result["heldStroke"], result
+    assert result["heldWidth"] >= result["ordinaryWidth"], result
+    assert result["ordinaryWidth"] >= 3, result
+    assert result["gapLabel"] is True
+    assert result["ordinaryEmphasis"] in {None, ""}
+    assert result["heldEmphasis"] == "gap"
+    assert result["strokePx"] >= 3
+
+
+def test_dashed_column_outline_is_darker_than_a_hairline(geometry_page):
+    result = geometry_page.evaluate(
+        r"""() => {
+          const slide = Array.from(document.querySelectorAll('.slide')).find((s) =>
+            (s.querySelector('h1') || {}).textContent.includes('Dashed card outline')
+          );
+          if (!slide) return { ok: false, reason: 'missing-slide' };
+          const dashed = slide.querySelector('.column.dashed');
+          const solid = Array.from(slide.querySelectorAll('.column')).find(
+            (el) => !el.classList.contains('dashed')
+          );
+          if (!dashed || !solid) return { ok: false, reason: 'missing-column' };
+          const d = getComputedStyle(dashed);
+          const s = getComputedStyle(solid);
+          return {
+            style: d.borderTopStyle,
+            width: parseFloat(d.borderTopWidth),
+            color: d.borderTopColor,
+            solidWidth: parseFloat(s.borderTopWidth),
+            solidColor: s.borderTopColor,
+          };
+        }"""
+    )
+    assert result["style"] == "dashed", result
+    assert result["width"] >= 2, result
+    assert result["color"] in {"rgb(51, 51, 51)", "#333333"}, result
+    assert result["color"] != result["solidColor"], result

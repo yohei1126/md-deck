@@ -61,6 +61,7 @@ callout: pdf : Ship it [pos=below]
 ::: flow
 Source -[solid]-> Target
 Source -.[dashed].-> Target
+Source -.[gap].-> Target [style=gap]
 Left -> { Upper / Lower } -> Right
 :::
 
