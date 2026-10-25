@@ -989,7 +989,337 @@
     }
   }
 
-  function drawPolyline(svg, pts, edge, labelNudge, labelObstacles) {
+  function labelBoxOf(text) {
+    const b = text.getBBox();
+    return {
+      left: b.x,
+      right: b.x + b.width,
+      top: b.y,
+      bottom: b.y + b.height,
+      width: b.width,
+      height: b.height,
+      cx: b.x + b.width / 2,
+      cy: b.y + b.height / 2,
+    };
+  }
+
+  function flowNodeBoxes(flow) {
+    if (!flow) return [];
+    const origin = flow.getBoundingClientRect();
+    const scale = slideScale(flow);
+    return Array.from(flow.querySelectorAll(".flow-node")).map((el) =>
+      relBox(el, origin, scale)
+    );
+  }
+
+  function labelOverlapArea(a, b) {
+    const w = Math.min(a.right, b.right) - Math.max(a.left, b.left);
+    const h = Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top);
+    if (w <= 1 || h <= 1) return 0;
+    return w * h;
+  }
+
+  // The SVG sits under the nodes, so a label painted inside a box disappears.
+  // A label past the flow is clipped by the slide. A vertical stroke keeps the
+  // label beside the line, on the side that has room. A horizontal stroke keeps
+  // the label above or below the line — never centred on the shaft — and prefers
+  // the side that misses other links. On a short same-row shaft the arrowhead
+  // sits on that shaft, so the label stays at mid-shaft instead of sliding
+  // into the source box to dodge the head.
+  function segmentHitsBox(p, q, box, pad) {
+    const left = box.left - pad;
+    const right = box.right + pad;
+    const top = box.top - pad;
+    const bottom = box.bottom + pad;
+    const minX = Math.min(p.x, q.x);
+    const maxX = Math.max(p.x, q.x);
+    const minY = Math.min(p.y, q.y);
+    const maxY = Math.max(p.y, q.y);
+    if (maxX < left || minX > right || maxY < top || minY > bottom) return false;
+    if (Math.abs(p.y - q.y) < EPS) return p.y >= top && p.y <= bottom;
+    if (Math.abs(p.x - q.x) < EPS) return p.x >= left && p.x <= right;
+    const steps = Math.max(2, Math.ceil(Math.hypot(q.x - p.x, q.y - p.y) / 6));
+    for (let s = 0; s <= steps; s += 1) {
+      const t = s / steps;
+      const x = p.x + (q.x - p.x) * t;
+      const y = p.y + (q.y - p.y) * t;
+      if (x >= left && x <= right && y >= top && y <= bottom) return true;
+    }
+    return false;
+  }
+
+  function pathHitsBox(pts, box, pad) {
+    if (!pts || pts.length < 2) return false;
+    for (let i = 1; i < pts.length; i += 1) {
+      if (segmentHitsBox(pts[i - 1], pts[i], box, pad)) return true;
+    }
+    return false;
+  }
+
+  function arrowheadBox(pts) {
+    if (!pts || pts.length < 2) return null;
+    const end = pts[pts.length - 1];
+    const prev = pts[pts.length - 2];
+    const dx = end.x - prev.x;
+    const dy = end.y - prev.y;
+    const len = Math.hypot(dx, dy) || 1;
+    const back = Math.min(ARROWHEAD_LEN + 4, len);
+    const hx = end.x - (dx / len) * back;
+    const hy = end.y - (dy / len) * back;
+    const half = ARROWHEAD_WIDTH / 2 + 2;
+    return {
+      left: Math.min(end.x, hx) - half,
+      right: Math.max(end.x, hx) + half,
+      top: Math.min(end.y, hy) - half,
+      bottom: Math.max(end.y, hy) + half,
+    };
+  }
+
+  function pointBlocked(x, y, nodes) {
+    return nodes.some(
+      (node) =>
+        x >= node.left - 3 &&
+        x <= node.right + 3 &&
+        y >= node.top - 3 &&
+        y <= node.bottom + 3
+    );
+  }
+
+  // Path-length midpoint can land inside a box the stroke crosses, which hides
+  // the label under that box. Prefer the longest run that stays in open space.
+  function openLabelPoint(pts, nodes) {
+    let best = null;
+    for (let i = 1; i < pts.length; i += 1) {
+      const p = pts[i - 1];
+      const q = pts[i];
+      const len = Math.hypot(q.x - p.x, q.y - p.y);
+      if (len < 8) continue;
+      const steps = Math.max(2, Math.ceil(len / 8));
+      let run = null;
+      const runs = [];
+      for (let s = 0; s <= steps; s += 1) {
+        const t = s / steps;
+        const x = p.x + (q.x - p.x) * t;
+        const y = p.y + (q.y - p.y) * t;
+        if (!pointBlocked(x, y, nodes)) {
+          if (!run) run = { start: t, end: t };
+          else run.end = t;
+        } else if (run) {
+          runs.push(run);
+          run = null;
+        }
+      }
+      if (run) runs.push(run);
+      const vertical = Math.abs(q.x - p.x) < EPS && Math.abs(q.y - p.y) >= EPS;
+      runs.forEach((span) => {
+        const along = (span.end - span.start) * len;
+        if (along < 14) return;
+        const t0 = span.start;
+        const t1 = span.end;
+        const t = (t0 + t1) / 2;
+        const candidate = {
+          x: p.x + (q.x - p.x) * t,
+          y: p.y + (q.y - p.y) * t,
+          along,
+          vertical,
+          x0: p.x + (q.x - p.x) * t0,
+          y0: p.y + (q.y - p.y) * t0,
+          x1: p.x + (q.x - p.x) * t1,
+          y1: p.y + (q.y - p.y) * t1,
+        };
+        if (!best || candidate.along > best.along) best = candidate;
+      });
+    }
+    return best;
+  }
+
+  function mountEdgeLabel(svg, pts, edge, lines, labelNudge, flow, otherPaths, labelObstacles) {
+    const nodes = flowNodeBoxes(flow);
+    const open = openLabelPoint(pts, nodes);
+    const mid = open || midpoint(pts);
+    const verticalMid = open ? open.vertical : midSegmentIsVertical(pts);
+    const size = measureLabelSize(svg, lines);
+    const flowW = (flow && flow.clientWidth) || svg.clientWidth || size.width;
+    const flowH = (flow && flow.clientHeight) || svg.clientHeight || size.height;
+    const pad = 8;
+    const nudge = (labelNudge || 0) * 0.15;
+    const half = size.width / 2;
+    const verticalDy = `${0.35 - ((lines.length - 1) * 1.15) / 2}em`;
+    // Same-row chain: the head is the end of this horizontal shaft. Its box is
+    // padded off the line, so a centred label that already clears the stroke
+    // still "hits" it. Sliding toward x0 then tucks the first glyphs under the
+    // source box. Keep mid-shaft in that case.
+    const end = pts.length >= 2 ? pts[pts.length - 1] : null;
+    const beforeEnd = pts.length >= 2 ? pts[pts.length - 2] : null;
+    const headOnShaft =
+      !verticalMid &&
+      end &&
+      beforeEnd &&
+      Math.abs(end.y - beforeEnd.y) < EPS &&
+      Math.abs(end.x - beforeEnd.x) > 8 &&
+      Math.abs(end.y - mid.y) < 2;
+
+    // Do not slide a beside-the-line label back across the stroke to make it
+    // fit. A side that cannot hold the text loses on the overflow score, and
+    // the other side is used instead.
+    const candidates = [];
+    if (verticalMid) {
+      candidates.push({
+        name: "right",
+        anchor: "start",
+        x: mid.x + LABEL_GAP,
+        y: mid.y,
+        dy: verticalDy,
+        prefer: 0,
+        beside: true,
+      });
+      candidates.push({
+        name: "left",
+        anchor: "end",
+        x: mid.x - LABEL_GAP,
+        y: mid.y,
+        dy: verticalDy,
+        prefer: 4,
+        beside: true,
+      });
+    } else {
+      const placeAbove = edge.pairCount <= 1 || edge.pairIndex < edge.pairCount / 2;
+      // Above or below only. A beside-the-shaft candidate sits on the stroke
+      // and wins whenever the gap is tight enough for the box to kiss a node.
+      // Slide along the open run so the label can miss another stroke, but keep
+      // its centre over that run — parking it past the elbow reads as detached.
+      const centerX = open ? open.x : mid.x;
+      const xs = [centerX];
+      let spanLo = pad + half;
+      let spanHi = Math.max(spanLo, flowW - pad - half);
+      if (open && !open.vertical) {
+        const x0 = Math.min(open.x0, open.x1);
+        const x1 = Math.max(open.x0, open.x1);
+        spanLo = Math.max(spanLo, x0);
+        spanHi = Math.min(spanHi, Math.max(spanLo, x1));
+        if (x1 - x0 > 24) {
+          for (let s = 0; s <= 4; s += 1) xs.push(x0 + ((x1 - x0) * s) / 4);
+        }
+      }
+      const seen = [];
+      xs.forEach((raw) => {
+        const x = clamp(raw, spanLo, spanHi);
+        if (seen.some((u) => Math.abs(u - x) < 1)) return;
+        seen.push(x);
+        const drift = Math.abs(x - centerX);
+        candidates.push({
+          name: "above",
+          anchor: "middle",
+          x,
+          y: mid.y - LABEL_GAP + nudge,
+          dy: `${-(lines.length - 1) * 1.15}em`,
+          prefer: (placeAbove ? 0 : 12) + drift * 1.5,
+          side: "above",
+        });
+        candidates.push({
+          name: "below",
+          anchor: "middle",
+          x,
+          y: mid.y + LABEL_GAP + 8 + nudge,
+          dy: "0.9em",
+          prefer: (placeAbove ? 12 : 0) + drift * 1.5,
+          side: "below",
+        });
+      });
+    }
+
+    function paint(c) {
+      const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+      text.setAttribute("x", String(c.x));
+      text.setAttribute("y", String(c.y));
+      text.setAttribute("text-anchor", c.anchor);
+      text.classList.add("flow-label", "flow-edge-label");
+      applyEdgeHooks(text, edge);
+      lines.forEach((line, i) => {
+        const tspan = document.createElementNS("http://www.w3.org/2000/svg", "tspan");
+        tspan.setAttribute("x", String(c.x));
+        tspan.setAttribute("dy", i === 0 ? c.dy : "1.15em");
+        tspan.textContent = line;
+        text.appendChild(tspan);
+      });
+      svg.appendChild(text);
+      if (c.side === "above" || c.side === "below") {
+        // Sit just off the shaft. The initial offset can leave a below-label
+        // inside the next node when the lane gap is only a few dozen pixels.
+        const bbox = text.getBBox();
+        const shift =
+          c.side === "above"
+            ? bbox.y + bbox.height - (mid.y - 6)
+            : bbox.y - (mid.y + 6);
+        if (Math.abs(shift) > 0.5) {
+          text.setAttribute("y", String(parseFloat(text.getAttribute("y")) - shift));
+        }
+      }
+      return text;
+    }
+
+    function score(box, c) {
+      let penalty = 0;
+      if (box.left < pad) penalty += 10000 + (pad - box.left) * 40;
+      if (box.right > flowW - pad) penalty += 10000 + (box.right - (flowW - pad)) * 40;
+      if (box.top < 0) penalty += 400 + -box.top * 10;
+      if (box.bottom > flowH) penalty += 400 + (box.bottom - flowH) * 10;
+      nodes.forEach((node) => {
+        if (!c.beside) {
+          const area = labelOverlapArea(box, node);
+          if (area <= 0) return;
+          const overlapH =
+            Math.min(box.bottom, node.bottom) - Math.max(box.top, node.top);
+          // A hairline kiss of a box in the next lane stays cheap. Text that
+          // actually enters an endpoint box (even by a pixel of width) does not.
+          if (overlapH > 3) penalty += 6000 + area * 4;
+          else penalty += area * 4;
+          return;
+        }
+        // Vertical labels: ignore a one-pixel kiss of the border.
+        const inner = {
+          left: node.left + 3,
+          right: node.right - 3,
+          top: node.top + 3,
+          bottom: node.bottom - 3,
+        };
+        if (inner.right <= inner.left || inner.bottom <= inner.top) return;
+        penalty += labelOverlapArea(box, inner) * 4;
+      });
+      // A horizontal label that still straddles the shaft is on the stroke.
+      if (!c.beside && box.top < mid.y - 1 && box.bottom > mid.y + 1) penalty += 20000;
+      // A beside-the-line label that still covers the stroke x is on the line.
+      if (c.beside && box.left < mid.x - 1 && box.right > mid.x + 1) penalty += 8000;
+      const head = arrowheadBox(pts);
+      if (!headOnShaft && head && labelOverlapArea(box, head) > 0) penalty += 4500;
+      (otherPaths || []).forEach((other) => {
+        if (pathHitsBox(other, box, 1)) penalty += 7000;
+      });
+      (labelObstacles || []).forEach((obstacle) => {
+        const other = obstacle && obstacle.box;
+        if (other && labelOverlapArea(box, other) > 0) penalty += 5000;
+      });
+      return penalty;
+    }
+
+    let bestText = null;
+    let bestScore = Infinity;
+    candidates.forEach((c) => {
+      const text = paint(c);
+      const box = labelBoxOf(text);
+      const total = score(box, c) + c.prefer;
+      if (total < bestScore - 1e-6) {
+        if (bestText) svg.removeChild(bestText);
+        bestText = text;
+        bestScore = total;
+      } else {
+        svg.removeChild(text);
+      }
+    });
+    return bestText ? labelBoxOf(bestText) : null;
+  }
+
+  function drawPolyline(svg, pts, edge, labelNudge, labelObstacles, flow, otherPaths) {
     const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
     path.setAttribute("d", pathD(pts));
     path.setAttribute("marker-end", "url(#flow-arrowhead)");
@@ -1002,90 +1332,26 @@
     const lines = labelLines(edge.label);
     if (!lines.length) return null;
 
-    const mid = midpoint(pts);
-    const size = measureLabelSize(svg, lines);
-    const placeAbove =
-      edge.pairCount <= 1 || edge.pairIndex < edge.pairCount / 2;
-    const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
-    text.setAttribute("x", String(mid.x));
-    text.setAttribute("text-anchor", "middle");
-    text.classList.add("flow-label", "flow-edge-label");
-    applyEdgeHooks(text, edge);
-
-    // On a vertical stroke, put the label beside the line (right side),
-    // centred on it, instead of on top of the stroke.
-    if (midSegmentIsVertical(pts)) {
-      text.setAttribute("text-anchor", "start");
-      const x = mid.x + LABEL_GAP;
-      text.setAttribute("x", String(x));
-      text.setAttribute("y", String(mid.y));
-      lines.forEach((line, i) => {
-        const tspan = document.createElementNS("http://www.w3.org/2000/svg", "tspan");
-        tspan.setAttribute("x", String(x));
-        if (i === 0) {
-          tspan.setAttribute("dy", `${0.35 - ((lines.length - 1) * 1.15) / 2}em`);
-        } else {
-          tspan.setAttribute("dy", "1.15em");
-        }
-        tspan.textContent = line;
-        text.appendChild(tspan);
-      });
-    } else if (placeAbove) {
-      text.setAttribute("y", String(mid.y - LABEL_GAP + labelNudge * 0.15));
-      lines.forEach((line, i) => {
-        const tspan = document.createElementNS("http://www.w3.org/2000/svg", "tspan");
-        tspan.setAttribute("x", String(mid.x));
-        if (i === 0) {
-          tspan.setAttribute("dy", `${-(lines.length - 1) * 1.15}em`);
-        } else {
-          tspan.setAttribute("dy", "1.15em");
-        }
-        tspan.textContent = line;
-        text.appendChild(tspan);
-      });
-    } else {
-      text.setAttribute("y", String(mid.y + LABEL_GAP + 8 + labelNudge * 0.15));
-      lines.forEach((line, i) => {
-        const tspan = document.createElementNS("http://www.w3.org/2000/svg", "tspan");
-        tspan.setAttribute("x", String(mid.x));
-        tspan.setAttribute("dy", i === 0 ? "0.9em" : "1.15em");
-        tspan.textContent = line;
-        text.appendChild(tspan);
-      });
-    }
-    svg.appendChild(text);
-
-    // Fine-tune with measured bbox so multi-line text never straddles the stroke.
-    const bbox = text.getBBox();
-    const beside = text.getAttribute("text-anchor") === "start";
-    if (beside) {
-      // Beside a vertical stroke: no vertical nudge.
-    } else if (placeAbove && bbox.bottom > mid.y - 6) {
-      const shift = bbox.bottom - (mid.y - 6);
-      text.setAttribute("y", String(parseFloat(text.getAttribute("y")) - shift));
-    } else if (!placeAbove && bbox.top < mid.y + 6) {
-      const shift = mid.y + 6 - bbox.top;
-      text.setAttribute("y", String(parseFloat(text.getAttribute("y")) + shift));
-    }
-    const finalBox = text.getBBox();
+    const finalBox = mountEdgeLabel(
+      svg,
+      pts,
+      edge,
+      lines,
+      labelNudge,
+      flow,
+      otherPaths,
+      labelObstacles
+    );
+    if (!finalBox) return null;
     if (labelObstacles) {
       labelObstacles.push({
         key: `label:${edge.from}->${edge.to}:${edge.pairIndex}`,
         kind: "label",
-        box: {
-          left: finalBox.x,
-          right: finalBox.x + finalBox.width,
-          top: finalBox.y,
-          bottom: finalBox.y + finalBox.height,
-          width: finalBox.width,
-          height: finalBox.height,
-          cx: finalBox.x + finalBox.width / 2,
-          cy: finalBox.y + finalBox.height / 2,
-        },
+        box: finalBox,
         skip: false,
       });
     }
-    return size;
+    return { width: finalBox.width, height: finalBox.height };
   }
 
   function edgeKind(el, cross) {
@@ -1944,6 +2210,9 @@
     const forkPaths = forkTrunks(flow, plans);
 
     // Pass 2: route between allocated ports (orthogonal by default; straight opt-in).
+    // Paths are chosen first so a label can see every other stroke, including
+    // links drawn later. Routing still sees earlier paths via `drawn`.
+    const routed = [];
     plans.forEach((plan, planIdx) => {
       const fromCount =
         portCounts.get(`${plan.edge.from}:${plan.fromSide}`) || 1;
@@ -2060,22 +2329,38 @@
         plan.edge.pairIndex,
         plan.edge.pairCount
       );
+      routed.push({
+        pts: shifted.pts,
+        edge: { ...plan.edge, shape },
+        labelNudge: shifted.labelNudge,
+        bidirectional: plan.edge.bidirectional,
+      });
+      drawn.push(shifted.pts);
+    });
+
+    routed.forEach((item, index) => {
+      const others = [];
+      routed.forEach((other, otherIndex) => {
+        if (otherIndex !== index) others.push(other.pts);
+      });
       drawPolyline(
         svg,
-        shifted.pts,
-        { ...plan.edge, shape },
-        shifted.labelNudge,
-        labelObstacles
+        item.pts,
+        item.edge,
+        item.labelNudge,
+        labelObstacles,
+        flow,
+        others
       );
-      drawn.push(shifted.pts);
-      if (plan.edge.bidirectional) {
-        const back = [...shifted.pts].reverse();
+      if (item.bidirectional) {
         drawPolyline(
           svg,
-          back,
-          { ...plan.edge, shape, label: null, bidirectional: false },
+          [...item.pts].reverse(),
+          { ...item.edge, label: null, bidirectional: false },
           0,
-          null
+          null,
+          flow,
+          others
         );
       }
     });

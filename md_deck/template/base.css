@@ -226,33 +226,40 @@ body {
 }
 
 /* A big-number row. The heading is the figure; the paragraph is the caption.
-   Same card hooks as any other ::: columns block. */
+   Same card hooks as any other ::: columns block. A tall figures card
+   centres that pair instead of leaving the lower half empty. */
+.columns.figures .column {
+  justify-content: center;
+  text-align: center;
+}
+
 .columns.figures .column-head {
   font-size: 2.4em;
   line-height: 1.05;
 }
 
 /* Keep a real indent inside column cards. A deck rule `ul { padding: 0 }`
-   does not win over this more specific selector. A stretched card shares
-   its leftover height across the list instead of packing the items at the top. */
+   does not win over this more specific selector. A stretched card packs the
+   list under the heading. Leftover space stays below the items; line-height
+   stays a normal reading size instead of stretching the lines apart. */
 .column ul,
 .column ol {
-  flex: 1 1 auto;
+  flex: 0 1 auto;
   display: flex;
   flex-direction: column;
-  justify-content: space-evenly;
+  justify-content: flex-start;
   gap: 0.55em;
   margin: 0;
   padding-inline-start: 1.4em;
   list-style-position: outside;
-  line-height: 1.5;
+  line-height: 1.45;
 }
 
 .column li + li {
   margin-top: 0;
 }
 
-/* Paragraphs stay under the heading. Lists still share a tall card. */
+/* Paragraphs stay under the heading. A list in a tall card does too. */
 .column > p {
   margin-top: 0;
   margin-bottom: 0;
@@ -320,7 +327,10 @@ body {
   text-align: start;
 }
 
-/* lane: Label [align=center|end] moves one shorter lane within the group. */
+/* lane: Label [align=center|end] moves one shorter lane within the group.
+   align=end uses an auto margin, not justify-content: flex-end. flex-end
+   inflates the row's min-content size inside a full-width spread row and
+   pushes the whole map past the content edge. */
 .lane[data-align="center"] > .flow-row {
   justify-content: center;
 }
@@ -330,7 +340,11 @@ body {
 }
 
 .lane[data-align="end"] > .flow-row {
-  justify-content: flex-end;
+  justify-content: flex-start;
+}
+
+.lane[data-align="end"] > .flow-row > :first-child {
+  margin-inline-start: auto;
 }
 
 .lane[data-align="end"] > .lane-label {
@@ -380,9 +394,25 @@ body {
   width: 100%;
 }
 
-.flow.flow-spread .flow-row > .flow-node:not(:only-child) {
+/* A percentage width still grows past the slide when min-width is the
+   content minimum. Clamp the spread group so an aligned lane cannot
+   widen it. */
+.flow.flow-spread > .flow-lanes,
+.flow.flow-spread > .flow-lanes > .lane,
+.flow.flow-spread > .flow-lanes > .lane > .flow-row {
+  min-width: 0;
+  max-width: 100%;
+}
+
+/* Stretch the lanes that share the row. An align=center / align=end lane
+   stays as wide as its boxes so it can park inside that full-width row. */
+.flow.flow-spread .lane:not([data-align]) > .flow-row > .flow-node:not(:only-child) {
   flex: 1 1 var(--flow-node-min-width);
   max-width: var(--flow-node-max-width);
+}
+
+.flow.flow-spread .lane[data-align] > .flow-row > .flow-node {
+  max-width: 100%;
 }
 
 .flow-row {
@@ -567,6 +597,13 @@ body {
   align-items: center;
   justify-content: center;
   gap: 0.15em;
+}
+
+/* A wide or fill row stretches the box. Keep the title and caption at the
+   top of that box so the extra height is empty space, not stretched leading. */
+.flow.flow-wide .flow-node,
+.flow.flow-fill .flow-node {
+  justify-content: flex-start;
 }
 
 .flow-node-title {

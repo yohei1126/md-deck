@@ -133,6 +133,55 @@ One line
 
 One line
 :::
+
+---
+
+# Spread align
+
+::: flow spread
+lane: Intake
+Alpha {#a1} -> Bravo {#a2} -> Charlie {#a3} -> Delta {#a4} -> Echo {#a5} -> Foxtrot {#a6}
+lane: Partner
+One {#b1} -> Two {#b2} -> Three {#b3} -> Four {#b4} -> Five {#b5} -> Six {#b6}
+lane: [align=end]
+Evidence {#ev}
+link: ev ..> b6 : does not arrive [route=up]
+link: a6 ..> ev : notice only on the edge [route=down]
+:::
+
+---
+
+# Between labels
+
+::: flow
+lane:
+Alpha {#a} -> Bravo {#b} -> Charlie {#c}
+lane: [align=end]
+Delta {#d}
+link: a => d : solid note [route=between]
+link: b ..> d : dashed note across [route=between]
+:::
+
+---
+
+# Between spread
+
+::: flow spread
+lane:
+Echo {#e} -> Foxtrot {#f} -> Golf {#g}
+lane: [align=end]
+Hotel {#h}
+link: e => h : solid note [route=between]
+link: f ..> h : dashed note across [route=between]
+:::
+
+---
+
+# Short labels
+
+::: flow
+One {#o} -.[no match].-> Two {#t} -[red copy]-> Three {#r}
+:::
 """
 
 STYLE = """---
@@ -353,6 +402,23 @@ def test_wide_steps_are_centred_with_even_gaps(layout_pages):
     assert result["groupRatio"] >= 0.8, result
     assert result["stepClass"] is True, result
     assert result["indexes"] == ["counter(flow-step)"] * 3, result
+    tops = page.evaluate(
+        """() => {
+          const slide = document.querySelectorAll('.slide')[2];
+          return Array.from(slide.querySelectorAll('.flow-node')).map((el) => {
+            const box = el.getBoundingClientRect();
+            const title = el.querySelector('.flow-node-title').getBoundingClientRect();
+            return {
+              titleFromTop: title.top - box.top,
+              titleFromBottom: box.bottom - title.bottom,
+              height: box.height,
+            };
+          });
+        }"""
+    )
+    for node in tops:
+        assert node["titleFromTop"] < 36, tops
+        assert node["titleFromBottom"] > node["height"] * 0.4, tops
     place = page.evaluate(
         """() => {
           const slide = document.querySelectorAll('.slide')[2];
@@ -403,7 +469,7 @@ def test_question_stays_at_the_bottom_with_space_split(layout_pages):
     assert abs(result["underHeading"] - result["between"]) < 64, result
 
 
-def test_column_list_spreads_through_a_tall_card(layout_pages):
+def test_column_list_stays_under_the_heading(layout_pages):
     page, _crushed = layout_pages
     result = page.evaluate(
         """() => {
@@ -411,26 +477,31 @@ def test_column_list_spreads_through_a_tall_card(layout_pages):
           const content = slide.querySelector('.slide-content');
           const title = slide.querySelector('h1');
           const card = slide.querySelector('.column');
+          const head = card.querySelector('.column-head');
           const items = Array.from(card.querySelectorAll('li'));
           const cr = content.getBoundingClientRect();
           const tr = title.getBoundingClientRect();
           const cardBox = card.getBoundingClientRect();
+          const headBox = head.getBoundingClientRect();
           const first = items[0].getBoundingClientRect();
           const last = items[items.length - 1].getBoundingClientRect();
           return {
             titleGap: tr.top - cr.top,
             cardH: cardBox.height,
-            firstFromTop: first.top - cardBox.top,
+            headGap: first.top - headBox.bottom,
+            itemGap: items[1].getBoundingClientRect().top - first.bottom,
             lastFromBottom: cardBox.bottom - last.bottom,
-            lastInLowerHalf: last.top > cardBox.top + cardBox.height * 0.45,
+            lineHeight: parseFloat(getComputedStyle(items[0]).lineHeight),
+            fontSize: parseFloat(getComputedStyle(items[0]).fontSize),
           };
         }"""
     )
     assert result["titleGap"] < 20, result
     assert result["cardH"] > 280, result
-    assert result["firstFromTop"] > 48, result
-    assert result["lastFromBottom"] < result["cardH"] * 0.4, result
-    assert result["lastInLowerHalf"] is True, result
+    assert result["headGap"] < 28, result
+    assert result["itemGap"] < 36, result
+    assert result["lastFromBottom"] > result["cardH"] * 0.35, result
+    assert result["lineHeight"] < result["fontSize"] * 1.7, result
 
 
 def test_spread_lane_map_spans_the_content_width(layout_pages):
@@ -507,3 +578,315 @@ def test_key_message_and_figure_are_bold_and_large(layout_pages):
     assert result["weight"] in {"700", "bold"}, result
     assert result["strong"] is True, result
     assert abs(result["figurePx"] - result["bodyPx"] * 2.4) < 2, result
+    place = page.evaluate(
+        """() => {
+          const figures = document.querySelectorAll('.slide')[9];
+          const card = figures.querySelector('.column');
+          const head = card.querySelector('.column-head');
+          const para = card.querySelector('p');
+          const cardBox = card.getBoundingClientRect();
+          const hr = head.getBoundingClientRect();
+          const pr = para.getBoundingClientRect();
+          return {
+            cardH: cardBox.height,
+            groupMid: (hr.top + pr.bottom) / 2,
+            cardMid: (cardBox.top + cardBox.bottom) / 2,
+            align: getComputedStyle(card).textAlign,
+          };
+        }"""
+    )
+    assert abs(place["groupMid"] - place["cardMid"]) < 36, place
+    assert place["align"] == "center", place
+
+
+def test_spread_with_align_end_keeps_nodes_and_labels_inside(layout_pages):
+    page, _crushed = layout_pages
+    result = page.evaluate(
+        """() => {
+          const slide = document.querySelectorAll('.slide')[10];
+          const sr = slide.getBoundingClientRect();
+          const content = slide.querySelector('.slide-content').getBoundingClientRect();
+          const lanes = slide.querySelector('.flow-lanes').getBoundingClientRect();
+          const nodes = Array.from(slide.querySelectorAll('.flow-node')).map((el) => {
+            const r = el.getBoundingClientRect();
+            return {
+              id: el.dataset.node,
+              left: r.left,
+              right: r.right,
+              top: r.top,
+              bottom: r.bottom,
+              width: r.width,
+            };
+          });
+          const labels = Array.from(slide.querySelectorAll('text.flow-label')).map((el) => {
+            const r = el.getBoundingClientRect();
+            return {
+              text: el.textContent,
+              left: r.left,
+              right: r.right,
+              top: r.top,
+              bottom: r.bottom,
+            };
+          });
+          function hits(label) {
+            return nodes.some((node) => {
+              const w = Math.min(label.right, node.right) - Math.max(label.left, node.left);
+              const h = Math.min(label.bottom, node.bottom) - Math.max(label.top, node.top);
+              return w > 2 && h > 2;
+            });
+          }
+          const byId = Object.fromEntries(nodes.map((node) => [node.id, node]));
+          return {
+            contentRight: content.right,
+            contentLeft: content.left,
+            slideRight: sr.right,
+            slideLeft: sr.left,
+            lanesW: lanes.width,
+            contentW: content.width,
+            nodes: nodes.map((node) => ({
+              id: node.id,
+              pastContent: node.right - content.right,
+              beforeContent: content.left - node.left,
+              width: node.width,
+            })),
+            labels: labels.map((label) => ({
+              text: label.text,
+              pastSlide: label.right - sr.right,
+              beforeSlide: sr.left - label.left,
+              hitsNode: hits(label),
+            })),
+            endAlign: byId.ev && byId.b6
+              ? { evRight: byId.ev.right, b6Right: byId.b6.right, evLeft: byId.ev.left, b6Left: byId.b6.left }
+              : null,
+          };
+        }"""
+    )
+    assert result["lanesW"] > result["contentW"] * 0.85, result
+    assert result["endAlign"] is not None, result
+    assert abs(result["endAlign"]["evRight"] - result["endAlign"]["b6Right"]) < 8, result
+    assert result["endAlign"]["evLeft"] > result["endAlign"]["b6Left"] + 20, result
+    for node in result["nodes"]:
+        assert node["pastContent"] <= 1, node
+        assert node["beforeContent"] <= 1, node
+    assert len(result["labels"]) >= 2, result
+    for label in result["labels"]:
+        assert label["pastSlide"] <= -4, label
+        assert label["beforeSlide"] <= -4, label
+        assert label["hitsNode"] is False, label
+
+
+def test_between_route_labels_clear_horizontal_strokes(layout_pages):
+    """route=between labels sit above or below the gap shaft, not on it.
+
+    Two links share the lane gap (the parties shape). Each label must clear
+    its own horizontal shaft, the other link's shaft, and the arrowhead.
+    """
+    page, _crushed = layout_pages
+    result = page.evaluate(
+        """() => {
+          function pointsOf(d) {
+            const pts = [];
+            const re = /([ML])\\s*([-\\d.]+)\\s+([-\\d.]+)/g;
+            let m;
+            while ((m = re.exec(d))) pts.push({ x: +m[2], y: +m[3] });
+            return pts;
+          }
+          function longestHorizontal(pts) {
+            let best = null;
+            for (let i = 1; i < pts.length; i += 1) {
+              const p = pts[i - 1];
+              const q = pts[i];
+              const dx = Math.abs(q.x - p.x);
+              const dy = Math.abs(q.y - p.y);
+              if (dy > 0.75 || dx < 8) continue;
+              if (!best || dx > best.len) {
+                best = {
+                  y: (p.y + q.y) / 2,
+                  len: dx,
+                  x0: Math.min(p.x, q.x),
+                  x1: Math.max(p.x, q.x),
+                };
+              }
+            }
+            return best;
+          }
+          function hitsSegment(box, seg, pad) {
+            if (seg.y < box.top - pad || seg.y > box.bottom + pad) return false;
+            return seg.x1 >= box.left - pad && seg.x0 <= box.right + pad;
+          }
+          function hitsArrowhead(box, pts) {
+            if (pts.length < 2) return false;
+            const end = pts[pts.length - 1];
+            const prev = pts[pts.length - 2];
+            const dx = end.x - prev.x;
+            const dy = end.y - prev.y;
+            const len = Math.hypot(dx, dy) || 1;
+            const back = Math.min(18, len);
+            const hx = end.x - (dx / len) * back;
+            const hy = end.y - (dy / len) * back;
+            const half = 7;
+            const head = {
+              left: Math.min(end.x, hx) - half,
+              right: Math.max(end.x, hx) + half,
+              top: Math.min(end.y, hy) - half,
+              bottom: Math.max(end.y, hy) + half,
+            };
+            const w = Math.min(box.right, head.right) - Math.max(box.left, head.left);
+            const h = Math.min(box.bottom, head.bottom) - Math.max(box.top, head.top);
+            return w > 1 && h > 1;
+          }
+          return [11, 12].map((index) => {
+            const slide = document.querySelectorAll('.slide')[index];
+            const sr = slide.getBoundingClientRect();
+            const flow = slide.querySelector('.flow');
+            const labels = Array.from(flow.querySelectorAll('text.flow-edge-label'));
+            const rows = labels.map((label) => {
+              const lb = label.getBBox();
+              const box = {
+                left: lb.x,
+                right: lb.x + lb.width,
+                top: lb.y,
+                bottom: lb.y + lb.height,
+              };
+              const path = flow.querySelector(
+                `path.flow-arrow[data-from="${label.dataset.from}"][data-to="${label.dataset.to}"]`
+              );
+              const pts = path ? pointsOf(path.getAttribute('d')) : [];
+              const shaft = longestHorizontal(pts);
+              const r = label.getBoundingClientRect();
+              return {
+                text: label.textContent,
+                from: label.dataset.from,
+                to: label.dataset.to,
+                box,
+                shaft,
+                above: shaft ? box.bottom <= shaft.y - 4 : false,
+                below: shaft ? box.top >= shaft.y + 4 : false,
+                pastSlide: r.right - sr.right,
+                beforeSlide: sr.left - r.left,
+                arrow: hitsArrowhead(box, pts),
+              };
+            });
+            rows.forEach((row) => {
+              row.crossesOther = rows.some((other) => {
+                if (other === row || !other.shaft) return false;
+                return hitsSegment(row.box, other.shaft, 2);
+              });
+            });
+            return {
+              index,
+              spread: flow.classList.contains('flow-spread'),
+              rows,
+            };
+          });
+        }"""
+    )
+    assert len(result) == 2, result
+    assert result[0]["spread"] is False, result[0]
+    assert result[1]["spread"] is True, result[1]
+    for slide in result:
+        assert len(slide["rows"]) == 2, slide
+        for row in slide["rows"]:
+            assert row["shaft"] is not None, row
+            assert row["shaft"]["len"] > 80, row
+            assert row["above"] or row["below"], row
+            assert row["crossesOther"] is False, row
+            overlap = min(row["box"]["right"], row["shaft"]["x1"]) - max(
+                row["box"]["left"], row["shaft"]["x0"]
+            )
+            assert overlap > 24, row
+            assert row["pastSlide"] <= -4, row
+            assert row["beforeSlide"] <= -4, row
+            assert row["arrow"] is False, row
+        boxes = [row["box"] for row in slide["rows"]]
+        for i, a in enumerate(boxes):
+            for b in boxes[i + 1 :]:
+                w = min(a["right"], b["right"]) - max(a["left"], b["left"])
+                h = min(a["bottom"], b["bottom"]) - max(a["top"], b["top"])
+                assert w <= 2 or h <= 2, slide
+
+
+def test_short_horizontal_labels_stay_clear_of_endpoint_boxes(layout_pages):
+    """Same-row labels stay at mid-shaft, outside both endpoint boxes.
+
+    A short chain (the route-map / parties row) must not slide the label
+    onto the source box to dodge the arrowhead.
+    """
+    page, _crushed = layout_pages
+    result = page.evaluate(
+        """() => {
+          const slide = document.querySelectorAll('.slide')[13];
+          const flow = slide.querySelector('.flow');
+          const origin = flow.getBoundingClientRect();
+          const scale = Number(slide.dataset.scale || '1') || 1;
+          function rel(el) {
+            const r = el.getBoundingClientRect();
+            return {
+              left: (r.left - origin.left) / scale,
+              right: (r.right - origin.left) / scale,
+              top: (r.top - origin.top) / scale,
+              bottom: (r.bottom - origin.top) / scale,
+            };
+          }
+          function pointsOf(d) {
+            const pts = [];
+            const re = /([ML])\\s*([-\\d.]+)\\s+([-\\d.]+)/g;
+            let m;
+            while ((m = re.exec(d))) pts.push({ x: +m[2], y: +m[3] });
+            return pts;
+          }
+          function hits(a, b) {
+            const w = Math.min(a.right, b.right) - Math.max(a.left, b.left);
+            const h = Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top);
+            return w > 0.5 && h > 0.5;
+          }
+          return Array.from(flow.querySelectorAll('text.flow-edge-label')).map((label) => {
+            const lb = label.getBBox();
+            const box = {
+              left: lb.x,
+              right: lb.x + lb.width,
+              top: lb.y,
+              bottom: lb.y + lb.height,
+              cx: lb.x + lb.width / 2,
+            };
+            const path = flow.querySelector(
+              `path.flow-arrow[data-from="${label.dataset.from}"][data-to="${label.dataset.to}"]`
+            );
+            const pts = pointsOf(path.getAttribute('d'));
+            let shaft = null;
+            for (let i = 1; i < pts.length; i += 1) {
+              const dx = Math.abs(pts[i].x - pts[i - 1].x);
+              const dy = Math.abs(pts[i].y - pts[i - 1].y);
+              if (dy > 0.75 || dx < 8) continue;
+              if (!shaft || dx > shaft.len) {
+                shaft = {
+                  y: (pts[i - 1].y + pts[i].y) / 2,
+                  len: dx,
+                  mid: (pts[i - 1].x + pts[i].x) / 2,
+                };
+              }
+            }
+            const src = rel(flow.querySelector(`.flow-node[data-node="${label.dataset.from}"]`));
+            const dst = rel(flow.querySelector(`.flow-node[data-node="${label.dataset.to}"]`));
+            return {
+              text: label.textContent,
+              box,
+              shaft,
+              hitsSrc: hits(box, src),
+              hitsDst: hits(box, dst),
+              above: shaft ? box.bottom <= shaft.y - 4 : false,
+              below: shaft ? box.top >= shaft.y + 4 : false,
+              offCenter: shaft ? Math.abs(box.cx - shaft.mid) : null,
+            };
+          });
+        }"""
+    )
+    assert len(result) == 2, result
+    for row in result:
+        assert row["shaft"] is not None, row
+        assert row["shaft"]["len"] < 160, row
+        assert row["box"]["right"] - row["box"]["left"] > 40, row
+        assert row["above"] or row["below"], row
+        assert row["hitsSrc"] is False, row
+        assert row["hitsDst"] is False, row
+        assert row["offCenter"] < 8, row
