@@ -94,13 +94,7 @@ Deck repositories keep their own style Markdown (front matter tokens plus human-
 
 Style CSS should target the stable hooks in [HOOKS.md](../docs/HOOKS.md) (for example `.flow-node[data-kind="doc"]`), not `#slide-N … :nth-child()` selectors.
 
-## English note
-
-Tokens drive CSS variables. Omit a token and the generator fills a plain default listed in `docs/STYLE_GUIDE.md`. `theme: dark-blue` is an opt-in palette in [`deck_style_dark_blue.md`](deck_style_dark_blue.md). This file does not set it.
-
-## 日本語メモ
-
-このファイルは白黒の見本です。`theme: dark-blue` は [`deck_style_dark_blue.md`](deck_style_dark_blue.md) にあります。サンプルのビルドはこのファイルのままです。見た目のフックは [HOOKS.md](../docs/HOOKS.md) を参照してください。
+This file is the plain black-on-white sample. Sample builds stay on it. Tokens drive CSS variables. Omit a token and the generator fills a plain default listed in `docs/STYLE_GUIDE.md`. `theme: dark-blue` is an opt-in palette in [`deck_style_dark_blue.md`](deck_style_dark_blue.md). This file does not set it.
 
 ```css
 /* Optional extra rules. Example: slightly tighter lists in this sample. */

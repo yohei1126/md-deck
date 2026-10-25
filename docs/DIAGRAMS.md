@@ -251,14 +251,14 @@ What changed from a 2-box compare: a third column, and a single sentence above t
 
 ## Cover title on the same deck
 
-The last slide of the example is a cover (class `cover`) whose break is explicit:
+The last slide of [`examples/diagram_patterns.md`](../examples/diagram_patterns.md) is a cover (class `cover`) whose break is an explicit `\n` in the H1. The same shape:
 
 ```markdown
-# 骨子を先に見せる\n色は抑えて残す {.cover}
+# First phrase\nSecond phrase {.cover}
 ```
 
 ```html
-<h1 class="cover title">骨子を先に見せる<br>色は抑えて残す</h1>
+<h1 class="cover title">First phrase<br>Second phrase</h1>
 ```
 
 The section also has `data-cover="true"`. Rules and the PNG check are in [VISUAL_POLICY.md](VISUAL_POLICY.md).

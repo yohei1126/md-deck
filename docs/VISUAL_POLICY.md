@@ -24,12 +24,12 @@ The sample style stays plain: black on white. In a deck style file, `theme: dark
 
 `dark-blue` is one 60/30/10 role set, not a product brand. Ground `#EDE8E4` (the sample's sub colour, not its pure white), text `#333333`, navy `#073365` for titles, node borders, and arrows, accent `#F7581D` for callouts and the question border. Card and key-message fills use a light navy tint (`#E3EAF2`). Node fill stays off-white (`#F4F0EC`).
 
-## 参考
+## References
 
-1. [プレゼンデザイン Dark blue](https://ppt.design4u.jp/theme-color-samples/) — HEX roles for that sample. The site closed in May 2026. [Wayback](https://web.archive.org/web/2024/https://ppt.design4u.jp/theme-color-samples/).
+1. [Presentation design: Dark blue sample](https://ppt.design4u.jp/theme-color-samples/) — HEX roles for that sample. The site closed in May 2026. [Wayback](https://web.archive.org/web/2024/https://ppt.design4u.jp/theme-color-samples/).
 2. [Deckary: PowerPoint color schemes](https://deckary.com/blog/powerpoint-color-schemes) — navy, gray, and one accent, as 60-30-10. Navy `#003366` is close to `#073365`; this repo ships one palette.
 3. [Cambridge slide accessibility](https://www.cctl.cam.ac.uk/slide-accessibility-guidance) — avoid a pure white ground; navy on off-white.
-4. [デジタル庁 カラー](https://design.digital.go.jp/dads/foundations/color/) — colour as separate role tokens.
+4. [Digital Agency colour](https://design.digital.go.jp/dads/foundations/color/) — colour as separate role tokens.
 5. [ONS PowerPoint](https://service-manual.ons.gov.uk/brand-guidelines/application/creating-powerpoint-presentations) — a bright white ground is harder to read; their template uses a gray ground.
 
 ## What the pipeline can draw
@@ -155,8 +155,7 @@ Phased:
 An ATX heading is one line. A trailing `\` does **not** continue it. The break marker is `\n`, the same marker flow labels use:
 
 ```markdown
-# First phrase\nSecond phrase
-# 骨子を先に見せる\n色は抑えて残す {.cover}
+# First phrase\nSecond phrase {.cover}
 ```
 
 The renderer emits `<br>` inside `h1.title`. `text-wrap: balance` does not reflow across that `<br>`.
