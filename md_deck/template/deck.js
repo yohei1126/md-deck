@@ -1485,6 +1485,91 @@
     });
   }
 
+  const STACK_FAN_GAP = 72;
+
+  function ensureStackFanGaps(flow) {
+    // Keep a readable gap beside a stack even if deck CSS sets gap: 0 or flex: 1.
+    let changed = false;
+    flow.querySelectorAll(".flow-row").forEach((row) => {
+      const kids = Array.from(row.children).filter(
+        (el) =>
+          el.classList.contains("flow-node") || el.classList.contains("flow-stack")
+      );
+      for (let i = 0; i < kids.length - 1; i += 1) {
+        const a = kids[i];
+        const b = kids[i + 1];
+        if (!a.classList.contains("flow-stack") && !b.classList.contains("flow-stack")) {
+          continue;
+        }
+        const measured = b.getBoundingClientRect().left - a.getBoundingClientRect().right;
+        if (measured + 0.5 < STACK_FAN_GAP) {
+          const current = parseFloat(a.style.marginInlineEnd) || 0;
+          a.style.marginInlineEnd = `${current + (STACK_FAN_GAP - measured)}px`;
+          changed = true;
+        }
+      }
+    });
+    return changed;
+  }
+
+  function forkTrunks(flow, plans) {
+    // Two or more edges from one node into the same stack share a trunk,
+    // then a horizontal run into each box long enough for the arrowhead.
+    const groups = new Map();
+    const stacks = Array.from(flow.querySelectorAll(".flow-stack"));
+    plans.forEach((plan, idx) => {
+      if (plan.edge.shape === "straight") return;
+      if (plan.edge.toAttach === "stack" || plan.edge.fromAttach === "stack") return;
+      const target = nodeByKey(flow, plan.edge.to);
+      const source = nodeByKey(flow, plan.edge.from);
+      if (!target || !source) return;
+      const stack = target.closest(".flow-stack");
+      if (!stack || stack.contains(source)) return;
+      const key = `${plan.edge.from}#${stacks.indexOf(stack)}`;
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(idx);
+    });
+    const paths = new Map();
+    groups.forEach((idxs) => {
+      if (idxs.length < 2) return;
+      const sample = plans[idxs[0]];
+      const targets = idxs.map((i) => plans[i].b);
+      const avgX = targets.reduce((sum, box) => sum + box.cx, 0) / targets.length;
+      const goingRight = sample.a.cx <= avgX;
+      const srcX = goingRight ? sample.a.right : sample.a.left;
+      const edgeX = goingRight
+        ? Math.min(...targets.map((box) => box.left))
+        : Math.max(...targets.map((box) => box.right));
+      const gap = goingRight ? edgeX - srcX : srcX - edgeX;
+      const minLast = ARROWHEAD_LEN + 8;
+      let junction = goingRight
+        ? srcX + Math.max(16, gap - minLast)
+        : srcX - Math.max(16, gap - minLast);
+      if (goingRight) junction = Math.min(junction, edgeX - minLast);
+      else junction = Math.max(junction, edgeX + minLast);
+      const srcY = sample.a.cy;
+      idxs.forEach((idx) => {
+        const box = plans[idx].b;
+        const endX = goingRight ? box.left : box.right;
+        const y = box.cy;
+        const pts =
+          Math.abs(y - srcY) < 0.75
+            ? [
+                { x: srcX, y: srcY },
+                { x: endX, y: srcY },
+              ]
+            : [
+                { x: srcX, y: srcY },
+                { x: junction, y: srcY },
+                { x: junction, y },
+                { x: endX, y },
+              ];
+        paths.set(idx, pts);
+      });
+    });
+    return paths;
+  }
+
   function drawFlow(flow) {
     let svg = flow.querySelector("svg.flow-svg");
     if (!svg) {
@@ -1518,9 +1603,7 @@
     };
 
     const edges = collectEdges(flow);
-    // Widen same-row gaps so multi-line labels fit between nodes.
-    if (ensureLabelGaps(flow, edges, svg, flowBox, scale)) {
-      // Reflow changed geometry; refresh the flow box.
+    function refreshFlowBox() {
       const refreshed = flow.getBoundingClientRect();
       flowBox.left = refreshed.left;
       flowBox.top = refreshed.top;
@@ -1533,6 +1616,14 @@
       layoutBox.bottom = flow.clientHeight;
       layoutBox.width = flow.clientWidth;
       layoutBox.height = flow.clientHeight;
+    }
+    // Widen same-row gaps so multi-line labels fit between nodes.
+    if (ensureLabelGaps(flow, edges, svg, flowBox, scale)) {
+      refreshFlowBox();
+    }
+    // After label margins, keep a fork beside a stack from collapsing.
+    if (ensureStackFanGaps(flow)) {
+      refreshFlowBox();
     }
 
     placeCallouts(flow, flowBox, scale);
@@ -1802,6 +1893,8 @@
       };
     }
 
+    const forkPaths = forkTrunks(flow, plans);
+
     // Pass 2: route between allocated ports (orthogonal by default; straight opt-in).
     plans.forEach((plan, planIdx) => {
       const fromCount =
@@ -1829,11 +1922,13 @@
         toGap
       );
       const shape = plan.edge.shape === "straight" ? "straight" : "orthogonal";
-      let pts;
+      let pts = forkPaths.has(planIdx) ? forkPaths.get(planIdx) : null;
       const direct = simplify([fromPort.point, toPort.point]);
       const directClear =
         pathHitsObstacles(direct, plan.obstacles, HIT_PAD) === 0;
-      if (shape === "straight" && directClear) {
+      if (pts) {
+        // Fork trunk already includes the arrowhead stub.
+      } else if (shape === "straight" && directClear) {
         // Straight / diagonal only when the segment clears other nodes
         // (including not running along their borders).
         pts = direct;

@@ -83,6 +83,9 @@ _PARTICLES = frozenset(
 )
 _OPENERS = frozenset("（「『【〔［(")
 _CLOSERS = frozenset("）」』】〕］)、。，．,.!?;；:：")
+# A continuation line that begins with one of these is usually a mid-phrase break.
+# `への` / `との` / `での` stay quiet: the particle is tied to の.
+_LEADING_PARTICLE_RE = re.compile(r"^(?P<p>[へをとのにでがはもや])(?!の)")
 
 
 @dataclass(frozen=True)
@@ -226,66 +229,111 @@ def _breaks_phrase(line: str) -> bool:
     return False
 
 
-def title_break_errors(
+def title_break_issues(
     title: str,
     *,
     cover: bool,
     measure: TitleMeasure,
-) -> list[str]:
-    """Return human-readable problems for one H1 title. Empty means OK."""
+    implicit_cover: bool = False,
+) -> list[tuple[str, bool]]:
+    """Return ``(message, warning)`` problems. ``warning`` does not fail the build."""
     if "\\n" not in title and not cover:
         return []
 
     lines = [part.strip() for part in title.split("\\n")]
     label = "cover title" if cover else "title"
-    errors: list[str] = []
+    issues: list[tuple[str, bool]] = []
     if any(not line for line in lines):
-        errors.append(
-            f"{label} has an empty line around \\n; break only between phrases"
+        issues.append(
+            (
+                f"{label} has an empty line around \\n; break only between phrases",
+                False,
+            )
         )
-        return errors
+        return issues
     if len(lines) > MAX_TITLE_LINES:
-        errors.append(
-            f"{label} has more than {MAX_TITLE_LINES} lines; "
-            "keep one phrase per line"
+        issues.append(
+            (
+                f"{label} has more than {MAX_TITLE_LINES} lines; "
+                "keep one phrase per line",
+                False,
+            )
         )
 
     if not cover or len(lines) < 2:
         if cover and len(lines) == 1:
-            _append_wrap_error(lines[0], measure, errors)
-        return errors
+            _append_wrap_issue(lines[0], measure, issues, implicit_cover)
+        return issues
 
-    for line in lines:
+    for index, line in enumerate(lines):
         if _breaks_phrase(line):
-            errors.append(
-                "cover title breaks inside a phrase "
-                f"({line!r}); put \\n at a phrase boundary"
+            issues.append(
+                (
+                    "cover title breaks inside a phrase "
+                    f"({line!r}); put \\n at a phrase boundary",
+                    False,
+                )
             )
+        elif index >= 1:
+            lead = _LEADING_PARTICLE_RE.match(line)
+            if lead:
+                particle = lead.group("p")
+                issues.append(
+                    (
+                        "cover title line "
+                        f"{index + 1} starts with the particle {particle!r}; "
+                        "keep that particle on the previous line",
+                        True,
+                    )
+                )
     units = [display_units(line) for line in lines]
     short, long = min(units), max(units)
     if long == 0 or short < MIN_LINE_UNITS or short / long < MIN_BALANCE_RATIO:
-        errors.append(
-            "cover title lines are unbalanced; "
-            "break so the shorter line is at least about half the longer one"
+        issues.append(
+            (
+                "cover title lines are unbalanced; "
+                "break so the shorter line is at least about half the longer one",
+                False,
+            )
         )
-    return errors
+    return issues
 
 
-def _append_wrap_error(text: str, measure: TitleMeasure, errors: list[str]) -> None:
+def _no_cover_hint(implicit_cover: bool) -> str:
+    if not implicit_cover:
+        return ""
+    return " If this slide is not a cover, add {.no-cover} to the H1."
+
+
+def _append_wrap_issue(
+    text: str,
+    measure: TitleMeasure,
+    issues: list[tuple[str, bool]],
+    implicit_cover: bool,
+) -> None:
     if measure.content_width_px is None or measure.font_size_px is None:
         return
     width = estimated_width_px(text, measure.font_size_px)
     content = measure.content_width_px
+    hint = _no_cover_hint(implicit_cover)
     if contains_cjk(text) and width > content * CJK_WRAP_RATIO:
-        errors.append(
-            "cover title will wrap mid-phrase; insert \\n at a phrase boundary "
-            "and keep the lines similar in length"
+        issues.append(
+            (
+                "cover title will wrap mid-phrase; insert \\n at a phrase boundary "
+                "and keep the lines similar in length."
+                + hint,
+                False,
+            )
         )
         return
     if width > content * MULTI_WRAP_RATIO:
-        errors.append(
-            "cover title will wrap to more than two lines; insert \\n so each "
-            "line is a complete phrase of similar length"
+        issues.append(
+            (
+                "cover title will wrap to more than two lines; insert \\n so each "
+                "line is a complete phrase of similar length."
+                + hint,
+                False,
+            )
         )
 
 
@@ -293,10 +341,16 @@ def heading_title_messages(
     line: str,
     slide_index: int,
     measure: TitleMeasure,
-) -> list[str]:
+) -> list[tuple[str, bool]]:
     match = H1_LINE_RE.match(line.strip())
     if not match:
         return []
     classes = classes_from_attrs(match.group("attrs"))
     cover = is_cover_slide(slide_index, classes)
-    return title_break_errors(match.group("title"), cover=cover, measure=measure)
+    implicit = cover and "cover" not in classes
+    return title_break_issues(
+        match.group("title"),
+        cover=cover,
+        measure=measure,
+        implicit_cover=implicit,
+    )

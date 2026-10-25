@@ -6,6 +6,7 @@ import re
 from pathlib import Path
 
 from md_deck.build import build_html
+from md_deck.cli import main
 from md_deck.flow import parse_flow_body
 from md_deck.slides import SlideRender, render_slide_markdown
 from md_deck.validate import check_deck
@@ -96,6 +97,46 @@ def test_cjk_cover_without_break_fails(tmp_path: Path):
     body = "# " + ("見" * 40) + "\n\nBody\n"
     blob = _messages(tmp_path, body)
     assert "wrap mid-phrase" in blob
+    assert "{.no-cover}" in blob
+
+
+def test_explicit_cover_wrap_omits_no_cover_hint(tmp_path: Path):
+    body = (
+        "# Short opener {.no-cover}\n\nBody\n"
+        "\n---\n\n"
+        "# " + ("見" * 40) + " {.cover}\n\nMore\n"
+    )
+    blob = _messages(tmp_path, body)
+    assert "wrap mid-phrase" in blob
+    assert "{.no-cover}" not in blob
+
+
+def test_leading_particle_warns_but_checks_ok(tmp_path: Path, capsys):
+    body = "# 見やすさの骨子\\nの色は抑えて残す\n\nBody\n"
+    path = _slides(tmp_path, body)
+    errors = check_deck(path)
+    assert errors
+    assert all(e.warning for e in errors)
+    assert any("particle" in e.message for e in errors)
+    assert main(["check", str(path)]) == 0
+    assert "warning:" in capsys.readouterr().out
+
+
+def test_cover_meta_and_step_class():
+    html = build_html(
+        [SlideRender(html='<h1 class="title">Hello</h1>')],
+        "",
+        [],
+        "T",
+        subtitle="A quiet line",
+        date="2026-10-25",
+    )
+    assert 'data-cover="true"' in html
+    assert "cover-sub" in html and "A quiet line" in html
+    assert "cover-date" in html and "2026-10-25" in html
+    steps = render_slide_markdown("# T\n\n::: flow wide steps\nA -> B -> C\n:::\n")
+    assert "flow-steps" in steps.html
+    assert "flow-wide" in steps.html
 
 
 def test_cjk_cover_with_balanced_break_passes(tmp_path: Path):

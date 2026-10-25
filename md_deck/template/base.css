@@ -63,6 +63,32 @@ body {
   gap: var(--gap);
 }
 
+/* Cover: a title slide. Centred, full content width, no extra chrome. */
+.slide[data-cover="true"] .slide-content {
+  justify-content: center;
+  align-items: stretch;
+  text-align: center;
+}
+
+.slide[data-cover="true"] .title,
+.slide[data-cover="true"] .cover-meta,
+.slide[data-cover="true"] .slide-content > p {
+  text-align: center;
+}
+
+.slide[data-cover="true"] .cover-meta {
+  margin: 0;
+  color: var(--color-muted);
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-body);
+}
+
+.slide[data-cover="true"] .key-message {
+  align-self: center;
+  max-width: 36em;
+  text-align: center;
+}
+
 .slide h1,
 .slide .title {
   margin: 0;
@@ -178,7 +204,7 @@ body {
 .flow.flow-wide {
   flex-wrap: nowrap;
   width: 100%;
-  justify-content: space-between;
+  justify-content: center;
 }
 
 .flow-lanes {
@@ -209,9 +235,52 @@ body {
   width: 100%;
 }
 
+/* wide = one row, centred as a group, even gaps. Not stretched to the edges.
+   A deck that wants the old ruler can set justify-content: space-between. */
 .flow.flow-wide .flow-row {
   flex-wrap: nowrap;
-  justify-content: space-between;
+  justify-content: center;
+  column-gap: max(72px, calc(var(--gap) * 4));
+}
+
+.flow.flow-wide .flow-row > .flow-node,
+.flow.flow-wide .flow-row > .flow-stack {
+  flex: 0 0 auto;
+}
+
+/* Room for a fork trunk and arrowheads between a node and a stack.
+   flex-grow stays off so a deck rule cannot eat the gap. */
+.flow-row:has(> .flow-stack) {
+  justify-content: center;
+  flex-wrap: nowrap;
+  column-gap: max(72px, calc(var(--gap) * 1.5));
+}
+
+.flow-row:has(> .flow-stack) > .flow-node,
+.flow-row:has(> .flow-stack) > .flow-stack {
+  flex: 0 0 auto;
+}
+
+.flow.flow-wide .flow-row:has(> .flow-stack) {
+  justify-content: center;
+}
+
+.flow.flow-steps {
+  counter-reset: flow-step;
+}
+
+.flow.flow-steps .flow-node {
+  counter-increment: flow-step;
+}
+
+.flow.flow-steps .flow-node-title::before {
+  content: counter(flow-step);
+  display: block;
+  font-size: 0.75em;
+  font-weight: var(--font-weight-body);
+  color: var(--color-muted);
+  line-height: 1.2;
+  margin-bottom: 0.1em;
 }
 
 .flow-node {

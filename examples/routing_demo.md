@@ -6,7 +6,7 @@ lang: en
 style: deck_style.md
 ---
 
-# Orthogonal link routing {#routing .demo}
+# Orthogonal link routing {#routing .demo .no-cover}
 
 **Key Message:** Cross-lane links bend around nodes; `route=between` uses the gap between lanes.
 

@@ -38,7 +38,9 @@ When writing or editing slides that use md-deck:
 - One idea per slide. A node label is a name, not a sentence.
 - Compare with `::: columns` (`panel` when the box should show, `plain` when it should not). Do not fake a comparison with an arrow.
 - Branch with one box and one arrow per outcome. Do not write "A or B" inside a single node. `Start -> { A / B }` draws one arrow into the stack; fan into each member with a separate edge (see [docs/DIAGRAMS.md](docs/DIAGRAMS.md)).
-- Put three steps in one `::: flow wide` row of short labels.
+- Put three steps in one `::: flow wide` row of short labels. The row is centred with even gaps. `steps` adds a muted index. A one-line conclusion over three cards is `::: columns` split into three parts (see [docs/DIAGRAMS.md](docs/DIAGRAMS.md)).
+- A branch into a stack uses a shared trunk and at least 72px of gap. Do not leave the arrowheads in the corners.
+- Cover slides (`data-cover`) are centred. Front matter `subtitle` and `date` render under the title. A content slide that is first needs `{.no-cover}`.
 - Keep colours inside the style tokens. Base CSS does not paint node kinds; a deck style may tint `muted` / `highlight` quietly.
 - Do not add customer or proposal content to this repo. `examples/` stays generic.
 

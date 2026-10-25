@@ -10,7 +10,7 @@ This page is the generator-side record of that policy: what the HTML/CSS → PDF
 - A diagram label is a name, not a sentence. Aim for about four English words or about twelve CJK characters. The checker does not enforce that budget yet.
 - Compare two things with `::: columns`. Use `panel` when the box border should show (the default `.column` border already does; `panel` is the hook). Use `plain` only when the border should disappear. Do not draw a comparison as an arrow.
 - Branch with one box and one arrow per outcome. Do not put "A or B" inside a single node.
-- Show a short procedure as one horizontal row: `::: flow wide` with three short labels.
+- Show a short procedure as one horizontal row: `::: flow wide` (centred, even gaps). Add `steps` for a muted index on each box.
 - Colours come from style tokens: background, text, one quiet accent, a muted secondary. No gradients, drop shadows, stickers, or icon collages in the style CSS.
 - Node kinds (`actor`, `system`, `doc`, `muted`, `highlight`) are hooks. Base CSS does not paint them differently. A deck may tint `muted` / `highlight` with the existing tokens. It should not invent a bright per-kind palette.
 - Photos, logos, and maps may be images. Boxes-and-arrows should not be images.
@@ -31,18 +31,30 @@ Stable classes are [HOOKS.md](HOOKS.md). Arrow path geometry is not stable; the 
 
 | Piece | Today |
 | --- | --- |
-| Horizontal steps | `A -> B -> C`. `::: flow wide` keeps one row (`flex-wrap: nowrap`, space-between) |
+| Horizontal steps | `A -> B -> C`. `::: flow wide` keeps one centred row with even gaps. `steps` adds a muted index. Stretch-to-edges is deck CSS (`justify-content: space-between`) |
 | Two-up compare | `::: columns` / `panel` / `plain`, split with `+++`. A column may contain one nested `::: flow` |
-| Branch | A `{ A / B }` stack plus a separate edge into each member. Same-row fan-out is also routed (trunks nest, ports stay apart) |
+| Branch | A `{ A / B }` stack plus a separate edge into each member. Those edges share a trunk and keep at least 72px before the stack so arrowheads do not sit in the corners. Same-row fan-out (no stack) is still routed as nested trunks |
 | Lanes and cross-links | `lane:` and `link:` with `route=` (`between`, `down`, `up`, `left`, `right`, `auto`) |
 | Edge shapes | Orthogonal (default) or straight. Dashed, labelled, and bidirectional arrows |
 | Node chrome | One rectangle. Caption, badge, chips, callout. Kinds are data attributes |
 | Tables, lists, question, source, footer page number | Yes |
 | Images | Relative paths that stay inside the slides directory |
 | Title wrap | `text-wrap: balance` and `line-break: strict` on `.title`. Explicit `\n` in an H1 becomes `<br>` |
-| Cover mark | First `<section>` gets `data-cover="true"`, as does any slide whose H1 has class `cover` |
+| Cover mark | First `<section>` gets `data-cover="true"`, as does any slide whose H1 has class `cover`. Base CSS centres that slide. Front matter `subtitle` and `date` render as `.cover-meta` under the title |
 
-There is no separate cover layout. The cover is a normal slide that follows the title rules below. Front matter `title` is the PDF document title (`<title>`). `subtitle`, `author`, and `audience` are validated and are not rendered. A visible subtitle is a line in the slide body.
+The cover is still a normal slide plus a quiet title-slide layout: the block is centred, the title is centred, and front matter `subtitle` and `date` (when set) sit on one muted line under the H1 (`.cover-meta`). `author` and `audience` are validated and are not drawn. Front matter `title` remains the PDF document title (`<title>`). A further line in the slide body is an ordinary paragraph, also centred.
+
+To tune the cover without adding decoration, append this in the deck style's `css` fence:
+
+```css
+.slide[data-cover="true"] .title {
+  font-size: 44px;
+}
+
+.slide[data-cover="true"] .cover-meta {
+  margin-top: 0.25em;
+}
+```
 
 ## What it cannot draw
 
@@ -123,8 +135,9 @@ Display width: a wide character (CJK, `East_Asian_Width` W or F) counts as 2, an
 | Line count | More than 3 lines fails |
 | Mid-phrase | A line that is only a function word or a Japanese particle fails. A line that **ends** with an opening bracket (`（「『【([`) or **starts** with a closing mark (`）」』】)]、。．，,.!?;；:：`) fails. A line that is only punctuation fails |
 | Balance | With two or more lines, each line must be at least 4 display units, and `shortest / longest` must be at least `0.45` |
-| CJK wrap | A single-line cover that contains CJK and whose estimated width is over `1.02` times the content box must use `\n` |
-| Long wrap | A single-line cover whose estimated width is over `2.05` times the content box must use `\n`, in any language |
+| CJK wrap | A single-line cover that contains CJK and whose estimated width is over `1.02` times the content box must use `\n`. When the first slide is only treated as a cover because it is first, the error also says to add `{.no-cover}` if that slide is content |
+| Long wrap | A single-line cover whose estimated width is over `2.05` times the content box must use `\n`, in any language. The same `{.no-cover}` hint applies on an implicit first-slide cover |
+| Leading particle | A later cover line that starts with へ を と の に で が は も or や (except forms like `への`) is a **warning**. The build still runs. A line that is only the particle remains an error |
 
 Function words (whole line, ignoring surrounding punctuation, case-insensitive): a, an, the, of, to, and, or, for, in, on, with, by, at, from, as, vs, via, into, over, than, that, this, nor, but.
 

@@ -6,7 +6,7 @@ lang: en
 style: deck_style.md
 ---
 
-# 1 Vertical leg crosses a node
+# 1 Vertical leg crosses a node {.no-cover}
 
 ::: flow wide
 lane: A

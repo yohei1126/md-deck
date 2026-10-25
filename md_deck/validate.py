@@ -790,8 +790,8 @@ def validate_slide_body(
 
     if h1_raw:
         lineno, raw = h1_raw[0]
-        for message in heading_title_messages(raw, slide.index, measure):
-            errors.append(CheckError(path, lineno, message))
+        for message, warning in heading_title_messages(raw, slide.index, measure):
+            errors.append(CheckError(path, lineno, message, warning=warning))
 
     errors.extend(_pymarkdown_slide(path, slide))
     return errors

@@ -92,7 +92,7 @@ Deck-specific:
 - At most one `**Key Message:**` line per slide
 - Known blocks: `::: question`, `::: flow`, `::: columns`, `::: source`
 - Block options after the kind are validated per kind; unknown options fail with `file:line`
-  - `flow`: `wide`, `straight`
+  - `flow`: `wide`, `straight`, `steps`
   - `columns`: `plain`, `panel`
   - `question` / `source`: no options
 - Every `:::` opener needs a matching closer; stray closers and `::` / `::::` lines fail
@@ -142,8 +142,11 @@ callout: pdf : Ready to ship [pos=below]
 | Stacked column | `A -> { Upper / Lower } -> B` (edges attach to the stack mid-box; write a separate edge to each member to fan out) |
 | Parallel edges | Repeat the same pair on separate lines; strokes offset and labels separate |
 | Straight edges (flow) | `::: flow straight` (may combine with `wide`) sets the default shape for every edge in that flow |
+| Step index | `::: flow steps` (may combine with `wide`) numbers each node with a muted counter |
 
 `A -> B -> C` on one line still chains. Nodes on separate lines stay unconnected until you write an arrow or a `link:` line. A bare `{#id}` in a chain refers to the existing node with that id (any lane); redefining `Name {#id}` when the id is already taken is still an error.
+
+`::: flow wide` keeps the nodes on one row and centres that group with even gaps (a short procedure, not a ruler stretched to the page edges). To stretch a wide row, set `justify-content: space-between` on `.flow.flow-wide .flow-row` in the deck style. A row that contains a `.flow-stack` keeps at least 72px between the stack and the neighbouring node so a fork trunk and its arrowheads fit. Separate edges into each stack member share that trunk. `A -> { A / B }` is still one arrow into the middle of the stack.
 
 ### Link routes and anchors
 

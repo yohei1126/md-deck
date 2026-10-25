@@ -154,7 +154,7 @@ Start {#start}
 </div>
 ```
 
-What changed: the choice left the second label and became two nodes inside `.flow-stack`. Two edges leave `start`, one per outcome, so `deck.js` draws a fork instead of a single step. Labels are names.
+What changed: the choice left the second label and became two nodes inside `.flow-stack`. Two edges leave `start`, one per outcome. The renderer draws them as one trunk that splits, with a horizontal run into the middle of each box long enough for the arrowhead. The row keeps at least 72px between Start and the stack, and the pair stays centred, so the heads do not sit in the corners. Labels are names.
 
 ## 3-step horizontal
 
@@ -179,13 +179,13 @@ A procedure of three beats is a row of boxes, not a numbered paragraph list.
 ### After
 
 ```markdown
-::: flow wide
+::: flow wide steps
 Collect -> Decide -> Record
 :::
 ```
 
 ```html
-<div class="flow flow-wide">
+<div class="flow flow-steps flow-wide">
   <div class="flow-lanes">
     <div class="lane" data-lane="0">
       <div class="flow-row">
@@ -208,7 +208,44 @@ Collect -> Decide -> Record
 </div>
 ```
 
-What changed: the `ol` of sentences became three `.flow-node` boxes and two edges, Collect → Decide → Record. `wide` keeps them on one row. The step is the box and the arrow, not the sentence.
+What changed: the `ol` of sentences became three `.flow-node` boxes and two edges, Collect → Decide → Record. `wide` keeps them on one row, centred, with the same gap between boxes (not stretched to the page edges). `steps` paints a muted index above each name via `.flow-node-title::before`. To stretch the row instead, set `justify-content: space-between` on `.flow.flow-wide .flow-row` in the deck style.
+
+## One sentence and three cards
+
+A conclusion plus three parallel cards does not need a new block. The Key Message is the sentence. `::: columns` already accepts more than two parts.
+
+```markdown
+**Key Message:** One sentence can sit over three parallel cards.
+
+::: columns panel
+## Collect
+
+One owner
+
++++
+
+## Decide
+
+One check
+
++++
+
+## Record
+
+One file
+:::
+```
+
+```html
+<div class="key-message">…</div>
+<div class="columns panel">
+  <div class="column"><h2 class="column-head">Collect</h2><p>One owner</p></div>
+  <div class="column"><h2 class="column-head">Decide</h2><p>One check</p></div>
+  <div class="column"><h2 class="column-head">Record</h2><p>One file</p></div>
+</div>
+```
+
+What changed from a 2-box compare: a third column, and a single sentence above the cards. Each card stays one short line.
 
 ## Cover title on the same deck
 

@@ -9,7 +9,8 @@ The generator still ships **no visual theme**. Hooks are layout landmarks only. 
 | Hook | Where | Notes |
 | --- | --- | --- |
 | `.slide` | `<section>` | One per slide |
-| `.slide[data-cover="true"]` | same | Cover slide: the first slide, or any slide whose H1 has class `cover`. Omitted when the first slide uses `.no-cover` and does not also use `.cover` |
+| `.slide[data-cover="true"]` | same | Cover slide: the first slide, or any slide whose H1 has class `cover`. Omitted when the first slide uses `.no-cover` and does not also use `.cover`. Base CSS centres the slide |
+| `.cover-meta` | Paragraph under the cover `h1` | Front matter `subtitle` and `date`, joined with ` · `. Children: `.cover-sub`, `.cover-date` |
 | `.slide[data-index]` | same | 1-based index (`data-index="3"`) |
 | `.slide[data-slide]` | same | Same index (alias kept for older CSS) |
 | `#slide-N` | same | Default `id` when the title has no `{#id}` |
@@ -64,7 +65,8 @@ becomes `<section class="slide path-diagram" id="routing" data-index="…">`.
 | Hook | Element | Source |
 | --- | --- | --- |
 | `.flow` | Flow root | `::: flow` |
-| `.flow.flow-wide` | same | `::: flow wide` |
+| `.flow.flow-wide` | same | `::: flow wide` (one centred row, even gaps) |
+| `.flow.flow-steps` | same | `::: flow steps` (muted step index on `.flow-node-title::before`) |
 | `.flow.flow-straight` | same | `::: flow straight` (default edge shape) |
 | `.flow-lanes` | Lane stack | Always present (single-lane flows included) |
 | `.lane` | One lane | `lane: Label` or the implicit single lane |

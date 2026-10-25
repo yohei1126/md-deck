@@ -102,11 +102,37 @@ The stack is the branch. Separate edges fan into each box instead of one arrow i
 
 **Key Message:** Three short boxes in a row are the step bone.
 
-::: flow wide
+::: flow wide steps
 Collect -> Decide -> Record
 :::
 
-`wide` keeps the row on one line. Labels are names, not sentences.
+`wide` keeps one centred row with even gaps. `steps` adds a quiet index. Labels are names, not sentences.
+
+---
+
+# Three cards
+
+**Key Message:** One sentence can sit over three parallel cards.
+
+::: columns panel
+## Collect
+
+One owner
+
++++
+
+## Decide
+
+One check
+
++++
+
+## Record
+
+One file
+:::
+
+Same `columns` block as a 2-box compare. Three parts, one line each.
 
 ---
 

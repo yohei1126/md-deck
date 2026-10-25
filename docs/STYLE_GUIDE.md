@@ -130,7 +130,7 @@ Rules from every `css` fence in the style file are appended after the generated 
 | Key Message | at most one `**Key Message:** …` line | extras fail |
 | Question box | `::: question` … `:::` | non-empty; known kinds only |
 | Source | `Source:` / `出典:` line or `::: source` | empty source block fails |
-| Flow | `::: flow` / `::: flow wide` / `::: flow straight` with arrows, lanes, links, callouts, stacks, chips, `{#id}`, `shape=` | ≥2 nodes; known options/kinds/routes/shapes |
+| Flow | `::: flow` / `wide` / `straight` / `steps` with arrows, lanes, links, callouts, stacks, chips, `{#id}`, `shape=` | ≥2 nodes; known options/kinds/routes/shapes |
 | Columns | `::: columns` / `plain` / `panel`, split by `+++`; may nest one `::: flow` | ≥2 non-empty columns; other nesting forbidden |
 | Hard break | trailing `\`; `\n` in flow labels/badges/titles and in an H1 | also: newlines inside question/source |
 | Table / lists | normal Markdown; empty corner → row headers | consistent columns; list class without forced `<p>` |
@@ -151,7 +151,9 @@ Cover titles (the first slide, or an H1 with `{.cover}`):
 
 - Do not leave a wrap in the middle of a phrase. Put `\n` in the H1 at a phrase boundary (`# First phrase\nSecond phrase`).
 - When a title uses more than one line, keep the lines similar in length.
-- `md-deck check` enforces that rule for cover titles. `text-wrap: balance` evens a Latin title that still wraps once on its own.
+- `md-deck check` enforces that rule for cover titles. A later line that starts with a loose particle is a warning and does not fail the build. `text-wrap: balance` evens a Latin title that still wraps once on its own.
+- The cover slide is centred. `subtitle` and `date` from front matter render under the title. A short CSS example for a larger title is in [VISUAL_POLICY.md](VISUAL_POLICY.md).
+- `::: flow wide` centres the row. `::: flow steps` adds a muted index. A fork into a stack keeps a gap for the trunk.
 - Confirm the cover in a PNG: `md-deck build slides.md -o out.pdf --png out/png`.
 
 `{.no-cover}` on the first H1 opts that slide out of the cover check. See [VISUAL_POLICY.md](VISUAL_POLICY.md) for the thresholds.
