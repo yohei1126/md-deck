@@ -168,7 +168,3 @@ Cover titles (the first slide, or an H1 with `{.cover}`):
 - Confirm the cover in a PNG: `md-deck build slides.md -o out.pdf --png out/png`.
 
 `{.no-cover}` on the first H1 opts that slide out of the cover check. See [VISUAL_POLICY.md](VISUAL_POLICY.md) for the thresholds.
-
-## Japanese guide
-
-See [STYLE_GUIDE.ja.md](STYLE_GUIDE.ja.md) for the same material in Japanese.

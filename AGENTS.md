@@ -26,7 +26,7 @@ When to use a colour is [visual-color/SKILL.md](https://github.com/yohei1126/age
 | :--- | :--- |
 | [README.md](README.md) | Install, CLI, Action |
 | [docs/INPUT_FORMAT.md](docs/INPUT_FORMAT.md) | Slides contract and flow syntax |
-| [docs/STYLE_GUIDE.md](docs/STYLE_GUIDE.md) / [STYLE_GUIDE.ja.md](docs/STYLE_GUIDE.ja.md) | Style tokens |
+| [docs/STYLE_GUIDE.md](docs/STYLE_GUIDE.md) | Style tokens |
 | [docs/HOOKS.md](docs/HOOKS.md) | Stable CSS hooks |
 | [docs/VISUAL_POLICY.md](docs/VISUAL_POLICY.md) | Readability policy, expression limits, phased plan, cover titles |
 | [docs/DIAGRAMS.md](docs/DIAGRAMS.md) | Compare / branch / 3-step recipes and before/after |
