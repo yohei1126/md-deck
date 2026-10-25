@@ -8,6 +8,8 @@ from dataclasses import dataclass, field
 
 KNOWN_NODE_KINDS = frozenset({"actor", "system", "doc", "muted", "highlight"})
 KNOWN_LINK_ROUTES = frozenset({"up", "down", "left", "right", "auto", "between"})
+KNOWN_LANE_ALIGN = frozenset({"start", "center", "end"})
+LANE_OPTS_RE = re.compile(r"\s*\[(?P<opts>[^\[\]]*=[^\[\]]*)\]\s*$")
 KNOWN_EDGE_SHAPES = frozenset({"orthogonal", "straight"})
 KNOWN_CALLOUT_POS = frozenset(
     {"above", "below", "below-left", "below-right", "left", "right"}
@@ -97,6 +99,9 @@ class FlowCallout:
 @dataclass
 class FlowLane:
     label: str | None = None
+    # Where a row shorter than the widest lane sits: start (default) keeps
+    # columns aligned across lanes; center / end move this lane's boxes.
+    align: str = "start"
     # Each entry is either a node key (str) or a stack (list[str] of keys).
     columns: list[str | list[str]] = field(default_factory=list)
     edges: list[FlowEdge] = field(default_factory=list)
@@ -694,7 +699,20 @@ def parse_flow_body(body: str, options: frozenset[str] | None = None) -> FlowDia
             continue
         lane_match = LANE_RE.match(line)
         if lane_match:
-            current = FlowLane(label=lane_match.group("label").strip() or None)
+            label_text = lane_match.group("label").strip()
+            align = "start"
+            opts_match = LANE_OPTS_RE.search(label_text)
+            if opts_match:
+                lane_opts = _parse_opts_map(opts_match.group("opts"))
+                label_text = label_text[: opts_match.start()].strip()
+                align = lane_opts.get("align", "start")
+                if align not in KNOWN_LANE_ALIGN:
+                    diagram.errors.append(
+                        f"unknown lane align {align!r} "
+                        f"(expected {', '.join(sorted(KNOWN_LANE_ALIGN))})"
+                    )
+                    align = "start"
+            current = FlowLane(label=label_text or None, align=align)
             diagram.lanes.append(current)
             continue
         if LINK_RE.match(line):
@@ -827,9 +845,24 @@ def render_flow_html(diagram: FlowDiagram) -> str:
 
     # Always emit the same lane wrappers so single-lane and multi-lane CSS/JS match.
     lanes = diagram.lanes or [FlowLane()]
+    # A lane joined to the lane above by a vertical link needs a taller gap,
+    # or the stroke is shorter than its arrowhead and the label hits a box.
+    linked_above: set[int] = set()
+    for edge in diagram.links:
+        src_home = _lane_index_for_key(diagram, edge.source)
+        dst_home = _lane_index_for_key(diagram, edge.target)
+        if src_home is None or dst_home is None or src_home == dst_home:
+            continue
+        lo, hi = sorted((src_home, dst_home))
+        linked_above.update(range(lo + 1, hi + 1))
     parts.append('<div class="flow-lanes">')
     for index, lane in enumerate(lanes):
-        parts.append(f'<div class="lane" data-lane="{index}">')
+        align_attr = (
+            f' data-align="{lane.align}"' if lane.align != "start" else ""
+        )
+        if index in linked_above:
+            align_attr += ' data-linked-above="true"'
+        parts.append(f'<div class="lane" data-lane="{index}"{align_attr}>')
         if lane.label:
             parts.append(
                 f'<div class="lane-label">{html.escape(lane.label)}</div>'

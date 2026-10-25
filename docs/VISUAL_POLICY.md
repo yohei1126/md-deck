@@ -48,7 +48,7 @@ Stable classes are [HOOKS.md](HOOKS.md). Arrow path geometry is not stable; the 
 | Horizontal steps | `A -> B -> C`. `::: flow wide` keeps one centred row with even gaps. Boxes share that row (`flow_node_max_width` defaults to `none`) and grow toward `flow_preferred_height` (default `60%` of the slide). `steps` adds a muted index. Full leftover-height stretch is `flow_fill_height: fill` or `::: flow fill`. A length cap such as `240px` brings back a side inset |
 | Two-up compare | `::: columns` / `panel` / `plain` / `fill`, split with `+++`. Cards have a `column_min_height` floor and already stretch with the row. A column may contain one nested `::: flow` |
 | Branch | A `{ A / B }` stack plus a separate edge into each member. Those edges share a trunk and keep at least 72px before the stack so arrowheads do not sit in the corners. Same-row fan-out (no stack) is still routed as nested trunks |
-| Lanes and cross-links | `lane:` and `link:` with `route=` (`between`, `down`, `up`, `left`, `right`, `auto`) |
+| Lanes and cross-links | `lane:` and `link:` with `route=` (`between`, `down`, `up`, `left`, `right`, `auto`). A plain multi-lane flow is centred as one group. `lane: … [align=end]` (or `center`) moves a shorter lane. A vertical link between boxes that overlap horizontally is one straight stroke. See [INPUT_FORMAT.md](INPUT_FORMAT.md) |
 | Edge shapes | Orthogonal (default) or straight. Dashed, labelled, and bidirectional arrows |
 | Node chrome | One rectangle. Caption, badge, chips, callout. Kinds are data attributes |
 | Tables, lists, question, source, footer page number | Yes |
@@ -94,6 +94,8 @@ With the default `flow_node_max_width: none`, a wide row's boxes share the width
 Lists inside a column keep `padding-inline-start: 1.4em` from `.column ul` / `.column ol`. That selector is more specific than a deck rule of `ul { padding: 0 }`, so the markers stay indented in a panel. When the card is taller than the list, the items are spaced through the card instead of packing under the heading.
 
 A deck style must not set `.flow-row { justify-content: space-between }` (or the same declaration on `.flow.flow-wide .flow-row`). It cancels the centred row and pins the end boxes to the edges. Remove that declaration when adopting these defaults. It is not the way to enlarge the boxes.
+
+A plain flow with lanes is centred as one group, as wide as its widest lane, and a lane label sits on that left edge. `lane: … [align=end]` (or `center`) moves one shorter lane. Neighbouring boxes keep at least 44px between them so a chain arrow has a shaft. A vertical link between overlapping boxes is one straight stroke, with the label beside the line. Outside fill mode, lanes and rows do not shrink below their boxes; a diagram that is too tall scales the slide down instead of overlapping the next lane. Markup is in [INPUT_FORMAT.md](INPUT_FORMAT.md).
 
 A caption on a flow node stays one text block (`Name | caption`, with `\n` for extra lines). Chips (`[[a, b]]`) are the inline tags. A short bullet list inside a flow node is not supported yet; that remains a follow-up. Use a column card when the text is a list.
 

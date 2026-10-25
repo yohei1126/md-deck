@@ -8,6 +8,10 @@
   const EPS = 0.75;
   const DEFAULT_PORT_GAP = 12;
   const DEFAULT_CALLOUT_GAP = 12;
+  const CALLOUT_MIN_SHAFT = 16;
+  // Boxes that overlap by at least this much horizontally get one straight
+  // vertical stroke instead of a Z between their centres.
+  const STRAIGHT_OVERLAP_MIN = 24;
   // Arrowhead marker is 10x7 at strokeWidth units with stroke-width 2 ≈ 18×13 px.
   const ARROWHEAD_LEN = 18;
   const ARROWHEAD_WIDTH = 13;
@@ -847,6 +851,28 @@
     return pts[pts.length - 1];
   }
 
+  function midSegmentIsVertical(pts) {
+    if (pts.length < 2) return false;
+    let total = 0;
+    const segs = [];
+    for (let i = 1; i < pts.length; i += 1) {
+      const len = Math.hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y);
+      segs.push(len);
+      total += len;
+    }
+    let at = total / 2;
+    for (let i = 1; i < pts.length; i += 1) {
+      if (at <= segs[i - 1]) {
+        return (
+          Math.abs(pts[i].x - pts[i - 1].x) < EPS &&
+          Math.abs(pts[i].y - pts[i - 1].y) >= EPS
+        );
+      }
+      at -= segs[i - 1];
+    }
+    return false;
+  }
+
   function parallelOffset(pts, index, count) {
     if (count <= 1) return { pts, labelNudge: 0 };
     const shift = (index - (count - 1) / 2) * PARALLEL_GAP;
@@ -986,8 +1012,25 @@
     text.classList.add("flow-label", "flow-edge-label");
     applyEdgeHooks(text, edge);
 
-    // Anchor by the label box: keep the whole block off the stroke.
-    if (placeAbove) {
+    // On a vertical stroke, put the label beside the line (right side),
+    // centred on it, instead of on top of the stroke.
+    if (midSegmentIsVertical(pts)) {
+      text.setAttribute("text-anchor", "start");
+      const x = mid.x + LABEL_GAP;
+      text.setAttribute("x", String(x));
+      text.setAttribute("y", String(mid.y));
+      lines.forEach((line, i) => {
+        const tspan = document.createElementNS("http://www.w3.org/2000/svg", "tspan");
+        tspan.setAttribute("x", String(x));
+        if (i === 0) {
+          tspan.setAttribute("dy", `${0.35 - ((lines.length - 1) * 1.15) / 2}em`);
+        } else {
+          tspan.setAttribute("dy", "1.15em");
+        }
+        tspan.textContent = line;
+        text.appendChild(tspan);
+      });
+    } else if (placeAbove) {
       text.setAttribute("y", String(mid.y - LABEL_GAP + labelNudge * 0.15));
       lines.forEach((line, i) => {
         const tspan = document.createElementNS("http://www.w3.org/2000/svg", "tspan");
@@ -1014,7 +1057,10 @@
 
     // Fine-tune with measured bbox so multi-line text never straddles the stroke.
     const bbox = text.getBBox();
-    if (placeAbove && bbox.bottom > mid.y - 6) {
+    const beside = text.getAttribute("text-anchor") === "start";
+    if (beside) {
+      // Beside a vertical stroke: no vertical nudge.
+    } else if (placeAbove && bbox.bottom > mid.y - 6) {
       const shift = bbox.bottom - (mid.y - 6);
       text.setAttribute("y", String(parseFloat(text.getAttribute("y")) - shift));
     } else if (!placeAbove && bbox.top < mid.y + 6) {
@@ -1141,9 +1187,11 @@
     const slide = flow.closest(".slide");
     const clampRoot = slide || flow;
     // Above/below facing stubs need room for a full arrowhead on the final segment.
+    // ARROWHEAD_LEN alone leaves no shaft: the connector reads as a lone
+    // triangle. Keep a visible stroke before the head.
     const gap = Math.max(
       cssPxVar(flow, "--flow-callout-gap", DEFAULT_CALLOUT_GAP),
-      ARROWHEAD_LEN
+      ARROWHEAD_LEN + CALLOUT_MIN_SHAFT
     );
 
     function positionOne(el, box) {
@@ -1916,6 +1964,30 @@
         toCount,
         toGap
       );
+      // One edge between boxes stacked over each other (bottom -> top or
+      // top -> bottom) whose x-ranges overlap: share one x so the stroke is a
+      // single vertical line instead of a Z through the lane gap.
+      if (
+        fromCount === 1 &&
+        toCount === 1 &&
+        !forkPaths.has(planIdx) &&
+        ((plan.fromSide === "bottom" && plan.toSide === "top") ||
+          (plan.fromSide === "top" && plan.toSide === "bottom"))
+      ) {
+        const lo = Math.max(plan.a.left, plan.b.left);
+        const hi = Math.min(plan.a.right, plan.b.right);
+        if (hi - lo >= STRAIGHT_OVERLAP_MIN) {
+          const pad = Math.min(plan.a.width, plan.b.width) * 0.15;
+          const want = (plan.a.cx + plan.b.cx) / 2;
+          const x = clamp(want, lo + Math.min(pad, (hi - lo) / 2), hi - Math.min(pad, (hi - lo) / 2));
+          const p1 = { x, y: fromPort.point.y };
+          const p2 = { x, y: toPort.point.y };
+          if (pathHitsObstacles([p1, p2], plan.obstacles, HIT_PAD) === 0) {
+            fromPort.point = p1;
+            toPort.point = p2;
+          }
+        }
+      }
       const corridorShift = portSlotOffset(
         toPort.index,
         toPort.count,

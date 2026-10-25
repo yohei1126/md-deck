@@ -462,3 +462,30 @@ def test_dark_blue_example_file_uses_the_theme():
     plain, _ = load_style_file(Path("examples/deck_style.md"))
     assert "theme" not in plain
     assert tokens_to_css(plain).count("--color-background: #ffffff;") == 1
+
+
+def test_lane_align_option_and_blank_label():
+    diagram = parse_flow_body(
+        "lane: Upper\n"
+        "A -> B -> C\n"
+        "lane: [align=end]\n"
+        "D {#d}\n"
+        "link: d ..> C [route=up]\n"
+    )
+    assert diagram.lanes[1].label is None
+    assert diagram.lanes[1].align == "end"
+    assert not diagram.errors
+    html = render_flow_html(diagram)
+    assert 'data-lane="1" data-align="end" data-linked-above="true"' in html
+    assert html.count("lane-label") == 1
+
+
+def test_lane_label_keeps_text_before_align():
+    diagram = parse_flow_body("lane: Field [align=center]\nA -> B\n")
+    assert diagram.lanes[0].label == "Field"
+    assert diagram.lanes[0].align == "center"
+
+
+def test_unknown_lane_align_is_an_error():
+    diagram = parse_flow_body("lane: Field [align=middle]\nA -> B\n")
+    assert any("unknown lane align" in e for e in diagram.errors)

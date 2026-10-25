@@ -135,7 +135,7 @@ callout: pdf : Ready to ship [pos=below]
 | Badge | `Name {badge}` (must not start with `#`) |
 | Chips inside the node | `Name [[chip1, chip2]]` (split on `,` only; write `\,` for a literal comma; `/` stays inside the chip). A chips-only node `[[a, b]]` is allowed |
 | Line break in node / label / badge | `\n` or a trailing `\` |
-| Lane | `lane: Label` starts a lane |
+| Lane | `lane: Label` starts a lane. `lane:` with no label starts an unlabelled row. Optional `[align=start\|center\|end]` moves a shorter lane inside the group (default `start` keeps columns aligned across lanes) |
 | Cross-lane link | `link: From => To : optional label [route=between]` (also `->` / `..>`; routes below). Optional `shape=straight` (or `orthogonal`) per link. A bare `{#id} -> {#other}` that names nodes already defined in other lanes resolves the same way |
 | Edge shape on a chain | Trailing opts on the destination: `A -> B [shape=straight]` |
 | Callout | `callout: NodeId : text [pos=below]` (`above` / `below` / `below-left` / `below-right` / `left` / `right`). Optional `side=top\|bottom\|left\|right` sets where the connector leaves the callout box |
@@ -155,7 +155,13 @@ A row that contains a `.flow-stack` keeps at least 72px between the stack and th
 
 A node caption (`Name | caption`) is one block of text. `\n` breaks it into lines. Short bullets inside a flow node are not a syntax yet; use chips (`[[a, b]]`) or a `::: columns` card. Bullets in flow nodes are a follow-up.
 
+### Lane layout
+
+A plain (not `wide`) flow with lanes is as wide as its widest lane and is centred on the slide as one group. Lanes share the group's left edge, so boxes in the same position line up across lanes; a lane label sits on that edge above its first box. `lane: … [align=end]` (or `center`) moves one shorter lane, for example a single box that should sit under the last box of the lane above. A flow with a `{ A / B }` stack keeps the full row. Neighbouring boxes in a row keep at least 44px between them so a chain arrow has a shaft, not only a head. A lane joined to the lane above by a `link:` gets extra space above it for the vertical stroke and its label. Outside fill mode, lanes and rows do not shrink below their boxes; a diagram that is too tall makes the slide scale down instead of overlapping the next lane.
+
 ### Link routes and anchors
+
+A vertical link (`bottom` → `top` or `top` → `bottom`) between two boxes whose widths overlap by at least 24px is one straight vertical stroke at a shared x, not a Z between the two centres. A label on a vertical stroke sits beside the line, not across it. A callout sits far enough from its anchor (`flow_callout_gap`, at least the arrowhead plus a 16px shaft) that its connector reads as an arrow.
 
 Cross-lane links and same-row edges that would pass through other nodes draw as orthogonal paths by default. Routing treats nodes, badges, callouts, and edge labels as obstacles, only in the rows or columns the path crosses. When several clear paths exist, the renderer picks a crossing-free one deterministically. Several edges that leave or enter the same node side use distinct ports spaced by `flow_port_gap` (default 12px) so arrowheads do not stack and trunks stay separate. Same-row U detours (fan-in or fan-out that bend above or below the row) widen that spacing to about an arrowhead width plus a gap, keep a final stub at least arrowhead length, and grow the flow's padding so nested trunks stay inside the flow box rather than crossing the slide title. Farther sources or targets take the outer trunk and farther port so routes nest without crossing.
 

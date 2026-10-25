@@ -301,6 +301,56 @@ body {
 .lane-label {
   font-size: var(--font-size-small);
   color: var(--color-muted);
+  /* Sit on the lane's own left edge, next to its first box, not mid-slide. */
+  align-self: flex-start;
+  text-align: start;
+}
+
+/* lane: Label [align=center|end] moves one shorter lane within the group. */
+.lane[data-align="center"] > .flow-row {
+  justify-content: center;
+}
+
+.lane[data-align="center"] > .lane-label {
+  align-self: center;
+}
+
+.lane[data-align="end"] > .flow-row {
+  justify-content: flex-end;
+}
+
+.lane[data-align="end"] > .lane-label {
+  align-self: flex-end;
+}
+
+/* Lane labels need air between the row above and the label. */
+.flow-lanes:has(> .lane > .lane-label) {
+  gap: max(calc(var(--gap) * 1.5), 24px);
+}
+
+/* A vertical link into this lane from the lane above: room for a shaft,
+   the arrowhead, and a label beside the stroke. */
+.flow-lanes > .lane[data-linked-above="true"] {
+  margin-top: max(calc(var(--gap) * 2), 32px);
+}
+
+/* Outside fill mode, lanes and rows must not shrink below their boxes:
+   squeezed rows spill over the next lane label, and shrink-to-fit cannot
+   see it. Keep them whole so the slide scales instead. */
+.flow:not(.flow-fill) > .flow-lanes,
+.flow:not(.flow-fill) > .flow-lanes > .lane,
+.flow:not(.flow-fill) > .flow-lanes > .lane > .flow-row {
+  flex-shrink: 0;
+}
+
+/* A plain (not wide) flow with lanes is as wide as its widest lane and is
+   centred as one group. Lanes share that left edge so columns stay aligned
+   across lanes, and a lane with one box sits under the others instead of on
+   the slide's left margin. Flows with a { A / B } stack keep the full row. */
+.flow:not(.flow-wide):not(:has(.flow-stack)) > .flow-lanes {
+  width: fit-content;
+  max-width: 100%;
+  align-self: center;
 }
 
 .flow-row {
@@ -312,6 +362,8 @@ body {
   flex-wrap: wrap;
   align-items: center;
   gap: calc(var(--gap) * 1.5);
+  /* An edge between neighbours needs a shaft, not only an 18px arrowhead. */
+  column-gap: max(calc(var(--gap) * 1.5), 44px);
   width: 100%;
   min-height: 0;
 }
@@ -422,6 +474,11 @@ body {
   height: auto;
   justify-content: center;
   max-height: none;
+}
+
+/* Same for the content-height flow itself on the slide. */
+.slide-content > .flow.flow:not(.flow-fill) {
+  flex-shrink: 0;
 }
 
 /* Wide single row only. A stack, a callout, or a plain flow stays content height. */
