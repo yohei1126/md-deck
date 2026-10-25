@@ -18,7 +18,7 @@ That skill covers workflow, style vs content, spacing/density, review before tag
 
 The generator rules below live in this repo. The skill's authoring checklist is updated separately in [md-deck/SKILL.md](https://github.com/yohei1126/agent-skills/blob/main/md-deck/SKILL.md) when that checklist should match. Do not paste the skill into this repository.
 
-When to use a colour is [visual-color/SKILL.md](https://github.com/yohei1126/agent-skills/blob/main/visual-color/SKILL.md). When to draw a diagram, including article covers, is [visual-diagram/SKILL.md](https://github.com/yohei1126/agent-skills/blob/main/visual-diagram/SKILL.md). Those two files land on `main` when [agent-skills#23](https://github.com/yohei1126/agent-skills/pull/23) merges. Do not copy them here. This repo only implements the `theme` token (`plain` by default, `dark-blue` opt-in).
+When to use a colour is [visual-color/SKILL.md](https://github.com/yohei1126/agent-skills/blob/main/visual-color/SKILL.md). When to draw a diagram, including article covers, is [visual-diagram/SKILL.md](https://github.com/yohei1126/agent-skills/blob/main/visual-diagram/SKILL.md). Do not copy them here. This repo only implements the `theme` token (`plain` by default, `dark-blue` opt-in).
 
 ## Docs in this repo
 
