@@ -22,7 +22,7 @@ This page is the generator-side record of that policy: what the HTML/CSS → PDF
 
 The sample style stays plain: black on white. In a deck style file, `theme: dark-blue` fills any colour token you omit. A colour token you set still wins. The values are CSS variables on the slide background, titles, body text, flow-node borders and fills, arrows, column cards, and question blocks. Copy [`examples/deck_style_dark_blue.md`](../examples/deck_style_dark_blue.md). Token names are in [STYLE_GUIDE.md](STYLE_GUIDE.md).
 
-`dark-blue` is one 60/30/10 role set, not a product brand. Ground `#EDE8E4` (the sample's sub colour, not its pure white), text `#333333`, navy `#073365` for titles, node borders, and arrows, accent `#F7581D` for callouts and the question border. Card and key-message fills use a light navy tint (`#E3EAF2`). Node fill is a lighter warm off-white (`#FFF8F3`) so the box lifts off the ground.
+`dark-blue` is one 60/30/10 role set, not a product brand. Ground `#EDE8E4` (the sample's sub colour, not its pure white), text `#333333`, navy `#073365` for titles, node borders, and arrows, accent `#F7581D` for callouts, the question border, and dashed gap labels (`color_edge_gap`). A cooler secondary accent `#1A6B7A` (`color_accent_2`) is for eyebrows and other quiet labels. Card and key-message fills use a light navy tint (`#E3EAF2`). Node fill is white (`#FFFFFF`) so the box lifts off the ground. Borders on this theme are `2px` when `border_width` is omitted.
 
 ## References
 
@@ -46,11 +46,11 @@ Stable classes are [HOOKS.md](HOOKS.md). Arrow path geometry is not stable; the 
 | Piece | Today |
 | --- | --- |
 | Horizontal steps | `A -> B -> C`. `::: flow wide` keeps one centred row with even gaps. Boxes share that row (`flow_node_max_width` defaults to `none`) and grow toward `flow_preferred_height` (default `60%` of the slide). `steps` adds a muted index. Full leftover-height stretch is `flow_fill_height: fill` or `::: flow fill`. A length cap such as `240px` brings back a side inset |
-| Two-up compare | `::: columns` / `panel` / `plain` / `fill`, split with `+++`. Cards have a `column_min_height` floor and already stretch with the row. A column heading stays near body size; a paragraph sits under it. `::: columns figures` is the same row with a large heading. A column may contain one nested `::: flow` |
+| Two-up compare | `::: columns` / `panel` / `plain` / `fill`, split with `+++`. Cards have a `column_min_height` floor and the row stays content height. `fill` stretches that row to the leftover slide height. `{.dashed}` on a heading dashes that card. A column heading stays near body size; a paragraph sits under it. `::: columns figures` is the same row with a large heading. A column may contain one nested `::: flow` |
 | Branch | A `{ A / B }` stack plus a separate edge into each member. Those edges share a trunk and keep at least 72px before the stack so arrowheads do not sit in the corners. Same-row fan-out (no stack) is still routed as nested trunks |
 | Lanes and cross-links | `lane:` and `link:` with `route=` (`between`, `down`, `up`, `left`, `right`, `auto`). A plain multi-lane flow is centred as one group. `::: flow spread` makes that group use the content width. `lane: … [align=end]` (or `center`) moves a shorter lane. A vertical link between boxes that overlap horizontally is one straight stroke. See [INPUT_FORMAT.md](INPUT_FORMAT.md) |
 | Edge shapes | Orthogonal (default) or straight. Dashed, labelled, and bidirectional arrows |
-| Node chrome | One rectangle. Caption, badge, chips, callout. Kinds are data attributes |
+| Node chrome | One rectangle. Caption, badge, corner index (leading `①` or `{1}`), chips, callout. Kinds are data attributes |
 | Tables, lists, question, source, footer page number | Yes |
 | Images | Relative paths that stay inside the slides directory |
 | Title wrap | `text-wrap: balance` and `line-break: strict` on `.title`. Explicit `\n` in an H1 becomes `<br>` |

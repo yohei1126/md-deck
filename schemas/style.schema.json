@@ -45,6 +45,10 @@
     "color_flow_node_bg": { "$ref": "#/$defs/color" },
     "color_flow_node_border": { "$ref": "#/$defs/color" },
     "color_flow_arrow": { "$ref": "#/$defs/color" },
+    "color_edge_gap": {
+      "$ref": "#/$defs/color",
+      "description": "Dashed gap stroke and label. Plain default is black. dark-blue uses the orange accent."
+    },
     "color_table_header_bg": { "$ref": "#/$defs/color" },
     "color_table_border": { "$ref": "#/$defs/color" },
     "font_family": { "type": "string", "minLength": 1 },
@@ -111,7 +115,7 @@
     "theme": {
       "type": "string",
       "enum": ["plain", "dark-blue"],
-      "description": "Named colour palette. plain keeps black on white. dark-blue fills omitted colour tokens (off-white ground, not pure white); an explicit colour token overrides that role."
+      "description": "Named colour palette. plain keeps black on white. dark-blue fills omitted colour tokens (off-white ground, white node fill, 2px borders); an explicit colour token overrides that role."
     }
   },
   "$defs": {

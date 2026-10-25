@@ -247,7 +247,7 @@ One file
 </div>
 ```
 
-What changed from a 2-box compare: a third column, and a single sentence above the cards. Each card stays one short line. Column cards have a `column_min_height` floor (default `160px`) and stretch with the row. `::: columns fill` asks them to take the height still free on the slide. Bullets inside a column keep a `1.4em` indent even when the deck style zeroes `ul` padding.
+What changed from a 2-box compare: a third column, and a single sentence above the cards. Each card stays one short line. Column cards have a `column_min_height` floor (default `160px`) and the row stays content height. `::: columns fill` asks them to take the height still free on the slide. Bullets inside a column keep a `1.4em` indent even when the deck style zeroes `ul` padding.
 
 ## Cover title on the same deck
 

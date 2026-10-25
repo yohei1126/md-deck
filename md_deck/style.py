@@ -36,6 +36,9 @@ TOKEN_SPEC: dict[str, tuple[str, Any]] = {
     "color_flow_node_bg": ("--color-flow-node-bg", "#ffffff"),
     "color_flow_node_border": ("--color-flow-node-border", "#000000"),
     "color_flow_arrow": ("--color-flow-arrow", "#000000"),
+    # Dashed gap strokes and their labels. Plain matches the arrow; dark-blue
+    # uses the accent so a gap reads stronger than body text.
+    "color_edge_gap": ("--color-edge-gap", "#000000"),
     "color_table_header_bg": ("--color-table-header-bg", "#f0f0f0"),
     "color_table_border": ("--color-table-border", "#cccccc"),
     "font_family": ("--font-family", "sans-serif"),
@@ -135,8 +138,10 @@ FILL_HEIGHT_VALUES = frozenset({"none", "fill"})
 
 # Named palettes. `plain` leaves every colour on the TOKEN_SPEC default.
 # `dark-blue` is a generic 60/30/10 role set: off-white ground, navy structure,
-# one accent. It is not a product brand. The ground is the sample's sub colour
-# (#EDE8E4), not pure white. See docs/VISUAL_POLICY.md.
+# one warm accent, and a cooler secondary accent. It is not a product brand.
+# The ground is the sample's sub colour (#EDE8E4), not pure white. Node fill
+# is white so a box lifts off that ground. Borders on this theme are 2px.
+# See docs/VISUAL_POLICY.md.
 THEME_NAMES = frozenset({"plain", "dark-blue"})
 THEMES: dict[str, dict[str, str]] = {
     "plain": {},
@@ -148,7 +153,8 @@ THEMES: dict[str, dict[str, str]] = {
         "color_border": "#C8C0B8",
         "color_title": "#073365",
         "color_top_bar": "#073365",
-        "color_accent_2": "#5C564F",
+        # Cooler than navy, distinct from the orange highlight. Eyebrows use it.
+        "color_accent_2": "#1A6B7A",
         "color_highlight": "#F7581D",
         "color_highlight_bg": "#F8E4DC",
         "color_key_message_bg": "#E3EAF2",
@@ -159,10 +165,13 @@ THEMES: dict[str, dict[str, str]] = {
         "color_question_border": "#F7581D",
         "color_card_bg": "#E3EAF2",
         "color_card_border": "#073365",
-        # Lighter than the ground (#EDE8E4) so a node reads as a box, still warm.
-        "color_flow_node_bg": "#FFF8F3",
+        # White, not the warmer #FFF8F3, so a node lifts off #EDE8E4.
+        "color_flow_node_bg": "#FFFFFF",
         "color_flow_node_border": "#073365",
         "color_flow_arrow": "#073365",
+        "color_edge_gap": "#F7581D",
+        # Node and card borders. Explicit border_width in the style file wins.
+        "border_width": "2px",
         "color_table_header_bg": "#E3EAF2",
         "color_table_border": "#C8C0B8",
     },

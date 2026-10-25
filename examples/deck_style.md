@@ -32,6 +32,7 @@ color_card_border: "#cccccc"
 color_flow_node_bg: "#ffffff"
 color_flow_node_border: "#000000"
 color_flow_arrow: "#000000"
+color_edge_gap: "#000000"
 
 color_table_header_bg: "#eeeeee"
 color_table_border: "#cccccc"

@@ -87,6 +87,7 @@ Deck-specific:
 - At least one non-empty slide; a trailing `---` that creates an empty slide is an error
 - Exactly one H1 (`# …`) per slide; no H1 inside `:::` blocks
 - Optional heading attributes via `attr_list`: `# Title {#id .class}` (sets slide `id` / classes and the `h1` attributes)
+- Section label above the title: a top-level line `eyebrow: Section label` (one per slide, non-empty). It renders as `<p class="eyebrow">` before the `h1`. A line inside a fence is left alone
 - H1 line break: `\n` inside the heading (`# First phrase\nSecond phrase`) becomes a `<br>` in `.title`. An ATX heading cannot wrap with a trailing `\`. Cover rules (the first slide, `{.cover}`, and `{.no-cover}`) are in [VISUAL_POLICY.md](VISUAL_POLICY.md)
 - Heading levels must not skip (H1 then H4 is an error)
 - At most one `**Key Message:**` line per slide
@@ -132,7 +133,7 @@ callout: pdf : Ready to ship [pos=below]
 | Node kind | `[actor]`, `[system]`, `[doc]`, `[muted]`, `[highlight]` before the name |
 | Node id | `Name {#id}` (stable `data-node` / link target; works with duplicate titles and `\n` breaks) |
 | Caption (second line) | `Name \| caption` |
-| Badge | `Name {badge}` (must not start with `#`) |
+| Badge | `Name {badge}` (must not start with `#`). A short index (`{1}`, `{①}`) is a corner badge (`.flow-node-index`), outside the title. Any other badge stays inside the node |
 | Chips inside the node | `Name [[chip1, chip2]]` (split on `,` only; write `\,` for a literal comma; `/` stays inside the chip). A chips-only node `[[a, b]]` is allowed |
 | Line break in node / label / badge | `\n` or a trailing `\` |
 | Lane | `lane: Label` starts a lane. `lane:` with no label starts an unlabelled row. Optional `[align=start\|center\|end]` moves a shorter lane inside the group (default `start` keeps columns aligned across lanes) |
@@ -142,8 +143,8 @@ callout: pdf : Ready to ship [pos=below]
 | Stacked column | `A -> { Upper / Lower } -> B` (edges attach to the stack mid-box; write a separate edge to each member to fan out) |
 | Parallel edges | Repeat the same pair on separate lines; strokes offset and labels separate |
 | Straight edges (flow) | `::: flow straight` (may combine with `wide`) sets the default shape for every edge in that flow |
-| Step index | `::: flow steps` (may combine with `wide`) numbers each node with a muted counter |
-| Fill leftover height | `::: flow fill` and `::: columns fill` (may combine with the other options) stretch those boxes to the height left on the slide |
+| Step index | `::: flow steps` (may combine with `wide`) numbers each node with a muted counter. A wide step box stays top-aligned; its line-height stays the body line-height |
+| Fill leftover height | `::: flow fill` and `::: columns fill` (may combine with the other options) stretch those boxes to the height left on the slide. Without `fill`, a `::: columns` row stays content height |
 | Lane map width | `::: flow spread` makes a plain multi-lane flow use the content width. The default stays a centred, shrink-wrapped group. `lane: … [align=end]` still moves one shorter lane |
 | Big numbers | `::: columns figures` uses the same cards. The column heading is the figure (about 2.4em); the paragraph under it is the caption. The pair is centred in the card |
 
@@ -157,7 +158,9 @@ A row that contains a `.flow-stack` keeps at least 72px between the stack and th
 
 A node caption (`Name | caption`, hook `.flow-node-caption`) is one block of text. `\n` breaks it into lines. It uses `font_size_flow_body` (default `18px`) and the body text colour, including when the box is tall. Badges and chips stay on `font_size_small`. Short bullets inside a flow node are not a syntax yet; use chips (`[[a, b]]`) or a `::: columns` card. Bullets in flow nodes are a follow-up.
 
-A column heading (`.column-head`) is about `1.1em` of the body size so a short title stays on one line. A paragraph in a card sits under that heading. A list in a tall card is packed under that heading as well; the extra height stays below the items, and the line-height stays a normal reading size. `::: columns figures` is the same card row with a large heading for a plain figure (class `.columns.figures`). The figure and its caption are centred in the card.
+A column heading (`.column-head`) is about `1.1em` of the body size so a short title stays on one line. A paragraph in a card sits under that heading. A `::: columns` row is content height: cards do not stretch to the leftover slide, so a short card does not keep a large empty bottom. `::: columns fill` is the opt-in that stretches the row. `{.dashed}` on a column heading (for example `## Quiet {.dashed}`) adds `.dashed` to that card so the outline is dashed; pair it with `{.muted}` when the layer should read quieter. A list in a tall card (`fill`, or a card that is only as tall as a taller sibling) is packed under that heading; the line-height stays a normal reading size. `::: columns figures` is the same card row with a large heading for a plain figure (class `.columns.figures`). The figure and its caption are centred in the card.
+
+A leading circled number on a flow title (`① Intake`) is lifted into `.flow-node-index`, a corner badge outside the title text. `{1}` or `{①}` does the same. A longer badge such as `{draft}` stays inside the node. Dashed edges (a chain `-. [label].->` or `link: … ..>`) draw in `--color-edge-gap` with a bold label. On a vertical stroke, that label stacks upright beside the stroke (`.flow-label-gap-vertical`) when the stack fits in the open gap; otherwise it stays horizontal beside the stroke. A single-line label on a horizontal shaft stays above or below that shaft. `route=between` keeps the lane-gap shaft. A later auto-routed edge that would cross an earlier one is moved to a free side or corridor when one exists.
 
 `**Key Message:**` is bold. `**emphasis**` inside the sentence is still inline Markdown.
 

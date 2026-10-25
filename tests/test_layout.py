@@ -419,6 +419,18 @@ def test_wide_steps_are_centred_with_even_gaps(layout_pages):
     for node in tops:
         assert node["titleFromTop"] < 36, tops
         assert node["titleFromBottom"] > node["height"] * 0.4, tops
+    step_type = page.evaluate(
+        """() => {
+          const slide = document.querySelectorAll('.slide')[2];
+          const title = slide.querySelector('.flow-node-title');
+          const style = getComputedStyle(title);
+          return {
+            lineHeight: parseFloat(style.lineHeight),
+            fontSize: parseFloat(style.fontSize),
+          };
+        }"""
+    )
+    assert step_type["lineHeight"] < step_type["fontSize"] * 1.7, step_type
     place = page.evaluate(
         """() => {
           const slide = document.querySelectorAll('.slide')[2];
@@ -485,9 +497,13 @@ def test_column_list_stays_under_the_heading(layout_pages):
           const headBox = head.getBoundingClientRect();
           const first = items[0].getBoundingClientRect();
           const last = items[items.length - 1].getBoundingClientRect();
+          const row = slide.querySelector('.columns');
+          const rowBox = row.getBoundingClientRect();
           return {
             titleGap: tr.top - cr.top,
             cardH: cardBox.height,
+            rowH: rowBox.height,
+            contentH: cr.height,
             headGap: first.top - headBox.bottom,
             itemGap: items[1].getBoundingClientRect().top - first.bottom,
             lastFromBottom: cardBox.bottom - last.bottom,
@@ -497,10 +513,13 @@ def test_column_list_stays_under_the_heading(layout_pages):
         }"""
     )
     assert result["titleGap"] < 20, result
-    assert result["cardH"] > 280, result
+    # Content height: the row does not eat the slide, and the list is not
+    # left floating over a large empty card bottom.
+    assert result["rowH"] < result["contentH"] * 0.55, result
+    assert result["cardH"] < 280, result
     assert result["headGap"] < 28, result
     assert result["itemGap"] < 36, result
-    assert result["lastFromBottom"] > result["cardH"] * 0.35, result
+    assert result["lastFromBottom"] < 48, result
     assert result["lineHeight"] < result["fontSize"] * 1.7, result
 
 
@@ -554,7 +573,7 @@ def test_card_paragraph_sits_under_the_heading(layout_pages):
           };
         }"""
     )
-    assert result["cardH"] > 280, result
+    assert 120 <= result["cardH"] <= 240, result
     assert result["gap"] < 24, result
     assert abs(result["headPx"] - result["bodyPx"] * 1.1) < 2, result
 

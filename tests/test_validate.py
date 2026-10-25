@@ -19,6 +19,34 @@ def _messages(errors) -> list[str]:
     return [e.message for e in errors]
 
 
+def test_eyebrow_must_be_one_non_empty_line(tmp_path: Path):
+    style = GOOD / "deck_style.md"
+    slides = tmp_path / "slides.md"
+    slides.write_text(
+        "---\n"
+        'title: X\nversion: "1"\ndate: "2026-01-01"\nlang: en\n'
+        "style: deck_style.md\n"
+        "---\n\n"
+        "eyebrow:\n\n"
+        "# Title\n\n"
+        "eyebrow: Again\n",
+        encoding="utf-8",
+    )
+    messages = _messages(check_deck(slides, style))
+    assert any("eyebrow body is empty" in m for m in messages)
+    assert any("more than one eyebrow" in m for m in messages)
+    slides.write_text(
+        "---\n"
+        'title: X\nversion: "1"\ndate: "2026-01-01"\nlang: en\n'
+        "style: deck_style.md\n"
+        "---\n\n"
+        "eyebrow: Section\n\n"
+        "# Title\n",
+        encoding="utf-8",
+    )
+    assert check_deck(slides, style) == []
+
+
 def test_good_fixture_passes():
     errors = check_deck(GOOD / "slides.md")
     assert errors == []
