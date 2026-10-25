@@ -218,7 +218,8 @@ body {
   flex-shrink: 1;
   flex-basis: auto;
   align-items: stretch;
-  justify-content: flex-start;
+  /* Centre the diagram when a tall panel has leftover space. */
+  justify-content: center;
   gap: calc(var(--gap) * 1.5);
   width: 100%;
   padding: var(--card-padding) 0;
@@ -229,7 +230,7 @@ body {
 .flow.flow-wide {
   flex-wrap: nowrap;
   width: 100%;
-  justify-content: flex-start;
+  justify-content: center;
 }
 
 .flow-lanes {
@@ -238,9 +239,11 @@ body {
   flex-grow: var(--flow-fill-height);
   flex-shrink: 1;
   flex-basis: auto;
+  justify-content: center;
   gap: var(--gap);
   width: 100%;
   min-height: 0;
+  margin-block: auto;
 }
 
 .lane {
@@ -249,6 +252,7 @@ body {
   flex-grow: var(--flow-fill-height);
   flex-shrink: 1;
   flex-basis: auto;
+  justify-content: center;
   gap: calc(var(--gap) * 0.5);
   width: 100%;
   min-height: 0;
@@ -354,6 +358,29 @@ body {
 .flow:has(.flow-callout) .flow-row {
   flex-grow: 0;
   align-items: center;
+}
+
+/* A deck rule `.flow { flex: 1 }` or `.slide-content > * { flex: 1 }` would
+   stretch this panel and leave an empty band under a top-aligned row.
+   The extra class keeps shrink-to-content, while flex-grow still follows
+   flow_fill_height / ::: flow fill. justify-content above centres the
+   diagram if the panel is tall for another reason. */
+.slide-content > .flow.flow,
+.column > .flow.flow {
+  flex: 0 1 auto;
+  flex-grow: var(--flow-fill-height);
+  height: auto;
+  justify-content: center;
+}
+
+.slide-content > .flow.flow-fill,
+.column > .flow.flow-fill {
+  flex-grow: 1;
+}
+
+.slide-content > .flow.flow:has(.flow-callout),
+.column > .flow.flow:has(.flow-callout) {
+  flex-grow: 0;
 }
 
 .flow-node {

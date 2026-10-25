@@ -59,6 +59,8 @@ page_padding: 48
 CRUSH = """
 .flow-row { justify-content: space-between !important; gap: 0 !important; column-gap: 0 !important; }
 .flow-node, .flow-stack { flex: 1 1 auto !important; }
+.flow { flex: 1 1 auto; }
+.slide-content > * { flex: 1 1 auto; }
 """
 
 
@@ -176,11 +178,19 @@ def test_branch_fork_has_gap_and_arrowheads(layout_pages):
           endDx: Math.abs(last.x - node.left),
         };
       });
-      return { gap: stack.left - start.right, stackGap, targets };
+      const row = flow.querySelector('.flow-row');
+      return {
+        gap: stack.left - start.right,
+        stackGap,
+        targets,
+        flowH: flow.getBoundingClientRect().height / scale,
+        rowH: row.getBoundingClientRect().height / scale,
+      };
     }"""
     result = page.evaluate(script)
     assert result["gap"] >= 64, result
     assert 24 <= result["stackGap"] <= 48, result
+    assert result["flowH"] - result["rowH"] < 80, result
     for target in result["targets"]:
         assert target["dy"] < 1, target
         assert target["run"] >= 18, target
@@ -189,6 +199,7 @@ def test_branch_fork_has_gap_and_arrowheads(layout_pages):
 
     crushed_result = crushed.evaluate(script)
     assert crushed_result["gap"] >= 64, crushed_result
+    assert crushed_result["flowH"] - crushed_result["rowH"] < 80, crushed_result
     for target in crushed_result["targets"]:
         assert target["run"] >= 18, target
         assert target["endDx"] <= 2, target
@@ -227,6 +238,7 @@ def test_wide_steps_are_centred_with_even_gaps(layout_pages):
             inset: nodes[0].left,
             widths: nodes.map((n) => n.width),
             heights: nodes.map((n) => n.height),
+            flowH: flow.getBoundingClientRect().height / scale,
             groupRatio: group / slide.getBoundingClientRect().width,
             indexes: nodes.map((n) => n.index),
             stepClass: flow.classList.contains('flow-steps'),
@@ -241,6 +253,7 @@ def test_wide_steps_are_centred_with_even_gaps(layout_pages):
         assert width >= 280, result
     for height in result["heights"]:
         assert 70 <= height <= 180, result
+    assert result["flowH"] - max(result["heights"]) < 80, result
     assert result["groupRatio"] >= 0.8, result
     assert result["stepClass"] is True, result
     assert result["indexes"] == ["counter(flow-step)"] * 3, result
