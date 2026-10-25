@@ -8,6 +8,7 @@ from pathlib import Path
 
 from md_deck.slides import SlideRender, parse_deck
 from md_deck.style import load_style_file, resolve_style_path, tokens_to_css
+from md_deck.titles import is_cover_slide
 
 PACKAGE_DIR = Path(__file__).resolve().parent
 TEMPLATE_DIR = PACKAGE_DIR / "template"
@@ -48,6 +49,11 @@ def build_html(
         class_attr = " ".join(classes)
         # Prefer author id from heading attrs; else stable slide-N.
         slide_id = slide.slide_id or f"slide-{index}"
+        cover_attr = (
+            ' data-cover="true"'
+            if is_cover_slide(index, slide.slide_classes)
+            else ""
+        )
         source = ""
         if slide.source_html:
             source = f'<div class="source">{slide.source_html}</div>'
@@ -60,7 +66,7 @@ def build_html(
         )
         slide_blocks.append(
             f'<section class="{class_attr}" id="{_escape(slide_id)}" '
-            f'data-index="{index}" data-slide="{index}">'
+            f'data-index="{index}" data-slide="{index}"{cover_attr}>'
             f'<div class="slide-inner"><div class="slide-content">{slide.html}</div></div>'
             f"{footer}"
             f"</section>"

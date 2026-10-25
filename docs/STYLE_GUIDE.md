@@ -132,7 +132,7 @@ Rules from every `css` fence in the style file are appended after the generated 
 | Source | `Source:` / `出典:` line or `::: source` | empty source block fails |
 | Flow | `::: flow` / `::: flow wide` / `::: flow straight` with arrows, lanes, links, callouts, stacks, chips, `{#id}`, `shape=` | ≥2 nodes; known options/kinds/routes/shapes |
 | Columns | `::: columns` / `plain` / `panel`, split by `+++`; may nest one `::: flow` | ≥2 non-empty columns; other nesting forbidden |
-| Hard break | trailing `\`; `\n` in flow labels/badges/titles | also: newlines inside question/source |
+| Hard break | trailing `\`; `\n` in flow labels/badges/titles and in an H1 | also: newlines inside question/source |
 | Table / lists | normal Markdown; empty corner → row headers | consistent columns; list class without forced `<p>` |
 | Code fence | ` ``` ` … ` ``` ` | must close |
 | HTML | not used by default | fails unless `--allow-html` |
@@ -142,6 +142,19 @@ Slides front matter must include `title`, `version`, `date`, `lang`, and `style`
 ## Overflow
 
 After layout, each slide scales down in 2% steps to 80% if content overflows. If it still overflows, the build fails and names the slide numbers. Shorten the copy or adjust tokens (font sizes, padding) in the style file.
+
+## Visual policy and cover titles
+
+Slide materials aim at a NotebookLM-like reading ease: tidy colour, structured information, and a clear diagram bone (boxes, arrows, branches). Flashy decoration is out of scope. The pipeline limits, the phased plan, and the cover-title rules are in [VISUAL_POLICY.md](VISUAL_POLICY.md). Before/after recipes for a 2-box compare, a branch, and a 3-step row are in [DIAGRAMS.md](DIAGRAMS.md) and [`examples/diagram_patterns.md`](../examples/diagram_patterns.md).
+
+Cover titles (the first slide, or an H1 with `{.cover}`):
+
+- Do not leave a wrap in the middle of a phrase. Put `\n` in the H1 at a phrase boundary (`# First phrase\nSecond phrase`).
+- When a title uses more than one line, keep the lines similar in length.
+- `md-deck check` enforces that rule for cover titles. `text-wrap: balance` evens a Latin title that still wraps once on its own.
+- Confirm the cover in a PNG: `md-deck build slides.md -o out.pdf --png out/png`.
+
+`{.no-cover}` on the first H1 opts that slide out of the cover check. See [VISUAL_POLICY.md](VISUAL_POLICY.md) for the thresholds.
 
 ## Japanese guide
 

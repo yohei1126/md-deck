@@ -87,6 +87,7 @@ Deck-specific:
 - At least one non-empty slide; a trailing `---` that creates an empty slide is an error
 - Exactly one H1 (`# …`) per slide; no H1 inside `:::` blocks
 - Optional heading attributes via `attr_list`: `# Title {#id .class}` (sets slide `id` / classes and the `h1` attributes)
+- H1 line break: `\n` inside the heading (`# First phrase\nSecond phrase`) becomes a `<br>` in `.title`. An ATX heading cannot wrap with a trailing `\`. Cover rules (the first slide, `{.cover}`, and `{.no-cover}`) are in [VISUAL_POLICY.md](VISUAL_POLICY.md)
 - Heading levels must not skip (H1 then H4 is an error)
 - At most one `**Key Message:**` line per slide
 - Known blocks: `::: question`, `::: flow`, `::: columns`, `::: source`
@@ -102,7 +103,7 @@ Deck-specific:
 - Tables: every row has the same column count; an empty first header cell promotes the first body column to `th[scope=row]`
 - Fenced code blocks must close
 - Raw HTML is forbidden unless `--allow-html`
-- Hard line breaks: a backslash at end of line (`\`), or `\n` inside flow titles, captions, badges, and arrow labels. Inside `question` / `source` blocks, single newlines also become breaks
+- Hard line breaks: a backslash at end of line (`\`), or `\n` inside flow titles, captions, badges, arrow labels, and H1 titles. Inside `question` / `source` blocks, single newlines also become breaks
 - List item classes via `attr_list` on the next line stay on `<li>` without forcing a wrapping `<p>` for simple items
 
 Generic hygiene (via [pymarkdownlnt](https://github.com/jackdewinter/pymarkdown) on each slide body): heading increment (MD001), list indent (MD005/MD007), hard tabs (MD010), list marker spacing (MD030), fenced-code blanks/language/style (MD031/MD040/MD046). A committed [`pymarkdown.json`](../pymarkdown.json) documents the repo defaults; `md-deck check` applies its own enable/disable set so deck-specific rules stay authoritative for H1 count and HTML.

@@ -14,6 +14,7 @@ from jsonschema import Draft202012Validator
 
 from md_deck.errors import CheckError, sort_errors
 from md_deck.flow import KNOWN_NODE_KINDS, collect_flow_nodes, parse_flow_body
+from md_deck.titles import TitleMeasure, heading_title_messages, title_measure_from_tokens
 from md_deck.slides import ALLOWED_NESTING, BLOCK_OPTIONS
 from md_deck.style import (
     EDGE_SHAPE_TOKENS,
@@ -498,10 +499,12 @@ def validate_slide_body(
     path: str,
     *,
     allow_html: bool,
+    title_measure: TitleMeasure | None = None,
 ) -> list[CheckError]:
     errors: list[CheckError] = []
     lines = slide.text.splitlines()
     base = slide.start_line
+    measure = title_measure or title_measure_from_tokens({})
 
     # Track fenced code (``` / ~~~) and ::: blocks (stack for allowed nesting).
     code_fence: str | None = None
@@ -510,6 +513,7 @@ def validate_slide_body(
     block_stack: list[tuple[str, int, list[str], frozenset[str]]] = []
 
     h1_lines: list[int] = []
+    h1_raw: list[tuple[int, str]] = []
     key_message_lines: list[int] = []
     heading_levels: list[tuple[int, int]] = []  # (line, level)
 
@@ -676,6 +680,7 @@ def validate_slide_body(
             heading_levels.append((lineno, level))
             if level == 1:
                 h1_lines.append(lineno)
+                h1_raw.append((lineno, line))
 
         if not allow_html and HTML_TAG_RE.search(line):
             # Allow backticks inline code containing tags
@@ -782,6 +787,11 @@ def validate_slide_body(
                 )
             )
         prev_level = level
+
+    if h1_raw:
+        lineno, raw = h1_raw[0]
+        for message in heading_title_messages(raw, slide.index, measure):
+            errors.append(CheckError(path, lineno, message))
 
     errors.extend(_pymarkdown_slide(path, slide))
     return errors
@@ -1089,9 +1099,6 @@ def check_deck(
     if not slides and not any("empty" in e.message for e in split_errors):
         errors.append(CheckError(path, body_start, "no slides found"))
 
-    for slide in slides:
-        errors.extend(validate_slide_body(slide, path, allow_html=allow_html))
-
     errors.extend(validate_assets(text, path, slides_path.parent, body_start))
 
     resolved_style, style_resolve_errors = resolve_style_for_check(
@@ -1099,6 +1106,7 @@ def check_deck(
     )
     errors.extend(style_resolve_errors)
 
+    style_tokens: dict[str, Any] = {}
     if resolved_style is not None:
         style_text = resolved_style.read_text(encoding="utf-8")
         style_loaded, style_fm_line, _, _, style_yaml_errors = _yaml_front_matter(
@@ -1114,6 +1122,19 @@ def check_deck(
             errors.extend(
                 validate_style_tokens(style_loaded, style_path_str, style_fm_line)
             )
+            if isinstance(style_loaded, dict):
+                style_tokens = style_loaded
+
+    measure = title_measure_from_tokens(style_tokens)
+    for slide in slides:
+        errors.extend(
+            validate_slide_body(
+                slide,
+                path,
+                allow_html=allow_html,
+                title_measure=measure,
+            )
+        )
 
     return sort_errors(errors)
 

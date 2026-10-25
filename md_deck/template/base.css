@@ -70,6 +70,10 @@ body {
   font-size: var(--font-size-title);
   font-weight: var(--font-weight-title);
   line-height: 1.25;
+  /* Automatic wraps (Latin covers, content titles) stay even.
+     An explicit \n in the H1 is a <br> and is not reflowed. */
+  text-wrap: balance;
+  line-break: strict;
 }
 
 .slide h2,

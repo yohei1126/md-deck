@@ -9,6 +9,7 @@ The generator still ships **no visual theme**. Hooks are layout landmarks only. 
 | Hook | Where | Notes |
 | --- | --- | --- |
 | `.slide` | `<section>` | One per slide |
+| `.slide[data-cover="true"]` | same | Cover slide: the first slide, or any slide whose H1 has class `cover`. Omitted when the first slide uses `.no-cover` and does not also use `.cover` |
 | `.slide[data-index]` | same | 1-based index (`data-index="3"`) |
 | `.slide[data-slide]` | same | Same index (alias kept for older CSS) |
 | `#slide-N` | same | Default `id` when the title has no `{#id}` |
@@ -26,7 +27,7 @@ becomes `<section class="slide path-diagram" id="routing" data-index="…">`.
 
 | Hook | Element | Source |
 | --- | --- | --- |
-| `.title` | First `h1` | Always added (merged with any `attr_list` classes) |
+| `.title` | First `h1` | Always added (merged with any `attr_list` classes). A `\n` in the H1 source is a `<br>` inside this element. Titles use `text-wrap: balance` when they wrap without a `<br>` |
 | `.key-message` | Key Message box | `**Key Message:** …` |
 | `.key-message .label` | Label span | Text from `label_key_message` or `lang` default |
 | `.question` | Discussion box | `::: question` |
