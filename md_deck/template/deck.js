@@ -12,9 +12,10 @@
   // Boxes that overlap by at least this much horizontally get one straight
   // vertical stroke instead of a Z between their centres.
   const STRAIGHT_OVERLAP_MIN = 24;
-  // Arrowhead marker is 10x7 at strokeWidth units with stroke-width 2 ≈ 18×13 px.
+  // Arrowhead is userSpaceOnUse so a thicker shaft does not grow the head.
+  // 20×14 with refX 18 matches the clearance below.
   const ARROWHEAD_LEN = 18;
-  const ARROWHEAD_WIDTH = 13;
+  const ARROWHEAD_WIDTH = 14;
   // Same-row U detours need ports wider than the head plus a visible gap.
   const DETOUR_PORT_MIN = ARROWHEAD_WIDTH + 5;
 
@@ -38,13 +39,14 @@
     if (!svg.querySelector("#flow-arrowhead")) {
       const marker = document.createElementNS("http://www.w3.org/2000/svg", "marker");
       marker.setAttribute("id", "flow-arrowhead");
-      marker.setAttribute("markerWidth", "10");
-      marker.setAttribute("markerHeight", "7");
-      marker.setAttribute("refX", "9");
-      marker.setAttribute("refY", "3.5");
+      marker.setAttribute("markerUnits", "userSpaceOnUse");
+      marker.setAttribute("markerWidth", "20");
+      marker.setAttribute("markerHeight", "14");
+      marker.setAttribute("refX", "18");
+      marker.setAttribute("refY", "7");
       marker.setAttribute("orient", "auto");
       const poly = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
-      poly.setAttribute("points", "0 0, 10 3.5, 0 7");
+      poly.setAttribute("points", "0 0, 20 7, 0 14");
       poly.setAttribute("fill", "currentColor");
       marker.appendChild(poly);
       defs.appendChild(marker);
@@ -58,13 +60,14 @@
     if (!marker) {
       marker = document.createElementNS("http://www.w3.org/2000/svg", "marker");
       marker.setAttribute("id", "flow-arrowhead-gap");
-      marker.setAttribute("markerWidth", "10");
-      marker.setAttribute("markerHeight", "7");
-      marker.setAttribute("refX", "9");
-      marker.setAttribute("refY", "3.5");
+      marker.setAttribute("markerUnits", "userSpaceOnUse");
+      marker.setAttribute("markerWidth", "20");
+      marker.setAttribute("markerHeight", "14");
+      marker.setAttribute("refX", "18");
+      marker.setAttribute("refY", "7");
       marker.setAttribute("orient", "auto");
       const poly = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
-      poly.setAttribute("points", "0 0, 10 3.5, 0 7");
+      poly.setAttribute("points", "0 0, 20 7, 0 14");
       poly.setAttribute("fill", color || "#000");
       marker.appendChild(poly);
       defs.appendChild(marker);
@@ -588,19 +591,27 @@
       add("vh", simplify([p1, mid2, p2]));
     };
 
+    const sameRow = boxesShareRow(a, b);
     if (route === "between") {
       if (b.cy >= a.cy) betweenDown();
       else betweenUp();
       aroundDown();
       aroundUp();
     } else if (route === "down") {
-      betweenDown();
-      aroundDown();
+      // Same row: the facing top entry runs the last stub behind the target.
+      if (sameRow) aroundDown();
+      else {
+        betweenDown();
+        aroundDown();
+      }
       aroundRight();
       aroundLeft();
     } else if (route === "up") {
-      betweenUp();
-      aroundUp();
+      if (sameRow) aroundUp();
+      else {
+        betweenUp();
+        aroundUp();
+      }
       aroundRight();
       aroundLeft();
     } else if (route === "right") {
@@ -709,11 +720,27 @@
     return pickPath(a, b, route, obstacles, drawn || [], flowBox);
   }
 
+  function boxesShareRow(a, b) {
+    return Math.abs(a.cy - b.cy) < Math.max(a.height, b.height) * 0.7;
+  }
+
+  // Same-row around enters on the detour side. A target on another row
+  // still uses the facing edge (bottom → top, or top → bottom).
+  function detourLanding(a, b, route) {
+    const routeName = route || "auto";
+    if (!a || !b || !boxesShareRow(a, b)) return "";
+    if (routeName === "down") return "bottom";
+    if (routeName === "up") return "top";
+    return "";
+  }
+
   function preferredSides(a, b, route) {
     const routeName = route || "auto";
     if (routeName === "between") {
       return b.cy >= a.cy ? ["bottom", "top"] : ["top", "bottom"];
     }
+    const around = detourLanding(a, b, routeName);
+    if (around) return [around, around];
     if (routeName === "down") return ["bottom", "top"];
     if (routeName === "up") return ["top", "bottom"];
     if (routeName === "left") return ["left", "left"];
@@ -1008,8 +1035,16 @@
       el.setAttribute("data-shape", edge.shape);
     }
     el.classList.add("flow-arrow");
-    if (edge.style === "dashed" || edge.kind === "dashed") {
+    const dashed = edge.style === "dashed" || edge.kind === "dashed";
+    const gap = edge.emphasis === "gap";
+    if (dashed || gap) {
       el.classList.add("flow-arrow-dashed");
+    }
+    if (gap) {
+      el.setAttribute("data-emphasis", "gap");
+      if ((el.tagName || "").toLowerCase() === "path") {
+        el.classList.add("flow-arrow-gap");
+      }
     }
     if (edge.kind === "link" || edge.cross) {
       el.classList.add("flow-link");
@@ -1186,11 +1221,10 @@
       Math.abs(end.x - beforeEnd.x) > 8 &&
       Math.abs(end.y - mid.y) < 2;
 
-    // Dashed labels use the gap accent. On a vertical stroke the upright
-    // stack is preferred; a horizontal shaft keeps the label above or below.
-    // The other orientation stays as a fallback when the preferred one hits
-    // a node or leaves the flow.
-    const gapLabel = edge.style === "dashed" || edge.kind === "dashed";
+    // Gap emphasis (`style=gap`) uses the accent and, on a vertical stroke or
+    // a multi-line label, an upright stack. An ordinary dashed edge keeps the
+    // same label placement as a solid arrow.
+    const gapLabel = edge.emphasis === "gap";
 
     // Do not slide a beside-the-line label back across the stroke to make it
     // fit. A side that cannot hold the text loses on the overflow score, and
@@ -1258,8 +1292,8 @@
         }
       }
       const seen = [];
-      // A dashed label the author broke with \n stacks upright in the gap.
-      // A single-line dashed label stays horizontal unless that box loses.
+      // A gap label the author broke with \n stacks upright beside the shaft.
+      // A single-line gap label stays horizontal unless that box loses.
       const stackBias = gapLabel && lines.length > 1 ? 24 : 0;
       if (gapLabel && lines.length > 1) {
         candidates.push({
@@ -1417,7 +1451,9 @@
       });
       (labelObstacles || []).forEach((obstacle) => {
         const other = obstacle && obstacle.box;
-        if (other && labelOverlapArea(box, other) > 0) penalty += 5000;
+        // Higher than a node kiss (6000) or a stroke graze (7000) so two
+        // labels that share a lane gap take opposite sides instead of stacking.
+        if (other && labelOverlapArea(box, other) > 0) penalty += 12000;
       });
       return penalty;
     }
@@ -1443,9 +1479,13 @@
     const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
     path.setAttribute("d", pathD(pts));
     const dashed = edge.style === "dashed" || edge.kind === "dashed";
-    if (dashed) {
+    const gap = edge.emphasis === "gap";
+    if (gap) {
       path.setAttribute("stroke-dasharray", "7 5");
       path.setAttribute("marker-end", "url(#flow-arrowhead-gap)");
+    } else if (dashed) {
+      path.setAttribute("stroke-dasharray", "9 6");
+      path.setAttribute("marker-end", "url(#flow-arrowhead)");
     } else {
       path.setAttribute("marker-end", "url(#flow-arrowhead)");
     }
@@ -1508,6 +1548,7 @@
           from: el.getAttribute("data-from"),
           to: el.getAttribute("data-to"),
           style: el.getAttribute("data-style") || "solid",
+          emphasis: el.getAttribute("data-emphasis") || "",
           label: el.getAttribute("data-label"),
           bidirectional: el.getAttribute("data-bidirectional") === "true",
           cross: el.classList.contains("flow-edge-cross"),
@@ -1529,8 +1570,9 @@
       edges.push({
         from: nodes[i].getAttribute("data-node") || String(i),
         to: nodes[i + 1].getAttribute("data-node") || String(i + 1),
-        style: "solid",
-        label: null,
+          style: "solid",
+          emphasis: "",
+          label: null,
         bidirectional: false,
         cross: false,
         route: "auto",
@@ -1563,10 +1605,9 @@
       const lines = labelLines(edge.label);
       const size = measureLabelSize(svg, lines);
       const gap = b.left - a.right;
-      // A dashed label broken with \n is drawn as an upright column, so the
+      // A gap label broken with \n is drawn as an upright column, so the
       // row keeps a short shaft instead of the full horizontal width.
-      const stacked =
-        (edge.style === "dashed" || edge.kind === "dashed") && lines.length > 1;
+      const stacked = edge.emphasis === "gap" && lines.length > 1;
       const need = stacked ? 56 : size.width + 24;
       if (gap < need) {
         const extra = need - gap;
@@ -2054,14 +2095,42 @@
     return n;
   }
 
+  function approachesFromOutside(pts, box, side) {
+    if (!pts || pts.length < 2 || !box) return false;
+    const end = pts[pts.length - 1];
+    const prev = pts[pts.length - 2];
+    const eps = 2.5;
+    if (side === "bottom") {
+      return Math.abs(end.y - box.bottom) <= eps && prev.y > box.bottom + 8;
+    }
+    if (side === "top") {
+      return Math.abs(end.y - box.top) <= eps && prev.y < box.top - 8;
+    }
+    if (side === "left") {
+      return Math.abs(end.x - box.left) <= eps && prev.x < box.left - 8;
+    }
+    if (side === "right") {
+      return Math.abs(end.x - box.right) <= eps && prev.x > box.right + 8;
+    }
+    return true;
+  }
+
   function bestClearRoute(plan, drawn, flowBox) {
     // Try other sides and a small port shift. The first route that misses
     // nodes, stays inside the flow, and crosses less is the one we keep.
+    // A same-row down/up link stays on the detour side: a facing-side
+    // repair would hide the arrowhead behind the target.
     if (!plan || !plan.a || !plan.b) return null;
+    const locked = detourLanding(plan.a, plan.b, plan.route);
+    const pairs = locked
+      ? ALT_SIDE_PAIRS.filter(
+          ([fromSide, toSide]) => fromSide === locked && toSide === locked
+        )
+      : ALT_SIDE_PAIRS;
     const offsets = [0, -22, 22, -44, 44];
     let best = null;
     let bestScore = Infinity;
-    ALT_SIDE_PAIRS.forEach(([fromSide, toSide]) => {
+    pairs.forEach(([fromSide, toSide]) => {
       offsets.forEach((off) => {
         const p1 = sidePointAt(
           plan.a,
@@ -2088,6 +2157,7 @@
         if (!pts || pts.length < 2 || !isOrthogonalPath(pts)) return;
         if (pathHitsObstacles(pts, plan.obstacles, HIT_PAD) > 0) return;
         if (finalStubLen(pts) < 14) return;
+        if (locked && !approachesFromOutside(pts, plan.b, locked)) return;
         if (pathOutsideCount(pts, flowBox) > 0) return;
         const score =
           pathCrossings(pts, drawn) * 1e6 +
@@ -2114,6 +2184,14 @@
         // An explicit between route is the lane-gap U. Replacing it with a
         // side entry shortens the shaft the label sits on.
         if ((item.edge.route || "auto") === "between") continue;
+        // A same-row around trunk stays between its two ports. A repair that
+        // hunts a free channel would run that trunk out to the flow edge.
+        if (
+          item.plan &&
+          detourLanding(item.plan.a, item.plan.b, item.edge.route || "auto")
+        ) {
+          continue;
+        }
         const others = [];
         for (let j = 0; j < routed.length; j += 1) {
           if (j !== i) others.push(routed[j].pts);
@@ -2131,7 +2209,95 @@
     }
   }
 
+  function buildClearAroundPath(a, b, p1, p2, side, obstacles, flowBox, portGap) {
+    // Same-row down/up. The trunk is a U between the two ports, just outside
+    // this row. It does not run out to the flow edge, and it does not drop
+    // past boxes on another row.
+    const below = side === "bottom";
+    const baseClear = detourBaseClear(portGap);
+    const attachY = below ? Math.max(p1.y, p2.y) : Math.min(p1.y, p2.y);
+    let outerY = below ? attachY + baseClear : attachY - baseClear;
+    const spanLo = Math.min(a.left, b.left);
+    const spanHi = Math.max(a.right, b.right);
+    (obstacles || []).forEach((o) => {
+      if (o.skip) return;
+      if (o.box.right < spanLo + 1 || o.box.left > spanHi - 1) return;
+      if (!boxesShareRow(a, o.box) && !boxesShareRow(b, o.box)) return;
+      if (below) outerY = Math.max(outerY, o.box.bottom + 8);
+      else outerY = Math.min(outerY, o.box.top - 8);
+    });
+    const minY = (flowBox && flowBox.top != null ? flowBox.top : 0) + 8;
+    const maxY = (flowBox && flowBox.bottom != null ? flowBox.bottom : 1e9) - 8;
+    outerY = clamp(outerY, minY, maxY);
+    return buildUPath(p1, p2, outerY);
+  }
+
+  function laneLabelBoxes(flow, flowBox, scale) {
+    return Array.from(flow.querySelectorAll(".lane-label")).map((el) =>
+      relBox(el, flowBox, scale)
+    );
+  }
+
+  function verticalHitsLaneLabel(x, y1, y2, labels, pad) {
+    const p = { x, y: y1 };
+    const q = { x, y: y2 };
+    return labels.some((box) => segmentHitsBox(p, q, box, pad));
+  }
+
+  function nudgeLaneLabels(flow, routed, flowBox, scale) {
+    // A vertical stroke that still crosses a lane name slides the label
+    // within its lane. Routing already prefers an x that misses the label
+    // when the boxes overlap past it.
+    Array.from(flow.querySelectorAll(".lane-label")).forEach((el) => {
+      el.style.transform = "";
+      const box = relBox(el, flowBox, scale);
+      const xs = [];
+      routed.forEach((item) => {
+        const pts = item.pts || [];
+        for (let i = 1; i < pts.length; i += 1) {
+          const p = pts[i - 1];
+          const q = pts[i];
+          if (Math.abs(p.x - q.x) > 0.75) continue;
+          if (!segmentHitsBox(p, q, box, 2)) continue;
+          xs.push(p.x);
+        }
+      });
+      if (!xs.length) return;
+      const strokeX = xs.reduce((sum, x) => sum + x, 0) / xs.length;
+      const pad = 8;
+      const lane = el.closest(".lane");
+      const laneBox = lane
+        ? relBox(lane, flowBox, scale)
+        : { left: 0, right: flow.clientWidth, top: 0, bottom: flow.clientHeight };
+      const nodes = lane
+        ? Array.from(lane.querySelectorAll(".flow-node")).map((node) =>
+            relBox(node, flowBox, scale)
+          )
+        : [];
+      function fits(dx) {
+        const left = box.left + dx;
+        const right = box.right + dx;
+        if (left < laneBox.left - 1 || right > laneBox.right + 1) return false;
+        if (strokeX > left - pad && strokeX < right + pad) return false;
+        return !nodes.some((nb) => {
+          const overlapX = right > nb.left + 1 && left < nb.right - 1;
+          const overlapY = box.bottom > nb.top + 1 && box.top < nb.bottom - 1;
+          return overlapX && overlapY;
+        });
+      }
+      const options = [strokeX + pad - box.left, strokeX - pad - box.right]
+        .filter((dx) => Math.abs(dx) > 0.5)
+        .sort((a, b) => Math.abs(a) - Math.abs(b));
+      const dx = options.find((delta) => fits(delta));
+      if (dx == null) return;
+      el.style.transform = `translateX(${dx}px)`;
+    });
+  }
+
   function drawFlow(flow) {
+    flow.querySelectorAll(".lane-label").forEach((el) => {
+      el.style.transform = "";
+    });
     let svg = flow.querySelector("svg.flow-svg");
     if (!svg) {
       svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
@@ -2304,6 +2470,8 @@
     // Reset inline padding so CSS card-padding is the baseline each redraw.
     flow.style.paddingTop = "";
     flow.style.paddingBottom = "";
+    flow.style.paddingLeft = "";
+    flow.style.paddingRight = "";
     const basePadTop = parseFloat(getComputedStyle(flow).paddingTop) || 0;
     const basePadBottom = parseFloat(getComputedStyle(flow).paddingBottom) || 0;
     let grew = false;
@@ -2499,15 +2667,59 @@
         if (hi - lo >= STRAIGHT_OVERLAP_MIN) {
           const pad = Math.min(plan.a.width, plan.b.width) * 0.15;
           const want = (plan.a.cx + plan.b.cx) / 2;
-          const x = clamp(want, lo + Math.min(pad, (hi - lo) / 2), hi - Math.min(pad, (hi - lo) / 2));
-          const p1 = { x, y: fromPort.point.y };
-          const p2 = { x, y: toPort.point.y };
-          if (
-            pathHitsObstacles([p1, p2], plan.obstacles, HIT_PAD) === 0 &&
-            pathCrossings([p1, p2], drawn) === 0
+          const inset = Math.min(pad, (hi - lo) / 2);
+          const loX = lo + inset;
+          const hiX = hi - inset;
+          const y1 = fromPort.point.y;
+          const y2 = toPort.point.y;
+          const labels = laneLabelBoxes(flow, flowBox, scale);
+          function clearVertical(x) {
+            const seg = [
+              { x, y: y1 },
+              { x, y: y2 },
+            ];
+            return (
+              pathHitsObstacles(seg, plan.obstacles, HIT_PAD) === 0 &&
+              pathCrossings(seg, drawn) === 0 &&
+              !verticalHitsLaneLabel(x, y1, y2, labels, 4)
+            );
+          }
+          let chosen = null;
+          const wantX = clamp(want, loX, hiX);
+          if (clearVertical(wantX)) chosen = wantX;
+          else if (
+            pathHitsObstacles(
+              [
+                { x: wantX, y: y1 },
+                { x: wantX, y: y2 },
+              ],
+              plan.obstacles,
+              HIT_PAD
+            ) === 0 &&
+            pathCrossings(
+              [
+                { x: wantX, y: y1 },
+                { x: wantX, y: y2 },
+              ],
+              drawn
+            ) === 0
           ) {
-            fromPort.point = p1;
-            toPort.point = p2;
+            // The centre line only misses nodes. Slide within the overlap
+            // so it also misses a lane label.
+            let bestDist = Infinity;
+            for (let x = loX; x <= hiX + 0.1; x += 4) {
+              const trial = Math.min(x, hiX);
+              if (!clearVertical(trial)) continue;
+              const dist = Math.abs(trial - want);
+              if (dist < bestDist - 1e-6) {
+                bestDist = dist;
+                chosen = trial;
+              }
+            }
+          }
+          if (chosen != null) {
+            fromPort.point = { x: chosen, y: y1 };
+            toPort.point = { x: chosen, y: y2 };
           }
         }
       }
@@ -2546,6 +2758,7 @@
         // Keep the picked path when the nest or rebuild would add a crossing.
         const picked = pts;
         let next = picked;
+        let keepAround = false;
         if (isSameSideUD(plan) && Math.max(fromPort.count, toPort.count) > 1) {
           const nestGap = detourNestGap(portGap);
           const baseClear = detourBaseClear(portGap);
@@ -2562,6 +2775,30 @@
                 nestGap * rank;
           next = buildUPath(fromPort.point, toPort.point, midY);
         } else if (
+          isSameSideUD(plan) &&
+          (plan.route === "down" || plan.route === "up")
+        ) {
+          // Land on the detour side. Keep the trunk between the two ports
+          // even when that crosses another stroke: a run out to the flow
+          // edge is the worse reading.
+          const candidate = buildClearAroundPath(
+            plan.a,
+            plan.b,
+            fromPort.point,
+            toPort.point,
+            plan.toSide,
+            plan.obstacles,
+            layoutBox,
+            portGap
+          );
+          if (
+            candidate &&
+            pathHitsObstacles(candidate, plan.obstacles, HIT_PAD) === 0
+          ) {
+            next = candidate;
+            keepAround = true;
+          }
+        } else if (
           (plan.fromSide === "bottom" && plan.toSide === "top") ||
           (plan.fromSide === "top" && plan.toSide === "bottom")
         ) {
@@ -2572,7 +2809,10 @@
             corridorShift * 0.5
           );
         }
-        if (pathCrossings(next, drawn) <= pathCrossings(picked, drawn)) {
+        if (
+          keepAround ||
+          pathCrossings(next, drawn) <= pathCrossings(picked, drawn)
+        ) {
           pts = next;
         }
         if (!isOrthogonalPath(pts)) {
@@ -2601,6 +2841,7 @@
     });
 
     repairCrossings(routed, layoutBox);
+    nudgeLaneLabels(flow, routed, flowBox, scale);
 
     routed.forEach((item, index) => {
       const others = [];

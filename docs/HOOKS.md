@@ -28,7 +28,8 @@ becomes `<section class="slide path-diagram" id="routing" data-index="…">`.
 
 | Hook | Element | Source |
 | --- | --- | --- |
-| `.eyebrow` | Paragraph before the title | Top-level `eyebrow: …` line. Colour is `--color-accent-2` |
+| `.eyebrow` | Paragraph before the title | Top-level `eyebrow: …` line. Colour is `--color-accent-2`. Default alignment is the start edge |
+| `.eyebrow.eyebrow-end` | same | `eyebrow: … [align=end]` or `[align=right]`. Text aligns to the end edge |
 | `.title` | First `h1` | Always added (merged with any `attr_list` classes). A `\n` in the H1 source is a `<br>` inside this element. Titles use `text-wrap: balance` when they wrap without a `<br>` |
 | `.key-message` | Key Message box | `**Key Message:** …`. The box is bold (`--font-weight-title`). `**emphasis**` in the sentence is a `<strong>` |
 | `.key-message .label` | Label span | Text from `label_key_message` or `lang` default |
@@ -39,7 +40,7 @@ becomes `<section class="slide path-diagram" id="routing" data-index="…">`.
 | `.columns` | Column row | `::: columns` |
 | `.columns.plain` / `.columns.panel` / `.columns.fill` / `.columns.figures` | same | Block options. `fill` asks the row to use leftover slide height. `figures` enlarges `.column-head` for a plain big number |
 | `.column` | One column | Split by `+++`. The row is content height unless the block is `.columns.fill` |
-| `.column.dashed` | same | `{.dashed}` on the column heading (the class is copied onto the card). Border style is dashed |
+| `.column.dashed` | same | `{.dashed}` on the column heading (the class is copied onto the card). Outline uses `--dashed-outline-width` and `--color-dashed-outline`, not the card border. The rule is `.columns .column.dashed`, so a later `.columns .column { border: … }` shorthand does not wipe the width or colour. A deck rule on `.columns .column.dashed` can still override |
 | `.column-head` | First heading in a column | First `h2`–`h6` in that column. About `1.1em` of the body so a short title does not wrap. A following paragraph stays under it |
 | `.source` | Footer source | `Source:` / `出典:` line or `::: source` |
 | `.source .label` | Source prefix | Text from `label_source` or `lang` default (omitted when `label_source` is empty). Weight / gap from `--source-label-weight` / `--source-label-gap` |
@@ -105,14 +106,16 @@ Every drawn arrow path and label text carries these hooks. Style CSS may target 
 | Hook | Element | Notes |
 | --- | --- | --- |
 | `.flow-arrow` | SVG `<path>` | Every arrow |
-| `.flow-arrow-dashed` | SVG `<path>` | Dashed stroke. Uses `--color-edge-gap` and a gap arrowhead |
+| `.flow-arrow-dashed` | SVG `<path>` | Dashed stroke. Uses `--color-flow-arrow` and the normal arrowhead |
+| `.flow-arrow-gap` | SVG `<path>` | Gap emphasis on a dashed edge (`[style=gap]`). Uses `--color-edge-gap`, a shaft `0.5px` thicker than `--flow-stroke-width`, and the gap arrowhead |
 | `.flow-link` | SVG `<path>` | Cross-lane `link:` and callout connectors |
 | `.flow-callout-arrow` | SVG `<path>` | Callout connector (also carries `.flow-link` and `.flow-callout`) |
 | `.flow-label` | SVG `<text>` | Arrow label (`.flow-edge-label` kept as an alias) |
-| `.flow-label-gap` | SVG `<text>` | Dashed-edge label. Fill is `--color-edge-gap`, weight is the title weight |
+| `.flow-label-gap` | SVG `<text>` | Gap-emphasis label (`style=gap`). Fill is `--color-edge-gap`, weight is the title weight. An ordinary dashed label stays `.flow-label` |
 | `.flow-label-gap-vertical` | SVG `<text>` | That label stacked upright beside the stroke |
 | `[data-from]` / `[data-to]` | path and text | Endpoint node keys |
 | `[data-kind]` | path and text | `solid`, `dashed`, `bidirectional`, or `link` |
+| `[data-emphasis]` | path | `gap` when the edge opts into gap emphasis. Omitted on ordinary dashes |
 | `[data-shape]` | path | `orthogonal` or `straight` when set on the edge |
 
 Theme node kinds in the style file:

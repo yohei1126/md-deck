@@ -36,21 +36,23 @@ TOKEN_SPEC: dict[str, tuple[str, Any]] = {
     "color_flow_node_bg": ("--color-flow-node-bg", "#ffffff"),
     "color_flow_node_border": ("--color-flow-node-border", "#000000"),
     "color_flow_arrow": ("--color-flow-arrow", "#000000"),
-    # Dashed gap strokes and their labels. Plain matches the arrow; dark-blue
-    # uses the accent so a gap reads stronger than body text.
+    # Opt-in gap emphasis (`style=gap`). Ordinary dashed edges use color_flow_arrow.
     "color_edge_gap": ("--color-edge-gap", "#000000"),
+    # `{.dashed}` card outline. Separate from the card border so a quiet
+    # border colour cannot wash the dash out.
+    "color_dashed_outline": ("--color-dashed-outline", "#333333"),
     "color_table_header_bg": ("--color-table-header-bg", "#f0f0f0"),
     "color_table_border": ("--color-table-border", "#cccccc"),
     "font_family": ("--font-family", "sans-serif"),
-    "font_size_body": ("--font-size-body", "22px"),
+    "font_size_body": ("--font-size-body", "24px"),
     "font_size_title": ("--font-size-title", "36px"),
-    "font_size_key_message": ("--font-size-key-message", "20px"),
-    "font_size_question": ("--font-size-question", "18px"),
-    "font_size_small": ("--font-size-small", "16px"),
-    "font_size_flow_body": ("--font-size-flow-body", "18px"),
-    "font_size_table": ("--font-size-table", "16px"),
+    "font_size_key_message": ("--font-size-key-message", "22px"),
+    "font_size_question": ("--font-size-question", "20px"),
+    "font_size_small": ("--font-size-small", "18px"),
+    "font_size_flow_body": ("--font-size-flow-body", "20px"),
+    "font_size_table": ("--font-size-table", "18px"),
     "font_weight_title": ("--font-weight-title", "700"),
-    "font_weight_body": ("--font-weight-body", "400"),
+    "font_weight_body": ("--font-weight-body", "500"),
     "source_label_weight": ("--source-label-weight", "600"),
     "source_label_gap": ("--source-label-gap", "0.15em"),
     "line_height": ("--line-height", "1.45"),
@@ -69,7 +71,11 @@ TOKEN_SPEC: dict[str, tuple[str, Any]] = {
     "card_padding": ("--card-padding", "16px"),
     "key_message_radius": ("--key-message-radius", "8px"),
     "question_radius": ("--question-radius", "8px"),
-    "border_width": ("--border-width", "1px"),
+    "border_width": ("--border-width", "2px"),
+    # SVG arrow shaft. Gap emphasis adds 0.5px in CSS. Arrowheads stay a fixed
+    # user-space size so a thicker shaft does not grow the head into the node.
+    "flow_stroke_width": ("--flow-stroke-width", "3px"),
+    "dashed_outline_width": ("--dashed-outline-width", "2px"),
     "flow_node_min_width": ("--flow-node-min-width", "120px"),
     "flow_node_max_width": ("--flow-node-max-width", "none"),
     "flow_node_min_height": ("--flow-node-min-height", "96px"),
@@ -140,8 +146,8 @@ FILL_HEIGHT_VALUES = frozenset({"none", "fill"})
 # `dark-blue` is a generic 60/30/10 role set: off-white ground, navy structure,
 # one warm accent, and a cooler secondary accent. It is not a product brand.
 # The ground is the sample's sub colour (#EDE8E4), not pure white. Node fill
-# is white so a box lifts off that ground. Borders on this theme are 2px.
-# See docs/VISUAL_POLICY.md.
+# is white so a box lifts off that ground. Borders on this theme are 3px and
+# arrow shafts are 3.5px. See docs/VISUAL_POLICY.md.
 THEME_NAMES = frozenset({"plain", "dark-blue"})
 THEMES: dict[str, dict[str, str]] = {
     "plain": {},
@@ -170,8 +176,13 @@ THEMES: dict[str, dict[str, str]] = {
         "color_flow_node_border": "#073365",
         "color_flow_arrow": "#073365",
         "color_edge_gap": "#F7581D",
+        # Teal, same family as the eyebrow accent, so a dashed card reads on
+        # the warm ground without using the orange gap accent.
+        "color_dashed_outline": "#1A6B7A",
         # Node and card borders. Explicit border_width in the style file wins.
-        "border_width": "2px",
+        "border_width": "3px",
+        "flow_stroke_width": "3.5px",
+        "dashed_outline_width": "2.5px",
         "color_table_header_bg": "#E3EAF2",
         "color_table_border": "#C8C0B8",
     },

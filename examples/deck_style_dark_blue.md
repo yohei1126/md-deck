@@ -9,14 +9,14 @@ page_width: 1280
 page_height: 720
 
 font_family: "Noto Sans CJK JP, Noto Sans JP, DejaVu Sans, sans-serif"
-font_size_body: 22
+font_size_body: 24
 font_size_title: 36
-font_size_key_message: 20
-font_size_question: 18
-font_size_small: 16
-font_size_table: 16
+font_size_key_message: 22
+font_size_question: 20
+font_size_small: 18
+font_size_table: 18
 font_weight_title: 700
-font_weight_body: 400
+font_weight_body: 500
 line_height: 1.45
 
 page_padding: 48
@@ -31,7 +31,7 @@ card_radius: 8
 card_padding: 16
 key_message_radius: 8
 question_radius: 8
-border_width: 2
+border_width: 3
 flow_node_min_width: 120
 flow_node_max_width: none
 flow_node_min_height: 96
@@ -46,7 +46,7 @@ page_number_placement: bottom-right
 
 # dark-blue
 
-`theme: dark-blue` fills omitted colour tokens. The ground is `#EDE8E4`, text is `#333333`, navy `#073365` is titles, node borders, and arrows, and `#F7581D` is the accent (also the dashed-gap colour). Node fill is white. A cooler secondary accent is used for eyebrows. Borders are 2px unless `border_width` is set. This file does not repeat those colour hex values so the theme stays the source.
+`theme: dark-blue` fills omitted colour tokens. The ground is `#EDE8E4`, text is `#333333`, navy `#073365` is titles, node borders, and arrows, and `#F7581D` is the accent used only by gap emphasis (`style=gap`). Ordinary dashed edges stay on the navy arrow colour. Node fill is white. A cooler secondary accent is used for eyebrows and for `{.dashed}` card outlines. Borders are 3px and arrow shafts are 3.5px unless `border_width` or `flow_stroke_width` is set. This file does not repeat those colour hex values so the theme stays the source.
 
 `examples/sample.md` and `examples/diagram_patterns.md` keep `style: deck_style.md`. Point a deck at this file, or copy the `theme` line, when you want the palette.
 

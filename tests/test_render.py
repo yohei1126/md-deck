@@ -423,8 +423,13 @@ def test_plain_theme_stays_black_on_white():
     plain = tokens_to_css({"theme": "plain"})
     assert "--color-background: #ffffff;" in plain
     assert "--color-flow-arrow: #000000;" in plain
-    assert "--border-width: 1px;" in css
+    assert "--border-width: 2px;" in css
+    assert "--flow-stroke-width: 3px;" in css
     assert "--color-edge-gap: #000000;" in css
+    assert "--color-dashed-outline: #333333;" in css
+    assert "--dashed-outline-width: 2px;" in css
+    assert "--font-size-body: 24px;" in css
+    assert "--font-weight-body: 500;" in css
     assert "#1A6B7A" not in css
 
 
@@ -439,9 +444,12 @@ def test_dark_blue_theme_fills_omitted_colours_and_yields_to_explicit():
     assert "--color-question-border: #F7581D;" in css
     assert "--color-card-bg: #E3EAF2;" in css
     assert "--color-flow-node-bg: #FFFFFF;" in css
-    assert "--border-width: 2px;" in css
+    assert "--border-width: 3px;" in css
+    assert "--flow-stroke-width: 3.5px;" in css
     assert "--color-accent-2: #1A6B7A;" in css
     assert "--color-edge-gap: #F7581D;" in css
+    assert "--color-dashed-outline: #1A6B7A;" in css
+    assert "--dashed-outline-width: 2.5px;" in css
     explicit = tokens_to_css({"theme": "dark-blue", "border_width": "1px"})
     assert "--border-width: 1px;" in explicit
     assert "--theme:" not in css
@@ -515,7 +523,7 @@ def test_spread_figures_and_key_message_emphasis():
     message = render_slide_markdown("# T\n\n**Key Message:** **Ship** the draft\n")
     assert 'class="key-message"' in message.html
     assert "<strong>Ship</strong>" in message.html
-    assert "--font-size-flow-body: 18px;" in tokens_to_css({})
+    assert "--font-size-flow-body: 20px;" in tokens_to_css({})
 
 
 def test_corner_index_from_circled_title_and_digit_badge():
@@ -546,6 +554,56 @@ def test_corner_index_from_circled_title_and_digit_badge():
     assert "① Intake" not in html
 
 
+def test_gap_emphasis_is_opt_in_on_dashed_edges():
+    diagram = parse_flow_body(
+        "A ..> B\n"
+        "C -.[note].-> D [style=gap]\n"
+        "link: A ..> D : hold [route=down style=gap]\n"
+        "E -> F [style=gap]\n"
+        "G ..> H [style=thick]\n"
+    )
+    by_pair = {
+        (edge.source, edge.target): edge
+        for lane in diagram.lanes
+        for edge in lane.edges
+    }
+    assert by_pair[("A", "B")].style == "dashed"
+    assert by_pair[("A", "B")].emphasis == ""
+    assert by_pair[("C", "D")].style == "dashed"
+    assert by_pair[("C", "D")].emphasis == "gap"
+    assert by_pair[("E", "F")].emphasis == ""
+    assert by_pair[("G", "H")].emphasis == ""
+    assert diagram.links[0].emphasis == "gap"
+    assert diagram.links[0].style == "dashed"
+    assert any("style=gap requires a dashed arrow" in err for err in diagram.errors)
+    assert any("unknown edge style 'thick'" in err for err in diagram.errors)
+    html = render_flow_html(diagram)
+    assert html.count('data-emphasis="gap"') == 2
+    assert "flow-edge-gap" in html
+    # Ordinary dashes stay dashed and do not pick up the gap hook.
+    ordinary = html.split('data-from="A" data-to="B"', 1)[1].split("</div>", 1)[0]
+    assert "data-emphasis" not in ordinary
+    assert 'data-style="dashed"' in ordinary
+
+
+def test_dashed_outline_css_uses_its_own_tokens():
+    from pathlib import Path
+
+    css = Path("md_deck/template/base.css").read_text(encoding="utf-8")
+    rule = css.split(".columns .column.dashed,", 1)[1].split("}", 1)[0]
+    assert "var(--dashed-outline-width)" in rule
+    assert "var(--color-dashed-outline)" in rule
+    assert "var(--border-width)" not in rule
+    arrows = css.split(".flow-svg path.flow-arrow-dashed", 1)[1].split("}", 1)[0]
+    assert "var(--color-flow-arrow)" in arrows
+    assert "var(--color-edge-gap)" not in arrows
+    gap = css.split(".flow-svg path.flow-arrow-gap", 1)[1].split("}", 1)[0]
+    assert "var(--color-edge-gap)" in gap
+    assert "var(--flow-stroke-width)" in gap
+    title_rule = css.split(".flow-node-title {", 1)[1].split("}", 1)[0]
+    assert "font-weight: var(--font-weight-title);" in title_rule
+
+
 def test_eyebrow_and_dashed_column_class():
     slide = render_slide_markdown(
         "eyebrow: Section label\n\n"
@@ -559,6 +617,12 @@ def test_eyebrow_and_dashed_column_class():
         ":::\n"
     )
     assert slide.html.startswith('<p class="eyebrow">Section label</p>')
+    end = render_slide_markdown("eyebrow: Section label [align=end]\n\n# Title\n")
+    assert end.html.startswith('<p class="eyebrow eyebrow-end">Section label</p>')
+    right = render_slide_markdown("eyebrow: Section label [align=right]\n\n# Title\n")
+    assert right.html.startswith('<p class="eyebrow eyebrow-end">Section label</p>')
+    start = render_slide_markdown("eyebrow: Section label [align=start]\n\n# Title\n")
+    assert start.html.startswith('<p class="eyebrow">Section label</p>')
     assert 'class="column dashed"' in slide.html
     assert slide.html.count('class="column dashed"') == 1
     assert "column-head" in slide.html

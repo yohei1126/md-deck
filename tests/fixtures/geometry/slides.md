@@ -495,7 +495,7 @@ lane: Upper
 [doc] Alpha {#ga}
 lane: Lower
 [doc] Beta {#gb}
-link: ga ..> gb : gap [route=down]
+link: ga ..> gb : gap [route=down style=gap]
 :::
 
 ---
@@ -504,4 +504,77 @@ link: ga ..> gb : gap [route=down]
 
 ::: flow
 ① Intake {#in} -> Review {2}
+:::
+
+---
+
+# Dashed stroke versus gap emphasis
+
+::: flow
+Ordinary {#ord} ..> Plain {#pln}
+Gap {#gp} -.[held].-> Mark {#mk} [style=gap]
+:::
+
+---
+
+# Dashed card outline
+
+::: columns panel
+## Quiet {.dashed}
+
+A short note.
+
++++
+
+## Solid
+
+A short note.
+:::
+
+---
+
+# Same-row around landing
+
+::: flow
+lane: Row
+Left {#sld} -> Mid {#smd} -> Right {#srd}
+link: sld => srd : under [route=down]
+link: srd => sld : over [route=up]
+:::
+
+---
+
+# Lane label misses the vertical link
+
+::: flow
+lane: Upper
+Alpha {#la}
+lane: Insurance
+Beta {#lb}
+link: la => lb : drop [route=down]
+:::
+
+---
+
+# Lane label shifts off a vertical link
+
+::: flow
+lane: Upper
+One {#na} -> Two {#nb} -> Three {#nc} -> Four {#nd}
+lane: This lane label is wider than one box
+Five {#ne} -> Six {#nf} -> Seven {#ng} -> Eight {#nh}
+link: na => ne : drop [route=down]
+:::
+
+---
+
+# Around trunk stays in the node span
+
+::: flow spread
+lane: Upper
+Alpha {#wa} -> Bravo {#wb} -> Charlie {#wc} -> Delta {#wd}
+lane: Lower
+Echo {#we} -> Foxtrot {#wf} -> Golf {#wg} -> Hotel {#wh}
+link: wa => wc : under [route=down]
+link: wd => wb : over [route=up]
 :::

@@ -11,6 +11,8 @@ KNOWN_LINK_ROUTES = frozenset({"up", "down", "left", "right", "auto", "between"}
 KNOWN_LANE_ALIGN = frozenset({"start", "center", "end"})
 LANE_OPTS_RE = re.compile(r"\s*\[(?P<opts>[^\[\]]*=[^\[\]]*)\]\s*$")
 KNOWN_EDGE_SHAPES = frozenset({"orthogonal", "straight"})
+# Opt-in on a dashed edge: `[style=gap]`. Ordinary dashes stay on the arrow colour.
+KNOWN_EDGE_EMPHASIS = frozenset({"gap"})
 KNOWN_CALLOUT_POS = frozenset(
     {"above", "below", "below-left", "below-right", "left", "right"}
 )
@@ -92,6 +94,8 @@ class FlowEdge:
     source: str
     target: str
     style: str = "solid"  # solid | dashed
+    # "" or "gap". Gap is the accent stroke; a plain dashed edge is not a gap.
+    emphasis: str = ""
     label: str | None = None
     bidirectional: bool = False
     cross: bool = False
@@ -165,19 +169,38 @@ def _parse_opts_map(raw: str | None) -> dict[str, str]:
 
 
 def _split_trailing_opts(raw: str) -> tuple[str, dict[str, str]]:
-    """Peel a trailing [shape=…] / [route=…] opts map off a chain segment."""
+    """Peel a trailing [shape=…] / [route=…] / [style=gap] map off a chain segment."""
     text = raw.strip()
     match = TRAILING_OPTS_RE.match(text)
     if not match:
         return text, {}
     opts = _parse_opts_map(match.group("opts"))
-    known = {k: v for k, v in opts.items() if k in {"shape", "route"}}
+    known = {k: v for k, v in opts.items() if k in {"shape", "route", "style"}}
     if not known:
         return text, {}
     body = match.group("body").strip()
     if not body:
         return text, {}
     return body, known
+
+
+def _resolve_edge_emphasis(
+    diagram: FlowDiagram, raw: str | None, *, dashed: bool
+) -> str:
+    """Return ``gap`` only when the author opts in on a dashed edge."""
+    if raw is None or raw == "":
+        return ""
+    if raw not in KNOWN_EDGE_EMPHASIS:
+        diagram.errors.append(
+            f"unknown edge style {raw!r} (expected gap)"
+        )
+        return ""
+    if not dashed:
+        diagram.errors.append(
+            "style=gap requires a dashed arrow (..> or -.[label].->)"
+        )
+        return ""
+    return "gap"
 
 
 def _resolve_edge_shape(
@@ -616,6 +639,9 @@ def _parse_chain_line(
         )
         opts = part_opts[i + 1] if i + 1 < len(part_opts) else {}
         shape = _resolve_edge_shape(diagram, opts.get("shape"), default_shape)
+        emphasis = _resolve_edge_emphasis(
+            diagram, opts.get("style"), dashed=(style == "dashed")
+        )
         route = opts.get("route", "auto")
         if route not in KNOWN_LINK_ROUTES:
             diagram.errors.append(
@@ -627,6 +653,7 @@ def _parse_chain_line(
             source=src,
             target=dst,
             style=style,
+            emphasis=emphasis,
             label=label,
             bidirectional=bidirectional,
             cross=cross,
@@ -671,11 +698,15 @@ def _parse_link_line(
     if not src or not dst:
         return
     style = "dashed" if style_tok == "..>" else "solid"
+    emphasis = _resolve_edge_emphasis(
+        diagram, opts.get("style"), dashed=(style == "dashed")
+    )
     diagram.links.append(
         FlowEdge(
             source=src,
             target=dst,
             style=style,
+            emphasis=emphasis,
             label=label,
             cross=True,
             route=route,
@@ -862,12 +893,17 @@ def _render_edge(edge: FlowEdge, *, flow_default_shape: str = "orthogonal") -> s
         else ""
     )
     kind = _edge_kind(edge)
+    if edge.emphasis == "gap":
+        classes += " flow-edge-gap"
+    emphasis = (
+        ' data-emphasis="gap"' if edge.emphasis == "gap" else ""
+    )
     return (
         f'<div class="{classes}" data-from="{html.escape(edge.source)}" '
         f'data-to="{html.escape(edge.target)}" data-style="{edge.style}" '
         f'data-kind="{kind}" data-pair-index="{edge.pair_index}" '
         f'data-pair-count="{edge.pair_count}"'
-        f"{label_attr}{bi}{route}{shape}{from_attach}{to_attach}></div>"
+        f"{label_attr}{bi}{route}{shape}{from_attach}{to_attach}{emphasis}></div>"
     )
 
 

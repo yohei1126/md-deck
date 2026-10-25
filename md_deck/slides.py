@@ -27,6 +27,16 @@ EYEBROW_LINE_RE = re.compile(
     r"^[ \t]*eyebrow\s*[:：]\s*(?P<body>.*)\s*$",
     re.IGNORECASE,
 )
+# Optional trailing align. Default (and `start` / `left`) stays on the start edge.
+_EYEBROW_ALIGN_RE = re.compile(
+    r"^(?P<body>.*?)\s*\[align=(?P<align>[A-Za-z]+)\]\s*$"
+)
+_EYEBROW_ALIGN = {
+    "start": "start",
+    "left": "start",
+    "end": "end",
+    "right": "end",
+}
 # Only flow may nest inside columns. All other nesting stays forbidden.
 ALLOWED_NESTING = frozenset({("columns", "flow")})
 
@@ -374,14 +384,39 @@ def _extract_fence_body(lines: list[str], start: int) -> tuple[list[str], int]:
     return body, i
 
 
-def _extract_eyebrow(text: str) -> tuple[str, str | None]:
+def parse_eyebrow_body(body: str) -> tuple[str, str, str | None]:
+    """Return ``(label, align, error)``.
+
+    ``align`` is ``start`` or ``end``. A trailing ``[align=end]`` or
+    ``[align=right]`` opts into the end edge. Unknown align values return an
+    error message and keep the default align.
+    """
+    text = body.strip()
+    match = _EYEBROW_ALIGN_RE.match(text)
+    if not match:
+        return text, "start", None
+    raw = match.group("align").lower()
+    label = match.group("body").strip()
+    mapped = _EYEBROW_ALIGN.get(raw)
+    if mapped is None:
+        return (
+            label,
+            "start",
+            f"unknown eyebrow align {raw!r} (expected start, left, end, or right)",
+        )
+    return label, mapped, None
+
+
+def _extract_eyebrow(text: str) -> tuple[str, str | None, str]:
     """Remove a top-level ``eyebrow:`` line and return it for the title.
 
     Lines inside a fence stay in the body. The first line wins; extras are
-    dropped here and rejected by ``md-deck check``.
+    dropped here and rejected by ``md-deck check``. The third value is
+    ``start`` or ``end``.
     """
     lines = text.splitlines(keepends=True)
     found: str | None = None
+    align = "start"
     out: list[str] = []
     code = False
     depth = 0
@@ -407,12 +442,15 @@ def _extract_eyebrow(text: str) -> tuple[str, str | None]:
         if depth == 0:
             match = EYEBROW_LINE_RE.match(line.rstrip("\n"))
             if match:
-                body = match.group("body").strip()
-                if found is None and body:
-                    found = body
+                label, label_align, _error = parse_eyebrow_body(
+                    match.group("body")
+                )
+                if found is None and label:
+                    found = label
+                    align = label_align
                 continue
         out.append(line)
-    return "".join(out), found
+    return "".join(out), found, align
 
 
 def _render_columns(body: str, options: frozenset[str], ctx: RenderContext) -> str:
@@ -500,7 +538,7 @@ def render_slide_markdown(
 ) -> SlideRender:
     ctx = ctx or RenderContext()
     slide_md, slide_id, slide_classes = _extract_heading_attrs(slide_md)
-    slide_md, eyebrow = _extract_eyebrow(slide_md)
+    slide_md, eyebrow, eyebrow_align = _extract_eyebrow(slide_md)
     slide_md = encode_h1_breaks(slide_md)
     slide_md, source_from_line = _extract_sources(slide_md)
     text = _render_key_messages(slide_md, ctx)
@@ -555,7 +593,8 @@ def render_slide_markdown(
 
     html = _add_title_class("\n".join(chunks)).replace(TITLE_BREAK_SENTINEL, "<br>")
     if eyebrow:
-        html = f'<p class="eyebrow">{_inline_md(eyebrow)}</p>\n{html}'
+        klass = "eyebrow eyebrow-end" if eyebrow_align == "end" else "eyebrow"
+        html = f'<p class="{klass}">{_inline_md(eyebrow)}</p>\n{html}'
     source_html = None
     if source_parts:
         source_html = "\n".join(source_parts)

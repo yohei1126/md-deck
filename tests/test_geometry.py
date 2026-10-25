@@ -1164,8 +1164,12 @@ def test_same_row_fan_out_trunks_nested_not_collinear(geometry_page):
     assert min(result["finals"]) >= 18, result
 
 
-def test_second_dashed_edge_does_not_cross_the_first(geometry_page):
-    """A later dashed link can share a lane map without crossing the earlier one."""
+def test_second_dashed_edge_stays_in_the_node_span(geometry_page):
+    """A same-row around trunk stays between its ports.
+
+    A cross-lane vertical through that span may meet the trunk. The trunk
+    still must not run out to the flow edge to get around it.
+    """
     result = geometry_page.evaluate(
         r"""() => {
           const slide = Array.from(document.querySelectorAll('.slide')).find((s) =>
@@ -1212,11 +1216,43 @@ def test_second_dashed_edge_does_not_cross_the_first(geometry_page):
           const back = ptsOf('l4', 'l2');
           const direct = ptsOf('u3', 'l3');
           if (!back || !direct) return { ok: false, reason: 'missing-path', back, direct };
-          const n = crosses(back, direct);
-          return { ok: n === 0, crossings: n, back, direct };
+          const scale = Number(slide.dataset.scale || '1') || 1;
+          const fr = flow.getBoundingClientRect();
+          function box(key) {
+            const r = flow.querySelector(`.flow-node[data-node="${key}"]`).getBoundingClientRect();
+            return {
+              left: (r.left - fr.left) / scale,
+              right: (r.right - fr.left) / scale,
+              top: (r.top - fr.top) / scale,
+              bottom: (r.bottom - fr.top) / scale,
+            };
+          }
+          const l2 = box('l2');
+          const l4 = box('l4');
+          const l3 = box('l3');
+          const xs = back.map((p) => p.x);
+          const end = back[back.length - 1];
+          const prev = back[back.length - 2];
+          const directEnd = direct[direct.length - 1];
+          return {
+            ok: true,
+            crossings: crosses(back, direct),
+            minX: Math.min(...xs),
+            maxX: Math.max(...xs),
+            flowW: flow.clientWidth,
+            l2, l4, l3,
+            end, prev, directEnd,
+          };
         }"""
     )
     assert result.get("ok"), result
+    # Between the two ports: inside the endpoint boxes, not the flow edge.
+    assert result["minX"] >= result["l2"]["left"] - 2, result
+    assert result["maxX"] <= result["l4"]["right"] + 2, result
+    assert result["flowW"] - result["maxX"] > 40, result
+    assert abs(result["end"]["y"] - result["l2"]["top"]) <= 2.5, result
+    assert result["prev"]["y"] < result["l2"]["top"] - 12, result
+    assert abs(result["directEnd"]["y"] - result["l3"]["top"]) <= 2.5, result
 
 
 def test_vertical_gap_label_is_accent_and_off_the_stroke(geometry_page):
@@ -1280,3 +1316,305 @@ def test_corner_index_sits_outside_the_title(geometry_page):
         }"""
     )
     assert result.get("ok"), result
+
+
+def test_ordinary_dash_is_arrow_colour_and_gap_is_opt_in(geometry_page):
+    result = geometry_page.evaluate(
+        r"""() => {
+          const slide = Array.from(document.querySelectorAll('.slide')).find((s) =>
+            (s.querySelector('h1') || {}).textContent.includes('Dashed stroke versus gap')
+          );
+          if (!slide) return { ok: false, reason: 'missing-slide' };
+          const flow = slide.querySelector('.flow');
+          const strokePx = parseFloat(getComputedStyle(flow).getPropertyValue('--flow-stroke-width'));
+          const ordinary = flow.querySelector('path.flow-arrow[data-from="ord"]');
+          const held = flow.querySelector('path.flow-arrow[data-from="gp"]');
+          if (!ordinary || !held) return { ok: false, reason: 'missing-path' };
+          const os = getComputedStyle(ordinary);
+          const hs = getComputedStyle(held);
+          const gapLabel = flow.querySelector('text.flow-label-gap');
+          return {
+            strokePx,
+            ordinaryClass: ordinary.className.baseVal || ordinary.getAttribute('class'),
+            heldClass: held.className.baseVal || held.getAttribute('class'),
+            ordinaryMarker: ordinary.getAttribute('marker-end'),
+            heldMarker: held.getAttribute('marker-end'),
+            ordinaryStroke: os.stroke,
+            heldStroke: hs.stroke,
+            ordinaryWidth: parseFloat(os.strokeWidth),
+            heldWidth: parseFloat(hs.strokeWidth),
+            gapLabel: Boolean(gapLabel),
+            ordinaryEmphasis: ordinary.getAttribute('data-emphasis'),
+            heldEmphasis: held.getAttribute('data-emphasis'),
+          };
+        }"""
+    )
+    assert "flow-arrow-dashed" in result["ordinaryClass"], result
+    assert "flow-arrow-gap" not in result["ordinaryClass"], result
+    assert "flow-arrow-gap" in result["heldClass"], result
+    assert "flow-arrowhead-gap" not in result["ordinaryMarker"], result
+    assert "flow-arrowhead-gap" in result["heldMarker"], result
+    assert result["ordinaryStroke"] != result["heldStroke"], result
+    assert result["heldWidth"] >= result["ordinaryWidth"], result
+    assert result["ordinaryWidth"] >= 3, result
+    assert result["gapLabel"] is True
+    assert result["ordinaryEmphasis"] in {None, ""}
+    assert result["heldEmphasis"] == "gap"
+    assert result["strokePx"] >= 3
+
+
+def test_dashed_column_outline_is_darker_than_a_hairline(geometry_page):
+    result = geometry_page.evaluate(
+        r"""() => {
+          const slide = Array.from(document.querySelectorAll('.slide')).find((s) =>
+            (s.querySelector('h1') || {}).textContent.includes('Dashed card outline')
+          );
+          if (!slide) return { ok: false, reason: 'missing-slide' };
+          const dashed = slide.querySelector('.column.dashed');
+          const solid = Array.from(slide.querySelectorAll('.column')).find(
+            (el) => !el.classList.contains('dashed')
+          );
+          if (!dashed || !solid) return { ok: false, reason: 'missing-column' };
+          const d = getComputedStyle(dashed);
+          const s = getComputedStyle(solid);
+          return {
+            style: d.borderTopStyle,
+            width: parseFloat(d.borderTopWidth),
+            color: d.borderTopColor,
+            solidWidth: parseFloat(s.borderTopWidth),
+            solidColor: s.borderTopColor,
+          };
+        }"""
+    )
+    assert result["style"] == "dashed", result
+    assert result["width"] >= 2, result
+    assert result["color"] in {"rgb(51, 51, 51)", "#333333"}, result
+    assert result["color"] != result["solidColor"], result
+    # Fixture deck CSS sets `.columns .column { border: 1px solid #ccc }`
+    # after base.css. The dashed card must keep its own outline.
+    assert result["solidWidth"] < 2, result
+    assert result["solidColor"] in {"rgb(204, 204, 204)", "#cccccc"}, result
+
+
+def test_same_row_around_lands_on_the_detour_side(geometry_page):
+    """route=down/up on one row enters the side the path went around.
+
+    A facing-side landing runs the last stub behind the target and hides
+    the arrowhead. Another row still uses the facing edge.
+    """
+    result = geometry_page.evaluate(
+        r"""() => {
+          function slideBy(title) {
+            return Array.from(document.querySelectorAll('.slide')).find((s) =>
+              (s.querySelector('h1') || {}).textContent.includes(title)
+            );
+          }
+          function measure(slide, fromKey, toKey) {
+            const flow = slide.querySelector('.flow');
+            const scale = Number(slide.dataset.scale || '1') || 1;
+            const fr = flow.getBoundingClientRect();
+            const path = flow.querySelector(
+              `path.flow-arrow[data-from="${fromKey}"][data-to="${toKey}"]`
+            );
+            const node = flow.querySelector(`.flow-node[data-node="${toKey}"]`);
+            if (!path || !node) return { ok: false, reason: 'missing', fromKey, toKey };
+            const pts = [];
+            const re = /([ML])\s*([-\d.]+)\s+([-\d.]+)/g;
+            let m;
+            const d = path.getAttribute('d') || '';
+            while ((m = re.exec(d))) pts.push({ x: +m[2], y: +m[3] });
+            const r = node.getBoundingClientRect();
+            const box = {
+              left: (r.left - fr.left) / scale,
+              right: (r.right - fr.left) / scale,
+              top: (r.top - fr.top) / scale,
+              bottom: (r.bottom - fr.top) / scale,
+            };
+            const end = pts[pts.length - 1];
+            const prev = pts[pts.length - 2];
+            return { ok: pts.length >= 2, pts, box, end, prev };
+          }
+          const around = slideBy('Same-row around landing');
+          const cross = document.querySelectorAll('.slide')[0];
+          if (!around || !cross) return { ok: false, reason: 'missing-slide' };
+          return {
+            ok: true,
+            down: measure(around, 'sld', 'srd'),
+            up: measure(around, 'srd', 'sld'),
+            cross: measure(cross, 'a3', 'b1'),
+          };
+        }"""
+    )
+    assert result.get("ok"), result
+    down = result["down"]
+    up = result["up"]
+    cross = result["cross"]
+    assert down.get("ok") and up.get("ok") and cross.get("ok"), result
+    # Down enters the bottom from below; the tip is on that edge.
+    assert abs(down["end"]["y"] - down["box"]["bottom"]) <= 2.5, down
+    assert down["prev"]["y"] > down["box"]["bottom"] + 12, down
+    assert abs(down["end"]["y"] - down["box"]["top"]) > 8, down
+    # Up enters the top from above.
+    assert abs(up["end"]["y"] - up["box"]["top"]) <= 2.5, up
+    assert up["prev"]["y"] < up["box"]["top"] - 12, up
+    assert abs(up["end"]["y"] - up["box"]["bottom"]) > 8, up
+    # A lower row still takes the arrow on its top edge.
+    assert abs(cross["end"]["y"] - cross["box"]["top"]) <= 2.5, cross
+    assert cross["prev"]["y"] < cross["box"]["top"] - 8, cross
+
+
+def test_around_trunk_stays_inside_the_endpoint_span(geometry_page):
+    """A same-row around trunk folds between the two nodes.
+
+    Another box further along the row, and a lane underneath, must not pull
+    the horizontal out to the flow edge or down past that lane.
+    """
+    result = geometry_page.evaluate(
+        r"""() => {
+          const slide = Array.from(document.querySelectorAll('.slide')).find((s) =>
+            (s.querySelector('h1') || {}).textContent.includes('Around trunk stays')
+          );
+          if (!slide) return { ok: false, reason: 'missing-slide' };
+          const flow = slide.querySelector('.flow');
+          const scale = Number(slide.dataset.scale || '1') || 1;
+          const fr = flow.getBoundingClientRect();
+          function ptsOf(fromKey, toKey) {
+            const path = flow.querySelector(
+              `path.flow-arrow[data-from="${fromKey}"][data-to="${toKey}"]`
+            );
+            if (!path) return null;
+            const pts = [];
+            const re = /([ML])\s*([-\d.]+)\s+([-\d.]+)/g;
+            let m;
+            const d = path.getAttribute('d') || '';
+            while ((m = re.exec(d))) pts.push({ x: +m[2], y: +m[3] });
+            return pts;
+          }
+          function box(key) {
+            const el = flow.querySelector(`.flow-node[data-node="${key}"]`);
+            const r = el.getBoundingClientRect();
+            return {
+              left: (r.left - fr.left) / scale,
+              right: (r.right - fr.left) / scale,
+              top: (r.top - fr.top) / scale,
+              bottom: (r.bottom - fr.top) / scale,
+            };
+          }
+          const down = ptsOf('wa', 'wc');
+          const up = ptsOf('wd', 'wb');
+          if (!down || !up) return { ok: false, reason: 'missing-path' };
+          function span(pts) {
+            return {
+              minX: Math.min(...pts.map((p) => p.x)),
+              maxX: Math.max(...pts.map((p) => p.x)),
+              minY: Math.min(...pts.map((p) => p.y)),
+              maxY: Math.max(...pts.map((p) => p.y)),
+              end: pts[pts.length - 1],
+              prev: pts[pts.length - 2],
+            };
+          }
+          return {
+            ok: true,
+            flowW: flow.clientWidth,
+            down: span(down),
+            up: span(up),
+            wa: box('wa'),
+            wb: box('wb'),
+            wc: box('wc'),
+            wd: box('wd'),
+            we: box('we'),
+          };
+        }"""
+    )
+    assert result.get("ok"), result
+    down = result["down"]
+    up = result["up"]
+    # Down trunk stays inside Alpha–Charlie, above the lower lane.
+    assert down["minX"] >= result["wa"]["left"] - 2, result
+    assert down["maxX"] <= result["wc"]["right"] + 2, result
+    assert down["maxX"] < result["wd"]["left"] - 8, result
+    assert result["flowW"] - down["maxX"] > 80, result
+    assert down["maxY"] < result["we"]["top"] - 4, result
+    assert abs(down["end"]["y"] - result["wc"]["bottom"]) <= 2.5, result
+    assert down["prev"]["y"] > result["wc"]["bottom"] + 12, result
+    # Up trunk stays inside Bravo–Delta, not on the flow's right edge.
+    assert up["minX"] >= result["wb"]["left"] - 2, result
+    assert up["maxX"] <= result["wd"]["right"] + 2, result
+    assert result["flowW"] - up["maxX"] > 40, result
+    assert up["minY"] < result["wd"]["top"] - 8, result
+    assert abs(up["end"]["y"] - result["wb"]["top"]) <= 2.5, result
+    assert up["prev"]["y"] < result["wb"]["top"] - 12, result
+
+
+def _lane_label_clear_of_vertical(geometry_page, title, from_key, to_key):
+    return geometry_page.evaluate(
+        r"""({ title, fromKey, toKey }) => {
+          const slide = Array.from(document.querySelectorAll('.slide')).find((s) =>
+            (s.querySelector('h1') || {}).textContent.includes(title)
+          );
+          if (!slide) return { ok: false, reason: 'missing-slide' };
+          const flow = slide.querySelector('.flow');
+          const scale = Number(slide.dataset.scale || '1') || 1;
+          const fr = flow.getBoundingClientRect();
+          const path = flow.querySelector(
+            `path.flow-arrow[data-from="${fromKey}"][data-to="${toKey}"]`
+          );
+          const labels = Array.from(slide.querySelectorAll('.lane-label'));
+          const lower = labels[labels.length - 1];
+          if (!path || !lower) return { ok: false, reason: 'missing', path: Boolean(path) };
+          const pts = [];
+          const re = /([ML])\s*([-\d.]+)\s+([-\d.]+)/g;
+          let m;
+          const d = path.getAttribute('d') || '';
+          while ((m = re.exec(d))) pts.push({ x: +m[2], y: +m[3] });
+          const r = lower.getBoundingClientRect();
+          const box = {
+            left: (r.left - fr.left) / scale,
+            right: (r.right - fr.left) / scale,
+            top: (r.top - fr.top) / scale,
+            bottom: (r.bottom - fr.top) / scale,
+            text: lower.textContent,
+          };
+          let hit = false;
+          for (let i = 1; i < pts.length; i += 1) {
+            const p = pts[i - 1];
+            const q = pts[i];
+            if (Math.abs(p.x - q.x) > 0.75) continue;
+            const x = p.x;
+            const y0 = Math.min(p.y, q.y);
+            const y1 = Math.max(p.y, q.y);
+            if (x < box.left - 2 || x > box.right + 2) continue;
+            if (y1 < box.top - 2 || y0 > box.bottom + 2) continue;
+            hit = true;
+          }
+          const node = flow.querySelector(`.flow-node[data-node="${toKey}"]`);
+          const nr = node.getBoundingClientRect();
+          const targetTop = (nr.top - fr.top) / scale;
+          const end = pts[pts.length - 1];
+          return {
+            ok: true,
+            hit,
+            box,
+            pts,
+            end,
+            targetTop,
+            entersTop: Math.abs(end.y - targetTop) <= 2.5,
+          };
+        }""",
+        {"title": title, "fromKey": from_key, "toKey": to_key},
+    )
+
+
+def test_vertical_link_misses_lane_label(geometry_page):
+    slid = _lane_label_clear_of_vertical(
+        geometry_page, "Lane label misses", "la", "lb"
+    )
+    assert slid.get("ok"), slid
+    assert slid["entersTop"], slid
+    assert slid["hit"] is False, slid
+    shifted = _lane_label_clear_of_vertical(
+        geometry_page, "Lane label shifts", "na", "ne"
+    )
+    assert shifted.get("ok"), shifted
+    assert shifted["entersTop"], shifted
+    assert shifted["hit"] is False, shifted

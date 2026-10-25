@@ -2,6 +2,8 @@
 color_background: "#ffffff"
 color_text: "#111111"
 color_title: "#111111"
+color_flow_arrow: "#073365"
+color_edge_gap: "#F7581D"
 font_family: "sans-serif"
 font_size_body: 18
 font_size_title: 28
@@ -18,5 +20,10 @@ flow_port_gap: 12
 ```css
 .question {
   margin-bottom: 40px;
+}
+
+/* A later shorthand must not wipe `{.dashed}` width or colour. */
+.columns .column {
+  border: 1px solid #cccccc;
 }
 ```

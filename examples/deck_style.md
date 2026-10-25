@@ -38,14 +38,14 @@ color_table_header_bg: "#eeeeee"
 color_table_border: "#cccccc"
 
 font_family: "Noto Sans CJK JP, Noto Sans JP, DejaVu Sans, sans-serif"
-font_size_body: 22
+font_size_body: 24
 font_size_title: 36
-font_size_key_message: 20
-font_size_question: 18
-font_size_small: 16
-font_size_table: 16
+font_size_key_message: 22
+font_size_question: 20
+font_size_small: 18
+font_size_table: 18
 font_weight_title: 700
-font_weight_body: 400
+font_weight_body: 500
 line_height: 1.45
 
 page_padding: 48
@@ -60,7 +60,7 @@ card_radius: 8
 card_padding: 16
 key_message_radius: 8
 question_radius: 8
-border_width: 1
+border_width: 2
 flow_node_min_width: 120
 flow_node_max_width: none
 flow_node_min_height: 96
