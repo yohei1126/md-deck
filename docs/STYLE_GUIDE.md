@@ -87,8 +87,9 @@ Label tokens become both HTML label text (when set) and quoted CSS variables for
 | `border_width` | `--border-width` | `1px` | no | Default border width (`0` / `none` ok) |
 | `flow_node_min_width` | `--flow-node-min-width` | `120px` | no | Minimum flow node width (`0` / `none` ok) |
 | `flow_node_max_width` | `--flow-node-max-width` | `none` | no | Cap for boxes in a wide row or beside a stack. `none` (the default) lets those boxes share the row. A length such as `240px` keeps a centred inset |
-| `flow_node_min_height` | `--flow-node-min-height` | `260px` | no | Minimum flow node height (`0` / `none` sizes to the label). A multi-lane flow uses at most `160px` so two rows still fit |
+| `flow_node_min_height` | `--flow-node-min-height` | `96px` | no | Minimum flow node height. Boxes stay content-sized above this floor (`0` / `none` sizes to the label) |
 | `flow_stack_gap` | `--flow-stack-gap` | `32px` | no | Vertical gap between boxes inside a `{ A / B }` stack (`0` / `none` ok) |
+| `flow_fill_height` | `--flow-fill-height` | `none` | no | `none` keeps flow boxes at content height. `fill` stretches them to the leftover slide height |
 | `column_min_height` | `--column-min-height` | `160px` | no | Minimum column card height (`0` / `none` sizes to the copy) |
 | `flow_node_padding` | `--flow-node-padding` | `12px` | no | Flow node padding |
 | `flow_callout_gap` | `--flow-callout-gap` | `12px` | no | Gap between a callout box and its anchor node |
@@ -157,7 +158,7 @@ Cover titles (the first slide, or an H1 with `{.cover}`):
 - When a title uses more than one line, keep the lines similar in length.
 - `md-deck check` enforces that rule for cover titles. A later line that starts with a loose particle is a warning and does not fail the build. `text-wrap: balance` evens a Latin title that still wraps once on its own.
 - The cover slide is centred. `subtitle` and `date` from front matter render under the title. An optional frame and a larger title are deck CSS, not a built-in chrome; the snippet is in [VISUAL_POLICY.md](VISUAL_POLICY.md).
-- `::: flow wide` centres the row and the boxes share it (`flow_node_max_width` defaults to `none`) at a `260px` floor. The flow uses the leftover slide height unless it contains a callout. `steps` adds a muted index. `fill` re-asserts that stretch. A fork keeps 72px beside the stack and `flow_stack_gap` (`32px`) between the stacked boxes.
+- `::: flow wide` centres the row and the boxes share its width (`flow_node_max_width` defaults to `none`). Height stays the content plus `flow_node_min_height` (`96px`). `flow_fill_height: fill` or `::: flow fill` is what stretches boxes to the leftover slide height. `steps` adds a muted index. A fork keeps 72px beside the stack and `flow_stack_gap` (`32px`) between the stacked boxes.
 - A deck style must not set `.flow-row { justify-content: space-between }` (the same declaration on `.flow.flow-wide .flow-row` is the same problem). It cancels the centred row. Remove it when adopting these defaults.
 - Confirm the cover in a PNG: `md-deck build slides.md -o out.pdf --png out/png`.
 

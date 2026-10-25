@@ -31,7 +31,7 @@ Stable classes are [HOOKS.md](HOOKS.md). Arrow path geometry is not stable; the 
 
 | Piece | Today |
 | --- | --- |
-| Horizontal steps | `A -> B -> C`. `::: flow wide` keeps one centred row with even gaps. Boxes share that row (`flow_node_max_width` defaults to `none`) and are at least `flow_node_min_height` (`260px`). `steps` adds a muted index. `fill` re-asserts leftover-height stretch. A length cap such as `240px` brings back a side inset |
+| Horizontal steps | `A -> B -> C`. `::: flow wide` keeps one centred row with even gaps. Boxes share that row (`flow_node_max_width` defaults to `none`) and stay content-height with a `flow_node_min_height` floor (`96px`). `steps` adds a muted index. Leftover-height stretch is `flow_fill_height: fill` or `::: flow fill`. A length cap such as `240px` brings back a side inset |
 | Two-up compare | `::: columns` / `panel` / `plain` / `fill`, split with `+++`. Cards have a `column_min_height` floor and already stretch with the row. A column may contain one nested `::: flow` |
 | Branch | A `{ A / B }` stack plus a separate edge into each member. Those edges share a trunk and keep at least 72px before the stack so arrowheads do not sit in the corners. Same-row fan-out (no stack) is still routed as nested trunks |
 | Lanes and cross-links | `lane:` and `link:` with `route=` (`between`, `down`, `up`, `left`, `right`, `auto`) |
@@ -69,11 +69,12 @@ Flow and column boxes used to shrink to their labels and sit in empty space. The
 | --- | --- | --- |
 | `flow_node_min_width` | `120px` | Floor so a short label does not collapse the box |
 | `flow_node_max_width` | `none` | No ceiling on a wide row or a stack row, so the boxes share the panel. A length (for example `240px`) caps them and leaves a centred inset |
-| `flow_node_min_height` | `260px` | Floor on a flow node, so a wide or steps box is about the height of a lunch card. `0` or `none` sizes to the label. A flow with two or more lanes uses at most `160px` per box |
+| `flow_node_min_height` | `96px` | Floor on a flow node. Above that, height follows the label. `0` or `none` sizes strictly to the label |
+| `flow_fill_height` | `none` | `fill` stretches every flow box to the height left under the title. The default does not |
 | `flow_stack_gap` | `32px` | Space between the boxes inside a `{ A / B }` stack. This is separate from the 72px trunk gap beside the stack |
 | `column_min_height` | `160px` | Floor on every column card |
 
-A flow also grows into the height left under the title, and the boxes stretch with it. With the default `flow_node_max_width: none`, a wide row's boxes share the width of the panel and stay on even gaps. The row is still centred; there is simply no empty side band left to centre inside. Set a length on `flow_node_max_width` when a deck wants that band back. A flow that contains a callout does not stretch: the note is drawn outside the node, and stretching that node to the bottom of the slide would push the note off the page. `::: flow fill` is the explicit hook (class `.flow-fill`). It is more specific than a plain `.flow` rule, so it keeps the stretch when a deck style has set `.flow { flex: none }` or `align-items: center`. `::: columns fill` is the same hook for column cards, which already stretch with the row.
+With the default `flow_node_max_width: none`, a wide row's boxes share the width of the panel and stay on even gaps. The row is still centred; there is simply no empty side band left to centre inside. Set a length on `flow_node_max_width` when a deck wants that band back. Height does not follow that leftover space. A box is as tall as its label, and at least `flow_node_min_height`. Set `flow_fill_height: fill` to stretch every flow to the height left under the title, or mark one diagram with `::: flow fill` (class `.flow-fill`). A flow that contains a callout does not stretch: the note is drawn outside the node, and stretching that node to the bottom of the slide would push the note off the page. `::: columns fill` asks column cards to take the height still free; they already have a `column_min_height` floor.
 
 Lists inside a column keep `padding-inline-start: 1.4em` from `.column ul` / `.column ol`. That selector is more specific than a deck rule of `ul { padding: 0 }`, so the markers stay indented in a panel.
 
@@ -118,7 +119,7 @@ Why not the other defaults:
 
 Phased:
 
-1. **Now.** Document the limits, the policy, and the three recipes, including before/after. Check cover titles. Balance automatic title wraps with CSS. Size diagram boxes with tokens (`flow_node_max_width`, `flow_node_min_height`, `column_min_height`) and leftover-height stretch (`fill` re-asserts it). Do not bake a deck's frame or palette into those defaults.
+1. **Now.** Document the limits, the policy, and the three recipes, including before/after. Check cover titles. Balance automatic title wraps with CSS. Size diagram boxes with tokens (`flow_node_max_width`, `flow_node_min_height`, `flow_stack_gap`, `column_min_height`). Leftover-height stretch is opt-in (`flow_fill_height` or `::: flow fill`). Do not bake a deck's frame or palette into those defaults.
 2. **Next, in the skill repo.** Teach the copy budget and the pre-release PNG review in `yohei1126/agent-skills` `md-deck/SKILL.md`. md-deck will still not fail a merely dense slide. Overflow past 80% remains the generator gate.
 3. **Later, only if a recipe fails in a real deck.** Add a small generator feature on this same pipeline (junction, step number, a columns option). Do not open a second diagram language.
 4. **Escape hatch.** Keep relative images for non-diagram figures.

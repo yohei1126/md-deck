@@ -67,8 +67,10 @@ TOKEN_SPEC: dict[str, tuple[str, Any]] = {
     "border_width": ("--border-width", "1px"),
     "flow_node_min_width": ("--flow-node-min-width", "120px"),
     "flow_node_max_width": ("--flow-node-max-width", "none"),
-    "flow_node_min_height": ("--flow-node-min-height", "260px"),
+    "flow_node_min_height": ("--flow-node-min-height", "96px"),
     "flow_stack_gap": ("--flow-stack-gap", "32px"),
+    # CSS flex-grow: 0 keeps boxes content-sized; 1 stretches them to leftover height.
+    "flow_fill_height": ("--flow-fill-height", "0"),
     "column_min_height": ("--column-min-height", "160px"),
     "flow_node_padding": ("--flow-node-padding", "12px"),
     "label_question": ("--label-question", "Question"),
@@ -119,6 +121,9 @@ PAGE_NUMBER_PLACEMENTS = frozenset(
 QUESTION_LABEL_PLACEMENTS = frozenset({"inline", "block"})
 EDGE_SHAPE_TOKENS = frozenset({"flow_edge_shape"})
 EDGE_SHAPES = frozenset({"orthogonal", "straight"})
+FILL_HEIGHT_TOKENS = frozenset({"flow_fill_height"})
+FILL_HEIGHT_ON = frozenset({"fill", "1", "true", "yes"})
+FILL_HEIGHT_VALUES = frozenset({"none", "fill"})
 
 FRONT_MATTER_RE = re.compile(r"\A---\s*\n(.*?)\n---\s*\n?", re.DOTALL)
 CSS_FENCE_RE = re.compile(r"```css\s*\n(.*?)```", re.DOTALL | re.IGNORECASE)
@@ -135,6 +140,9 @@ def _format_css_value(token: str, value: Any) -> str:
         return f'"{text}"'
     if token in PLACEMENT_TOKENS or token in EDGE_SHAPE_TOKENS:
         return str(value).strip().lower()
+    if token in FILL_HEIGHT_TOKENS:
+        text = str(value).strip().lower()
+        return "1" if text in FILL_HEIGHT_ON else "0"
     if isinstance(value, str) and value.strip().lower() == "none":
         return "none"
     if isinstance(value, (int, float)) and not isinstance(value, bool):

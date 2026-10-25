@@ -387,6 +387,8 @@ def test_tokens_allow_zero_and_none():
     assert "--flow-node-max-width: none;" in css
     assert "--flow-node-min-height: 0px;" in css
     assert "--column-min-height: 0px;" in css
+    assert "--flow-fill-height: 1;" in tokens_to_css({"flow_fill_height": "fill"})
+    assert "--flow-fill-height: 0;" in tokens_to_css({})
 
 
 def test_footer_inset_allows_negative():

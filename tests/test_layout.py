@@ -240,7 +240,7 @@ def test_wide_steps_are_centred_with_even_gaps(layout_pages):
     for width in result["widths"]:
         assert width >= 280, result
     for height in result["heights"]:
-        assert height >= 240, result
+        assert 70 <= height <= 180, result
     assert result["groupRatio"] >= 0.8, result
     assert result["stepClass"] is True, result
     assert result["indexes"] == ["counter(flow-step)"] * 3, result

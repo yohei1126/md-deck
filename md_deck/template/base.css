@@ -211,12 +211,16 @@ body {
 .flow {
   position: relative;
   display: flex;
-  flex: 1 1 auto;
   flex-direction: column;
   flex-wrap: nowrap;
+  /* 0: content height. 1: flow_fill_height: fill, or ::: flow fill. */
+  flex-grow: var(--flow-fill-height);
+  flex-shrink: 1;
+  flex-basis: auto;
   align-items: stretch;
   justify-content: flex-start;
   gap: calc(var(--gap) * 1.5);
+  width: 100%;
   padding: var(--card-padding) 0;
   min-height: 0;
   overflow: visible;
@@ -228,27 +232,12 @@ body {
   justify-content: flex-start;
 }
 
-/* A callout sits outside its node. Stretching that node to the bottom of the
-   slide would push the note off the page, so these diagrams stay content-sized
-   (the min-height and max-width tokens still apply). */
-.flow:has(.flow-callout) {
-  flex: 0 1 auto;
-}
-
-.flow:has(.flow-callout) .flow-lanes,
-.flow:has(.flow-callout) .lane,
-.flow:has(.flow-callout) .flow-row {
-  flex: 0 1 auto;
-}
-
-.flow:has(.flow-callout) .flow-row {
-  align-items: center;
-}
-
 .flow-lanes {
   display: flex;
-  flex: 1 1 auto;
   flex-direction: column;
+  flex-grow: var(--flow-fill-height);
+  flex-shrink: 1;
+  flex-basis: auto;
   gap: var(--gap);
   width: 100%;
   min-height: 0;
@@ -256,8 +245,10 @@ body {
 
 .lane {
   display: flex;
-  flex: 1 1 auto;
   flex-direction: column;
+  flex-grow: var(--flow-fill-height);
+  flex-shrink: 1;
+  flex-basis: auto;
   gap: calc(var(--gap) * 0.5);
   width: 100%;
   min-height: 0;
@@ -271,9 +262,11 @@ body {
 .flow-row {
   position: relative;
   display: flex;
-  flex: 1 1 auto;
+  flex-grow: var(--flow-fill-height);
+  flex-shrink: 1;
+  flex-basis: auto;
   flex-wrap: wrap;
-  align-items: stretch;
+  align-items: center;
   gap: calc(var(--gap) * 1.5);
   width: 100%;
   min-height: 0;
@@ -311,18 +304,8 @@ body {
 }
 
 .flow-stack > .flow-node {
-  flex: 1 1 auto;
   width: 100%;
   max-width: none;
-  /* Share the stack's height. A 260px floor on every member would
-     overflow a two-high fork. */
-  min-height: 0;
-}
-
-/* Several lanes share the slide, so each box uses a lower floor than a
-   single-row wide / steps diagram. */
-.flow-lanes:has(> .lane + .lane) .flow-node {
-  min-height: min(160px, var(--flow-node-min-height));
 }
 
 .flow.flow-wide .flow-row:has(> .flow-stack) {
@@ -347,20 +330,30 @@ body {
   margin-bottom: 0.1em;
 }
 
-/* fill: explicit hook for the leftover-height stretch above.
-   A later deck rule on .flow can shrink the diagram; .flow.flow-fill wins
-   over a plain .flow rule because it is more specific. Width still follows
-   the wide / stack caps. */
+/* fill: opt in to leftover height. Off unless flow_fill_height is fill
+   or the flow block uses ::: flow fill. Width still follows the wide caps.
+   A callout stays content-sized so the note is not pushed off the slide. */
 .flow.flow-fill {
-  flex: 1 1 auto;
-  align-items: stretch;
+  flex-grow: 1;
 }
 
 .flow.flow-fill .flow-lanes,
 .flow.flow-fill .lane,
 .flow.flow-fill .flow-row {
-  flex: 1 1 auto;
+  flex-grow: 1;
   align-items: stretch;
+}
+
+.flow:has(.flow-callout),
+.flow.flow-fill:has(.flow-callout) {
+  flex-grow: 0;
+}
+
+.flow:has(.flow-callout) .flow-lanes,
+.flow:has(.flow-callout) .lane,
+.flow:has(.flow-callout) .flow-row {
+  flex-grow: 0;
+  align-items: center;
 }
 
 .flow-node {

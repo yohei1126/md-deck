@@ -72,6 +72,11 @@
     "flow_node_max_width": { "$ref": "#/$defs/sizeOrNone" },
     "flow_node_min_height": { "$ref": "#/$defs/sizeOrNone" },
     "flow_stack_gap": { "$ref": "#/$defs/sizeOrNone" },
+    "flow_fill_height": {
+      "type": "string",
+      "enum": ["none", "fill"],
+      "description": "none (default) sizes flow boxes to their content. fill stretches them to the leftover slide height."
+    },
     "column_min_height": { "$ref": "#/$defs/sizeOrNone" },
     "flow_node_padding": { "$ref": "#/$defs/sizeOrNone" },
     "label_question": { "type": "string", "minLength": 1 },

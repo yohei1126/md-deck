@@ -208,7 +208,7 @@ Collect -> Decide -> Record
 </div>
 ```
 
-What changed: the `ol` of sentences became three `.flow-node` boxes and two edges, Collect → Decide → Record. `wide` keeps them on one row, centred, with the same gap between boxes. Each box shares the row (`flow_node_max_width` defaults to `none`) and is at least `flow_node_min_height` (default `260px`), and the row uses the height left under the title, so the group fills the panel instead of floating as three chips. `steps` paints a muted index above each name via `.flow-node-title::before`. `fill` (`::: flow wide steps fill`) is the same stretch, and it wins over a deck style that set `.flow { flex: none }`. A flow with a callout does not take that extra height.
+What changed: the `ol` of sentences became three `.flow-node` boxes and two edges, Collect → Decide → Record. `wide` keeps them on one row, centred, with the same gap between boxes. Each box shares the row (`flow_node_max_width` defaults to `none`) and stays as tall as its label, with a `flow_node_min_height` floor (default `96px`). `steps` paints a muted index above each name via `.flow-node-title::before`. `::: flow wide steps fill`, or the style token `flow_fill_height: fill`, is what stretches those boxes to the height left under the title. A flow with a callout does not take that extra height.
 
 A deck style must not set `justify-content: space-between` on `.flow-row` or `.flow.flow-wide .flow-row`. That declaration cancels the centring and pins Collect and Record to the edges. Remove it. The default already shares the row; a length on `flow_node_max_width` is what puts the side inset back.
 

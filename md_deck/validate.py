@@ -19,6 +19,8 @@ from md_deck.slides import ALLOWED_NESTING, BLOCK_OPTIONS
 from md_deck.style import (
     EDGE_SHAPE_TOKENS,
     EDGE_SHAPES,
+    FILL_HEIGHT_TOKENS,
+    FILL_HEIGHT_VALUES,
     FRONT_MATTER_RE,
     LABEL_TOKENS,
     OPTIONAL_EMPTY_LABEL_TOKENS,
@@ -380,6 +382,16 @@ def validate_style_tokens(tokens: Any, path: str, fm_line: int) -> list[CheckErr
             elif key not in OPTIONAL_EMPTY_LABEL_TOKENS and not value.strip():
                 errors.append(
                     CheckError(path, fm_line, f"token {key}: must be a non-empty string")
+                )
+        elif key in FILL_HEIGHT_TOKENS:
+            text = str(value).strip().lower()
+            if text not in FILL_HEIGHT_VALUES:
+                errors.append(
+                    CheckError(
+                        path,
+                        fm_line,
+                        f"token {key}: expected {', '.join(sorted(FILL_HEIGHT_VALUES))}, got {value!r}",
+                    )
                 )
         elif key in EDGE_SHAPE_TOKENS:
             text = str(value).strip().lower()

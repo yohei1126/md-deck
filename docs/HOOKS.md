@@ -64,11 +64,11 @@ becomes `<section class="slide path-diagram" id="routing" data-index="…">`.
 
 | Hook | Element | Source |
 | --- | --- | --- |
-| `.flow` | Flow root | `::: flow`. Grows into leftover slide height unless the flow contains a `.flow-callout` |
+| `.flow` | Flow root | `::: flow`. Height follows the nodes unless `flow_fill_height` is `fill` |
 | `.flow.flow-wide` | same | `::: flow wide` (one centred row, even gaps, boxes grow up to `--flow-node-max-width`) |
 | `.flow.flow-steps` | same | `::: flow steps` (muted step index on `.flow-node-title::before`) |
 | `.flow.flow-straight` | same | `::: flow straight` (default edge shape) |
-| `.flow.flow-fill` | same | `::: flow fill` (re-asserts the leftover-height stretch; beats a plain `.flow { flex: none }` rule) |
+| `.flow.flow-fill` | same | `::: flow fill` (stretch this diagram to the leftover slide height) |
 | `.flow-lanes` | Lane stack | Always present (single-lane flows included) |
 | `.lane` | One lane | `lane: Label` or the implicit single lane |
 | `.lane[data-lane]` | same | 0-based lane index |
