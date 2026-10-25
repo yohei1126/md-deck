@@ -63,6 +63,22 @@ body {
   gap: var(--gap);
 }
 
+/* Short slides centre. A deck rule on .slide-content alone does not undo this. */
+.slide > .slide-inner > .slide-content {
+  justify-content: center;
+}
+
+/* A trailing question stays on the bottom. Leftover space splits above the
+   body and above the question, instead of sitting only under a top-hugging
+   body or only above the question. */
+.slide > .slide-inner > .slide-content:has(> .question:last-child) > :first-child:not(.question) {
+  margin-top: auto;
+}
+
+.slide > .slide-inner > .slide-content > .question:last-child {
+  margin-top: auto;
+}
+
 /* Cover: a title slide. Centred, full content width, no extra chrome. */
 .slide[data-cover="true"] .slide-content {
   justify-content: center;

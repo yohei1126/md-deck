@@ -41,6 +41,18 @@ Start {#start}
 ::: flow wide steps
 Collect -> Decide -> Record
 :::
+
+---
+
+# Pinned
+
+::: flow wide
+Left -> Right
+:::
+
+::: question
+Pinned line
+:::
 """
 
 STYLE = """---
@@ -257,3 +269,47 @@ def test_wide_steps_are_centred_with_even_gaps(layout_pages):
     assert result["groupRatio"] >= 0.8, result
     assert result["stepClass"] is True, result
     assert result["indexes"] == ["counter(flow-step)"] * 3, result
+    place = page.evaluate(
+        """() => {
+          const slide = document.querySelectorAll('.slide')[2];
+          const content = slide.querySelector('.slide-content');
+          const title = slide.querySelector('h1');
+          const flow = slide.querySelector('.flow');
+          const cr = content.getBoundingClientRect();
+          const tr = title.getBoundingClientRect();
+          const fr = flow.getBoundingClientRect();
+          return {
+            above: tr.top - cr.top,
+            below: cr.bottom - fr.bottom,
+          };
+        }"""
+    )
+    assert place["above"] > 80, place
+    assert place["below"] > 80, place
+    assert abs(place["above"] - place["below"]) < 48, place
+
+
+def test_question_stays_at_the_bottom_with_space_split(layout_pages):
+    page, _crushed = layout_pages
+    result = page.evaluate(
+        """() => {
+          const slide = document.querySelectorAll('.slide')[3];
+          const content = slide.querySelector('.slide-content');
+          const title = slide.querySelector('h1');
+          const flow = slide.querySelector('.flow');
+          const question = slide.querySelector('.question');
+          const cr = content.getBoundingClientRect();
+          const tr = title.getBoundingClientRect();
+          const fr = flow.getBoundingClientRect();
+          const qr = question.getBoundingClientRect();
+          return {
+            above: tr.top - cr.top,
+            between: qr.top - fr.bottom,
+            under: cr.bottom - qr.bottom,
+          };
+        }"""
+    )
+    assert result["above"] > 40, result
+    assert result["between"] > 40, result
+    assert abs(result["above"] - result["between"]) < 48, result
+    assert result["under"] < 48, result
