@@ -148,6 +148,32 @@ Evidence {#ev}
 link: ev ..> b6 : does not arrive [route=up]
 link: a6 ..> ev : notice only on the edge [route=down]
 :::
+
+---
+
+# Between labels
+
+::: flow
+lane:
+Alpha {#a} -> Bravo {#b} -> Charlie {#c}
+lane: [align=end]
+Delta {#d}
+link: a => d : solid note [route=between]
+link: b ..> d : dashed note across [route=between]
+:::
+
+---
+
+# Between spread
+
+::: flow spread
+lane:
+Echo {#e} -> Foxtrot {#f} -> Golf {#g}
+lane: [align=end]
+Hotel {#h}
+link: e => h : solid note [route=between]
+link: f ..> h : dashed note across [route=between]
+:::
 """
 
 STYLE = """---
@@ -639,3 +665,134 @@ def test_spread_with_align_end_keeps_nodes_and_labels_inside(layout_pages):
         assert label["pastSlide"] <= -4, label
         assert label["beforeSlide"] <= -4, label
         assert label["hitsNode"] is False, label
+
+
+def test_between_route_labels_clear_horizontal_strokes(layout_pages):
+    """route=between labels sit above or below the gap shaft, not on it.
+
+    Two links share the lane gap (the parties shape). Each label must clear
+    its own horizontal shaft, the other link's shaft, and the arrowhead.
+    """
+    page, _crushed = layout_pages
+    result = page.evaluate(
+        """() => {
+          function pointsOf(d) {
+            const pts = [];
+            const re = /([ML])\\s*([-\\d.]+)\\s+([-\\d.]+)/g;
+            let m;
+            while ((m = re.exec(d))) pts.push({ x: +m[2], y: +m[3] });
+            return pts;
+          }
+          function longestHorizontal(pts) {
+            let best = null;
+            for (let i = 1; i < pts.length; i += 1) {
+              const p = pts[i - 1];
+              const q = pts[i];
+              const dx = Math.abs(q.x - p.x);
+              const dy = Math.abs(q.y - p.y);
+              if (dy > 0.75 || dx < 8) continue;
+              if (!best || dx > best.len) {
+                best = {
+                  y: (p.y + q.y) / 2,
+                  len: dx,
+                  x0: Math.min(p.x, q.x),
+                  x1: Math.max(p.x, q.x),
+                };
+              }
+            }
+            return best;
+          }
+          function hitsSegment(box, seg, pad) {
+            if (seg.y < box.top - pad || seg.y > box.bottom + pad) return false;
+            return seg.x1 >= box.left - pad && seg.x0 <= box.right + pad;
+          }
+          function hitsArrowhead(box, pts) {
+            if (pts.length < 2) return false;
+            const end = pts[pts.length - 1];
+            const prev = pts[pts.length - 2];
+            const dx = end.x - prev.x;
+            const dy = end.y - prev.y;
+            const len = Math.hypot(dx, dy) || 1;
+            const back = Math.min(18, len);
+            const hx = end.x - (dx / len) * back;
+            const hy = end.y - (dy / len) * back;
+            const half = 7;
+            const head = {
+              left: Math.min(end.x, hx) - half,
+              right: Math.max(end.x, hx) + half,
+              top: Math.min(end.y, hy) - half,
+              bottom: Math.max(end.y, hy) + half,
+            };
+            const w = Math.min(box.right, head.right) - Math.max(box.left, head.left);
+            const h = Math.min(box.bottom, head.bottom) - Math.max(box.top, head.top);
+            return w > 1 && h > 1;
+          }
+          return [11, 12].map((index) => {
+            const slide = document.querySelectorAll('.slide')[index];
+            const sr = slide.getBoundingClientRect();
+            const flow = slide.querySelector('.flow');
+            const labels = Array.from(flow.querySelectorAll('text.flow-edge-label'));
+            const rows = labels.map((label) => {
+              const lb = label.getBBox();
+              const box = {
+                left: lb.x,
+                right: lb.x + lb.width,
+                top: lb.y,
+                bottom: lb.y + lb.height,
+              };
+              const path = flow.querySelector(
+                `path.flow-arrow[data-from="${label.dataset.from}"][data-to="${label.dataset.to}"]`
+              );
+              const pts = path ? pointsOf(path.getAttribute('d')) : [];
+              const shaft = longestHorizontal(pts);
+              const r = label.getBoundingClientRect();
+              return {
+                text: label.textContent,
+                from: label.dataset.from,
+                to: label.dataset.to,
+                box,
+                shaft,
+                above: shaft ? box.bottom <= shaft.y - 4 : false,
+                below: shaft ? box.top >= shaft.y + 4 : false,
+                pastSlide: r.right - sr.right,
+                beforeSlide: sr.left - r.left,
+                arrow: hitsArrowhead(box, pts),
+              };
+            });
+            rows.forEach((row) => {
+              row.crossesOther = rows.some((other) => {
+                if (other === row || !other.shaft) return false;
+                return hitsSegment(row.box, other.shaft, 2);
+              });
+            });
+            return {
+              index,
+              spread: flow.classList.contains('flow-spread'),
+              rows,
+            };
+          });
+        }"""
+    )
+    assert len(result) == 2, result
+    assert result[0]["spread"] is False, result[0]
+    assert result[1]["spread"] is True, result[1]
+    for slide in result:
+        assert len(slide["rows"]) == 2, slide
+        for row in slide["rows"]:
+            assert row["shaft"] is not None, row
+            assert row["shaft"]["len"] > 80, row
+            assert row["above"] or row["below"], row
+            assert row["crossesOther"] is False, row
+            overlap = min(row["box"]["right"], row["shaft"]["x1"]) - max(
+                row["box"]["left"], row["shaft"]["x0"]
+            )
+            assert overlap > 24, row
+            assert row["pastSlide"] <= -4, row
+            assert row["beforeSlide"] <= -4, row
+            assert row["arrow"] is False, row
+        boxes = [row["box"] for row in slide["rows"]]
+        for i, a in enumerate(boxes):
+            for b in boxes[i + 1 :]:
+                w = min(a["right"], b["right"]) - max(a["left"], b["left"])
+                h = min(a["bottom"], b["bottom"]) - max(a["top"], b["top"])
+                assert w <= 2 or h <= 2, slide
