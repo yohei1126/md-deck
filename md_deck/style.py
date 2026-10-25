@@ -71,6 +71,9 @@ TOKEN_SPEC: dict[str, tuple[str, Any]] = {
     "flow_stack_gap": ("--flow-stack-gap", "32px"),
     # CSS flex-grow: 0 keeps boxes content-sized; 1 stretches them to leftover height.
     "flow_fill_height": ("--flow-fill-height", "0"),
+    # Wide rows with no stack grow toward this share of the slide content box.
+    # none keeps content height. flow_fill_height: fill removes the cap.
+    "flow_preferred_height": ("--flow-preferred-height", "60%"),
     "column_min_height": ("--column-min-height", "160px"),
     "flow_node_padding": ("--flow-node-padding", "12px"),
     "label_question": ("--label-question", "Question"),
@@ -102,6 +105,7 @@ ZERO_OR_NONE_TOKENS = frozenset(
         "flow_node_min_width",
         "flow_node_max_width",
         "flow_node_min_height",
+        "flow_preferred_height",
         "flow_stack_gap",
         "column_min_height",
         "source_label_gap",
@@ -192,6 +196,25 @@ def _expand_padding_sides(tokens: dict[str, Any]) -> dict[str, Any]:
     return out
 
 
+def _preferred_height_vars(tokens: dict[str, Any]) -> tuple[str, str]:
+    """Return (--flow-preferred-height, --flow-preferred-grow).
+
+    A wide row with no stack grows toward the height. ``none`` / ``0`` keeps the
+    content height. ``flow_fill_height: fill`` removes the cap.
+    """
+    fill_raw = tokens.get("flow_fill_height")
+    if fill_raw is not None and str(fill_raw).strip().lower() in FILL_HEIGHT_ON:
+        return "none", "1"
+    raw = tokens.get("flow_preferred_height")
+    if raw is None:
+        return "60%", "1"
+    if isinstance(raw, str) and raw.strip().lower() in {"none", "0", "0px", "0%", "0em", "0rem"}:
+        return "none", "0"
+    if isinstance(raw, (int, float)) and not isinstance(raw, bool) and float(raw) == 0:
+        return "none", "0"
+    return _format_css_value("flow_node_min_height", raw), "1"
+
+
 def tokens_to_css(tokens: dict[str, Any], extra_css: str = "") -> str:
     """Build a :root rule from tokens, filling omitted tokens with plain defaults."""
     unknown = sorted(set(tokens) - set(TOKEN_SPEC))
@@ -203,6 +226,7 @@ def tokens_to_css(tokens: dict[str, Any], extra_css: str = "") -> str:
         )
 
     expanded = _expand_padding_sides(tokens)
+    preferred_height, preferred_grow = _preferred_height_vars(expanded)
     # font_size_table falls back to font_size_small when omitted.
     if "font_size_table" not in expanded and "font_size_small" in expanded:
         expanded["font_size_table"] = expanded["font_size_small"]
@@ -210,6 +234,10 @@ def tokens_to_css(tokens: dict[str, Any], extra_css: str = "") -> str:
     lines = [":root {"]
     for name, (css_var, default) in TOKEN_SPEC.items():
         raw = expanded[name] if name in expanded else default
+        if name == "flow_preferred_height":
+            lines.append(f"  {css_var}: {preferred_height};")
+            lines.append(f"  --flow-preferred-grow: {preferred_grow};")
+            continue
         if name in expanded:
             value = _format_css_value(name, raw)
         else:

@@ -63,19 +63,23 @@ body {
   gap: var(--gap);
 }
 
-/* Short slides centre. A deck rule on .slide-content alone does not undo this. */
-.slide > .slide-inner > .slide-content {
-  justify-content: center;
-}
-
-/* A trailing question stays on the bottom. Leftover space splits above the
-   body and above the question, instead of sitting only under a top-hugging
-   body or only above the question. */
-.slide > .slide-inner > .slide-content:has(> .question:last-child) > :first-child:not(.question) {
+/* The title stays at the top. A key message directly under it stays with the
+   title. Blocks under that heading share the leftover height: free space
+   splits above the first of those blocks and below the last one, which
+   centres the group. Cover slides keep their own centring and are excluded. */
+.slide:not([data-cover="true"]) > .slide-inner > .slide-content > :is(h1, .title) + :not(.key-message, .cover-meta),
+.slide:not([data-cover="true"]) > .slide-inner > .slide-content > :is(h1, .title) + :is(.key-message, .cover-meta) + * {
   margin-top: auto;
 }
 
-.slide > .slide-inner > .slide-content > .question:last-child {
+.slide:not([data-cover="true"]) > .slide-inner > .slide-content > :last-child:not(.question) {
+  margin-bottom: auto;
+}
+
+/* A trailing question stays on the bottom. The same split puts leftover
+   space under the heading and above the question. Do not set margin-bottom
+   here: a deck rule such as `.question { margin-bottom: 40px }` must hold. */
+.slide:not([data-cover="true"]) > .slide-inner > .slide-content > .question:last-child {
   margin-top: auto;
 }
 
@@ -194,6 +198,8 @@ body {
   border: var(--border-width) solid var(--color-card-border);
   border-radius: var(--card-radius);
   background: var(--color-card-bg);
+  display: flex;
+  flex-direction: column;
 }
 
 /* fill: take the leftover height of the slide. The class is the hook;
@@ -216,12 +222,30 @@ body {
 }
 
 /* Keep a real indent inside column cards. A deck rule `ul { padding: 0 }`
-   does not win over this more specific selector. */
+   does not win over this more specific selector. A stretched card shares
+   its leftover height across the list instead of packing the items at the top. */
 .column ul,
 .column ol {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-evenly;
+  gap: 0.55em;
   margin: 0;
   padding-inline-start: 1.4em;
   list-style-position: outside;
+  line-height: 1.5;
+}
+
+.column li + li {
+  margin-top: 0;
+}
+
+/* A short paragraph in a stretched card sits in the leftover height
+   instead of leaving the lower half empty. */
+.column > p {
+  margin-top: auto;
+  margin-bottom: auto;
 }
 
 .flow {
@@ -310,17 +334,27 @@ body {
 
 /* Room for a fork trunk and arrowheads between a node and a stack.
    column-gap keeps the trunk; deck.js also enforces the gap if CSS removes it.
-   The same max-width cap grows the pair without stretching it edge to edge. */
+   The source node hugs its label. The stack takes the rest of the row. */
 .flow-row:has(> .flow-stack) {
   justify-content: center;
   flex-wrap: nowrap;
+  align-items: center;
   column-gap: max(72px, calc(var(--gap) * 1.5));
 }
 
-.flow-row:has(> .flow-stack) > .flow-node,
-.flow-row:has(> .flow-stack) > .flow-stack {
-  flex: 1 1 var(--flow-node-min-width);
+.flow-row:has(> .flow-stack) > .flow-stack,
+.flow.flow-wide .flow-row:has(> .flow-stack) > .flow-stack {
+  flex: 1 1 auto;
+  width: auto;
   max-width: var(--flow-node-max-width);
+  min-width: 0;
+}
+
+.flow-row:has(> .flow-stack) > .flow-node,
+.flow.flow-wide .flow-row:has(> .flow-stack) > .flow-node {
+  flex: 0 0 auto;
+  width: max-content;
+  max-width: 40%;
 }
 
 .flow-stack > .flow-node {
@@ -378,20 +412,50 @@ body {
 
 /* A deck rule `.flow { flex: 1 }` or `.slide-content > * { flex: 1 }` would
    stretch this panel and leave an empty band under a top-aligned row.
-   The extra class keeps shrink-to-content, while flex-grow still follows
-   flow_fill_height / ::: flow fill. justify-content above centres the
-   diagram if the panel is tall for another reason. */
+   The extra class keeps the panel on the diagram. flex-grow still follows
+   flow_fill_height / ::: flow fill. A wide row with no stack grows only
+   toward --flow-preferred-height (default 60% of the slide). */
 .slide-content > .flow.flow,
 .column > .flow.flow {
   flex: 0 1 auto;
   flex-grow: var(--flow-fill-height);
   height: auto;
   justify-content: center;
+  max-height: none;
+}
+
+/* Wide single row only. A stack, a callout, or a plain flow stays content height. */
+.slide-content > .flow.flow.flow-wide:not(:has(.flow-stack)):not(:has(.flow-callout)) {
+  flex-grow: var(--flow-preferred-grow);
+  /* Cap the grow. min-height wins when the label is taller than the cap,
+     so a dense row is not clipped. */
+  max-height: var(--flow-preferred-height);
+  min-height: min-content;
+}
+
+.slide-content > .flow.flow.flow-wide:not(:has(.flow-stack)):not(:has(.flow-callout)) .flow-lanes,
+.slide-content > .flow.flow.flow-wide:not(:has(.flow-stack)):not(:has(.flow-callout)) .lane,
+.slide-content > .flow.flow.flow-wide:not(:has(.flow-stack)):not(:has(.flow-callout)) .flow-row {
+  flex-grow: var(--flow-preferred-grow);
+  align-items: stretch;
 }
 
 .slide-content > .flow.flow-fill,
-.column > .flow.flow-fill {
+.column > .flow.flow-fill,
+.slide-content > .flow.flow.flow-wide.flow-fill:not(:has(.flow-callout)),
+.column > .flow.flow.flow-fill:not(:has(.flow-callout)) {
   flex-grow: 1;
+  max-height: none;
+}
+
+.slide-content > .flow.flow.flow-wide.flow-fill:not(:has(.flow-callout)) .flow-lanes,
+.slide-content > .flow.flow.flow-wide.flow-fill:not(:has(.flow-callout)) .lane,
+.slide-content > .flow.flow.flow-wide.flow-fill:not(:has(.flow-callout)) .flow-row,
+.column > .flow.flow.flow-fill:not(:has(.flow-callout)) .flow-lanes,
+.column > .flow.flow.flow-fill:not(:has(.flow-callout)) .lane,
+.column > .flow.flow.flow-fill:not(:has(.flow-callout)) .flow-row {
+  flex-grow: 1;
+  align-items: stretch;
 }
 
 .slide-content > .flow.flow:has(.flow-callout),

@@ -61,7 +61,9 @@ border_width: 1
 flow_node_min_width: 120
 flow_node_max_width: none
 flow_node_min_height: 96
-# flow_fill_height: none   # fill stretches flow boxes to leftover slide height
+# Wide rows with no stack grow toward this share of the slide. none keeps content height.
+flow_preferred_height: 60%
+# flow_fill_height: none   # fill stretches flow boxes to leftover slide height and ignores the cap above
 flow_stack_gap: 32
 column_min_height: 160
 flow_node_padding: 12

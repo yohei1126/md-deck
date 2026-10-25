@@ -39,7 +39,7 @@ md-deck はレンダリングだけを担当し、見た目のテーマは同梱
 - その他の色: Key Message / Question / card / flow / table 向け
 - タイポ: 各 `font_size_*`（表専用の `font_size_table` を含む）, `font_weight_*`, `line_height`
 - 形: `card_radius`, `key_message_radius`, `question_radius`, `border_width`, `card_padding`（`0` / `none` 可）
-- フロー: `flow_node_min_width`（既定 `120px`）, `flow_node_max_width`（既定 `none`。幅の上限なしで行を分け合う。`240px` のように長さを書くと中央に余白が残る）, `flow_node_min_height`（既定 `96px`。中身の高さにこの床を足す）, `flow_fill_height`（既定 `none`。`fill` で余った高さまで伸ばす）, `flow_stack_gap`（既定 `32px`。分岐スタックの箱のあいだ）, `flow_node_padding`, `flow_callout_gap`, `flow_port_gap`, `flow_edge_shape`（`orthogonal` / `straight`）
+- フロー: `flow_node_min_width`（既定 `120px`）, `flow_node_max_width`（既定 `none`。幅の上限なしで行を分け合う。`240px` のように長さを書くと中央に余白が残る）, `flow_node_min_height`（既定 `96px`。箱の床）, `flow_preferred_height`（既定 `60%`。`::: flow wide` でスタックがない一段がスライド内容領域のこの割合まで伸びる。`none` で中身の高さ。`220px` のように長さを書くとその高さまで）, `flow_fill_height`（既定 `none`。`fill` で余った高さまで伸ばし、`flow_preferred_height` の上限を外す）, `flow_stack_gap`（既定 `32px`。分岐スタックの箱のあいだ）, `flow_node_padding`, `flow_callout_gap`, `flow_port_gap`, `flow_edge_shape`（`orthogonal` / `straight`）
 - カラム: `column_min_height`（既定 `160px`。`0` / `none` で中身の高さ）
 - ラベル: `label_question`, `label_key_message`, `label_source`（省略時は `lang` から既定。`ja` なら「議論の問い」「キーメッセージ」「出典：」。`label_source: ""` で接頭辞を隠す）, `source_label_weight`（既定 `600`）, `source_label_gap`（既定 `0.15em`）
 - 配置: `question_label_placement`（`inline` / `block`）、`page_number_placement`（`bottom-right` / `bottom-left` / `bottom-center`。出典フッターとは別）
@@ -83,7 +83,7 @@ md-deck はレンダリングだけを担当し、見た目のテーマは同梱
 - 1枚につき言いたいことは1つ。箱の中は文ではなく名前にする
 - 比較は矢印ではなく `::: columns`（枠が要るときは `panel`、枠を消すときは `plain`）
 - 分岐は1つの箱に「AまたはB」と書かず、結果ごとに箱と矢印を分ける
-- 手順は `::: flow wide` の短い箱を横一列にする。行は中央に揃い、等間隔で、箱は行の幅を分け合う。高さは中身に `flow_node_min_height`（`96px`）の床を足しただけで、フローの枠もその高さに収まる（`.flow { flex: 1 }` でも下に空帯は残さない。枠がそれより高いときは図を縦中央に置く）。スライド全体も、短いときは縦中央に置く。末尾の `::: question` は下端に残し、余白は本文の上と問いの上で分ける。余った高さまで伸ばすときは `flow_fill_height: fill` または `::: flow fill`。`steps` で小さな番号。分岐スタックの箱のあいだは `flow_stack_gap`（`32px`）
+- 手順は `::: flow wide` の短い箱を横一列にする。行は中央に揃い、等間隔で、箱は行の幅を分け合う。`wide` の一段は `flow_preferred_height`（`60%`）まで伸び、枠もその高さに収まる。普通のフローは中身の高さのまま。タイトルは上端に置く。直後のキーメッセージもタイトル側に残し、その下のブロックを余白の中央に置く。末尾の `::: question` は下端に残し、余白は見出しの下と問いの上で分ける。余った高さまで伸ばすときは `flow_fill_height: fill` または `::: flow fill`。`steps` で小さな番号。分岐の起点の箱はラベルの幅、経路の箱は残りの列を分け合う。スタックの箱のあいだは `flow_stack_gap`（`32px`）。伸びたカラムの箇条書きはカードの高さに散らす
 - スタイル側で `.flow-row { justify-content: space-between }` を指定してはいけない。中央揃えが消え、両端に寄る。新しい既定を使うときはその指定を外す
 - 表紙（`data-cover="true"`）は中央揃え。フロントマターの `subtitle` と `date` がタイトルの下に出る。枠や大きなタイトルはデッキ側 CSS の任意指定で、生成器の既定にはしない
 

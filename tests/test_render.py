@@ -389,6 +389,14 @@ def test_tokens_allow_zero_and_none():
     assert "--column-min-height: 0px;" in css
     assert "--flow-fill-height: 1;" in tokens_to_css({"flow_fill_height": "fill"})
     assert "--flow-fill-height: 0;" in tokens_to_css({})
+    assert "--flow-preferred-height: 60%;" in tokens_to_css({})
+    assert "--flow-preferred-grow: 1;" in tokens_to_css({})
+    assert "--flow-preferred-height: none;" in tokens_to_css({"flow_preferred_height": "none"})
+    assert "--flow-preferred-grow: 0;" in tokens_to_css({"flow_preferred_height": "none"})
+    filled = tokens_to_css({"flow_fill_height": "fill", "flow_preferred_height": "40%"})
+    assert "--flow-fill-height: 1;" in filled
+    assert "--flow-preferred-height: none;" in filled
+    assert "--flow-preferred-grow: 1;" in filled
 
 
 def test_footer_inset_allows_negative():

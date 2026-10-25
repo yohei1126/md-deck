@@ -64,7 +64,7 @@ becomes `<section class="slide path-diagram" id="routing" data-index="…">`.
 
 | Hook | Element | Source |
 | --- | --- | --- |
-| `.flow` | Flow root | `::: flow`. Height follows the nodes unless `flow_fill_height` is `fill` |
+| `.flow` | Flow root | `::: flow`. A wide row with no stack grows toward `--flow-preferred-height` (default `60%`). `flow_fill_height: fill` or `.flow-fill` takes the leftover height |
 | `.flow.flow-wide` | same | `::: flow wide` (one centred row, even gaps, boxes grow up to `--flow-node-max-width`) |
 | `.flow.flow-steps` | same | `::: flow steps` (muted step index on `.flow-node-title::before`) |
 | `.flow.flow-straight` | same | `::: flow straight` (default edge shape) |

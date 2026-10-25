@@ -53,6 +53,26 @@ Left -> Right
 ::: question
 Pinned line
 :::
+
+---
+
+# Cards
+
+::: columns panel
+## One
+
+- Alpha
+- Beta
+- Gamma
+
++++
+
+## Two
+
+- Alpha
+- Beta
+- Gamma
+:::
 """
 
 STYLE = """---
@@ -195,6 +215,8 @@ def test_branch_fork_has_gap_and_arrowheads(layout_pages):
         gap: stack.left - start.right,
         stackGap,
         targets,
+        startW: start.right - start.left,
+        stackW: stack.right - stack.left,
         flowH: flow.getBoundingClientRect().height / scale,
         rowH: row.getBoundingClientRect().height / scale,
       };
@@ -203,6 +225,8 @@ def test_branch_fork_has_gap_and_arrowheads(layout_pages):
     assert result["gap"] >= 64, result
     assert 24 <= result["stackGap"] <= 48, result
     assert result["flowH"] - result["rowH"] < 80, result
+    assert result["startW"] < 240, result
+    assert result["stackW"] > result["startW"] * 2, result
     for target in result["targets"]:
         assert target["dy"] < 1, target
         assert target["run"] >= 18, target
@@ -264,7 +288,7 @@ def test_wide_steps_are_centred_with_even_gaps(layout_pages):
     for width in result["widths"]:
         assert width >= 280, result
     for height in result["heights"]:
-        assert 70 <= height <= 180, result
+        assert 220 <= height <= 460, result
     assert result["flowH"] - max(result["heights"]) < 80, result
     assert result["groupRatio"] >= 0.8, result
     assert result["stepClass"] is True, result
@@ -279,13 +303,15 @@ def test_wide_steps_are_centred_with_even_gaps(layout_pages):
           const tr = title.getBoundingClientRect();
           const fr = flow.getBoundingClientRect();
           return {
-            above: tr.top - cr.top,
+            titleGap: tr.top - cr.top,
+            above: fr.top - tr.bottom,
             below: cr.bottom - fr.bottom,
           };
         }"""
     )
-    assert place["above"] > 80, place
-    assert place["below"] > 80, place
+    assert place["titleGap"] < 20, place
+    assert place["above"] > 40, place
+    assert place["below"] > 40, place
     assert abs(place["above"] - place["below"]) < 48, place
 
 
@@ -303,13 +329,45 @@ def test_question_stays_at_the_bottom_with_space_split(layout_pages):
           const fr = flow.getBoundingClientRect();
           const qr = question.getBoundingClientRect();
           return {
-            above: tr.top - cr.top,
+            titleGap: tr.top - cr.top,
+            underHeading: fr.top - tr.bottom,
             between: qr.top - fr.bottom,
             under: cr.bottom - qr.bottom,
           };
         }"""
     )
-    assert result["above"] > 40, result
-    assert result["between"] > 40, result
-    assert abs(result["above"] - result["between"]) < 48, result
+    assert result["titleGap"] < 20, result
     assert result["under"] < 48, result
+    assert result["underHeading"] > 24, result
+    assert result["between"] > 24, result
+    assert abs(result["underHeading"] - result["between"]) < 64, result
+
+
+def test_column_list_spreads_through_a_tall_card(layout_pages):
+    page, _crushed = layout_pages
+    result = page.evaluate(
+        """() => {
+          const slide = document.querySelectorAll('.slide')[4];
+          const content = slide.querySelector('.slide-content');
+          const title = slide.querySelector('h1');
+          const card = slide.querySelector('.column');
+          const items = Array.from(card.querySelectorAll('li'));
+          const cr = content.getBoundingClientRect();
+          const tr = title.getBoundingClientRect();
+          const cardBox = card.getBoundingClientRect();
+          const first = items[0].getBoundingClientRect();
+          const last = items[items.length - 1].getBoundingClientRect();
+          return {
+            titleGap: tr.top - cr.top,
+            cardH: cardBox.height,
+            firstFromTop: first.top - cardBox.top,
+            lastFromBottom: cardBox.bottom - last.bottom,
+            lastInLowerHalf: last.top > cardBox.top + cardBox.height * 0.45,
+          };
+        }"""
+    )
+    assert result["titleGap"] < 20, result
+    assert result["cardH"] > 280, result
+    assert result["firstFromTop"] > 48, result
+    assert result["lastFromBottom"] < result["cardH"] * 0.4, result
+    assert result["lastInLowerHalf"] is True, result

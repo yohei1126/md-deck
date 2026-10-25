@@ -154,7 +154,7 @@ Start {#start}
 </div>
 ```
 
-What changed: the choice left the second label and became two nodes inside `.flow-stack`. Two edges leave `start`, one per outcome. The renderer draws them as one trunk that splits, with a horizontal run into the middle of each box long enough for the arrowhead. The row keeps at least 72px between Start and the stack, and the two outcome boxes keep `flow_stack_gap` (default `32px`) between them. The pair stays centred, so the heads do not sit in the corners. Labels are names.
+What changed: the choice left the second label and became two nodes inside `.flow-stack`. Two edges leave `start`, one per outcome. The renderer draws them as one trunk that splits, with a horizontal run into the middle of each box long enough for the arrowhead. The row keeps at least 72px between Start and the stack, and the two outcome boxes keep `flow_stack_gap` (default `32px`) between them. Start stays as wide as its label. The stack uses the rest of the row. The pair stays centred, so the heads do not sit in the corners. Labels are names.
 
 ## 3-step horizontal
 
@@ -208,7 +208,7 @@ Collect -> Decide -> Record
 </div>
 ```
 
-What changed: the `ol` of sentences became three `.flow-node` boxes and two edges, Collect → Decide → Record. `wide` keeps them on one row, centred, with the same gap between boxes. Each box shares the row (`flow_node_max_width` defaults to `none`) and stays as tall as its label, with a `flow_node_min_height` floor (default `96px`). `steps` paints a muted index above each name via `.flow-node-title::before`. `::: flow wide steps fill`, or the style token `flow_fill_height: fill`, is what stretches those boxes to the height left under the title. A flow with a callout does not take that extra height.
+What changed: the `ol` of sentences became three `.flow-node` boxes and two edges, Collect → Decide → Record. `wide` keeps them on one row, centred, with the same gap between boxes. Each box shares the row (`flow_node_max_width` defaults to `none`) and that wide row grows toward `flow_preferred_height` (default `60%` of the slide content box). A plain flow stays content height. `steps` paints a muted index above each name via `.flow-node-title::before`. `::: flow wide steps fill`, or the style token `flow_fill_height: fill`, is what stretches those boxes to the height left under the title. A flow with a callout does not take that extra height.
 
 A deck style must not set `justify-content: space-between` on `.flow-row` or `.flow.flow-wide .flow-row`. That declaration cancels the centring and pins Collect and Record to the edges. Remove it. The default already shares the row; a length on `flow_node_max_width` is what puts the side inset back.
 

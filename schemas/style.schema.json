@@ -77,6 +77,10 @@
       "enum": ["none", "fill"],
       "description": "none (default) sizes flow boxes to their content. fill stretches them to the leftover slide height."
     },
+    "flow_preferred_height": {
+      "$ref": "#/$defs/sizeOrNone",
+      "description": "A wide flow row with no stack grows toward this share of the slide content box (default 60%). none keeps content height. flow_fill_height: fill ignores the cap."
+    },
     "column_min_height": { "$ref": "#/$defs/sizeOrNone" },
     "flow_node_padding": { "$ref": "#/$defs/sizeOrNone" },
     "label_question": { "type": "string", "minLength": 1 },
