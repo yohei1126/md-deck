@@ -332,6 +332,10 @@ body {
   justify-content: center;
 }
 
+.flow:has(.flow-node-index) {
+  padding-inline: 12px;
+}
+
 .flow-lanes {
   display: flex;
   flex-direction: column;
