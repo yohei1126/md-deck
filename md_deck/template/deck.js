@@ -672,7 +672,7 @@
     // Prefer between-lane top/bottom anchors over side detours when both are clear.
     let prefer = 80;
     if (preferName === "between" || preferName === "between-up") prefer = 0;
-    else if (preferName === "col" || preferName === "row") prefer = 10;
+    else if (preferName === "col" || preferName === "row" || preferName === "step-hvh") prefer = 10;
     else if (preferName === "around-up" || preferName === "around-down") prefer = 40;
     else if (preferName === "hv" || preferName === "vh") prefer = 160;
     // Deterministic lexicographic score.
@@ -795,6 +795,12 @@
       add("around-right", buildCPath(p1, p2, rightX));
     } else if (fromSide === "left" && toSide === "left") {
       add("around-left", buildCPath(p1, p2, leftX));
+    } else if (fromSide === "right" && toSide === "left") {
+      const midX = (p1.x + p2.x) / 2;
+      add("step-hvh", simplify([p1, { x: midX, y: p1.y }, { x: midX, y: p2.y }, p2]));
+    } else if (fromSide === "left" && toSide === "right") {
+      const midX = (p1.x + p2.x) / 2;
+      add("step-hvh", simplify([p1, { x: midX, y: p1.y }, { x: midX, y: p2.y }, p2]));
     }
 
     // Generic orthogonal connectors between the two ports.
@@ -1197,7 +1203,31 @@
 
   function mountEdgeLabel(svg, pts, edge, lines, labelNudge, flow, otherPaths, labelObstacles) {
     const nodes = flowNodeBoxes(flow);
-    const open = openLabelPoint(pts, nodes);
+    let open = null;
+    if (
+      pts.length >= 4 &&
+      Math.abs(pts[0].y - pts[1].y) < EPS &&
+      Math.abs(pts[1].x - pts[2].x) < EPS &&
+      Math.abs(pts[0].x - pts[1].x) > 16
+    ) {
+      const p0 = pts[0];
+      const p1 = pts[1];
+      const len = Math.abs(p1.x - p0.x);
+      const x0 = Math.min(p0.x, p1.x);
+      const x1 = Math.max(p0.x, p1.x);
+      open = {
+        x: (x0 + x1) / 2,
+        y: p0.y,
+        along: len,
+        vertical: false,
+        x0,
+        y0: p0.y,
+        x1,
+        y1: p0.y,
+      };
+    } else {
+      open = openLabelPoint(pts, nodes);
+    }
     const mid = open || midpoint(pts);
     const verticalMid = open ? open.vertical : midSegmentIsVertical(pts);
     const size = measureLabelSize(svg, lines);
@@ -1588,7 +1618,7 @@
   }
 
   function ensureLabelGaps(flow, edges, svg, flowBox, scale) {
-    flow.querySelectorAll(".flow-node").forEach((n) => {
+    flow.querySelectorAll(".flow-node, .flow-stack").forEach((n) => {
       n.style.marginInlineEnd = "";
     });
     let changed = false;
@@ -1605,13 +1635,17 @@
       const lines = labelLines(edge.label);
       const size = measureLabelSize(svg, lines);
       const gap = b.left - a.right;
-      // A gap label broken with \n is drawn as an upright column, so the
-      // row keeps a short shaft instead of the full horizontal width.
-      const stacked = edge.emphasis === "gap" && lines.length > 1;
-      const need = stacked ? 56 : size.width + 24;
+      const isStack = Boolean(aEl.closest(".flow-stack") || bEl.closest(".flow-stack"));
+      const need = isStack
+        ? size.width + 64
+        : edge.emphasis === "gap" && lines.length > 1
+        ? 56
+        : size.width + 24;
       if (gap < need) {
         const extra = need - gap;
-        aEl.style.marginInlineEnd = `${extra}px`;
+        const targetEl = aEl.closest(".flow-stack") || aEl;
+        const current = parseFloat(targetEl.style.marginInlineEnd) || 0;
+        targetEl.style.marginInlineEnd = `${Math.max(current, extra)}px`;
         changed = true;
       }
     });
@@ -1998,7 +2032,9 @@
   function forkTrunks(flow, plans) {
     // Two or more edges from one node into the same stack share a trunk,
     // then a horizontal run into each box long enough for the arrowhead.
+    // Also handles fan-in: two or more edges from a stack into the same target node.
     const groups = new Map();
+    const fanInGroups = new Map();
     const stacks = Array.from(flow.querySelectorAll(".flow-stack"));
     plans.forEach((plan, idx) => {
       if (plan.edge.shape === "straight") return;
@@ -2006,11 +2042,17 @@
       const target = nodeByKey(flow, plan.edge.to);
       const source = nodeByKey(flow, plan.edge.from);
       if (!target || !source) return;
-      const stack = target.closest(".flow-stack");
-      if (!stack || stack.contains(source)) return;
-      const key = `${plan.edge.from}#${stacks.indexOf(stack)}`;
-      if (!groups.has(key)) groups.set(key, []);
-      groups.get(key).push(idx);
+      const targetStack = target.closest(".flow-stack");
+      const sourceStack = source.closest(".flow-stack");
+      if (targetStack && !targetStack.contains(source)) {
+        const key = `${plan.edge.from}#${stacks.indexOf(targetStack)}`;
+        if (!groups.has(key)) groups.set(key, []);
+        groups.get(key).push(idx);
+      } else if (sourceStack && !sourceStack.contains(target)) {
+        const key = `${stacks.indexOf(sourceStack)}#${plan.edge.to}`;
+        if (!fanInGroups.has(key)) fanInGroups.set(key, []);
+        fanInGroups.get(key).push(idx);
+      }
     });
     const paths = new Map();
     groups.forEach((idxs) => {
@@ -2046,6 +2088,44 @@
                 { x: junction, y: srcY },
                 { x: junction, y },
                 { x: endX, y },
+              ];
+        paths.set(idx, pts);
+      });
+    });
+    fanInGroups.forEach((idxs) => {
+      if (idxs.length < 2) return;
+      const sample = plans[idxs[0]];
+      const sources = idxs.map((i) => plans[i].a);
+      const avgSrcX = sources.reduce((sum, box) => sum + box.cx, 0) / sources.length;
+      const goingRight = sample.b.cx >= avgSrcX;
+      const targetBox = sample.b;
+      const startEdgeX = goingRight
+        ? Math.max(...sources.map((box) => box.right))
+        : Math.min(...sources.map((box) => box.left));
+      const endX = goingRight ? targetBox.left : targetBox.right;
+      const gap = goingRight ? endX - startEdgeX : startEdgeX - endX;
+      const minLast = ARROWHEAD_LEN + 12;
+      let junction = goingRight
+        ? endX - Math.max(28, minLast)
+        : endX + Math.max(28, minLast);
+      if (goingRight) junction = Math.max(junction, startEdgeX + 32);
+      else junction = Math.min(junction, startEdgeX - 32);
+      const dstY = targetBox.cy;
+      idxs.forEach((idx) => {
+        const box = plans[idx].a;
+        const srcX = goingRight ? box.right : box.left;
+        const y = box.cy;
+        const pts =
+          Math.abs(y - dstY) < 0.75
+            ? [
+                { x: srcX, y },
+                { x: endX, y: dstY },
+              ]
+            : [
+                { x: srcX, y },
+                { x: junction, y },
+                { x: junction, y: dstY },
+                { x: endX, y: dstY },
               ];
         paths.set(idx, pts);
       });
